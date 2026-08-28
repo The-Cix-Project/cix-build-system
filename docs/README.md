@@ -99,3 +99,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #49: Recipe migration](reviews/issue-0049-validation.md)
 - [ADR-0027: Shell build retirement](adr/0027-shell-retirement.md)
 - [Issue #50: Shell build retirement](reviews/issue-0050-validation.md)
+- [ADR-0028: Legacy shell artifacts](adr/0028-legacy-artifacts.md)
+- [Issue #51: Legacy artifact policy](reviews/issue-0051-validation.md)
