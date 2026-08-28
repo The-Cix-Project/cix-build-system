@@ -83,3 +83,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #40: Image recipe relationship](reviews/issue-0040-validation.md)
 - [ADR-0020: Immutable install](adr/0020-immutable-install.md)
 - [Issue #41: Immutable image install](reviews/issue-0041-validation.md)
+- [ADR-0021: Unified artifact repository](adr/0021-artifact-repository.md)
+- [Issue #42: Artifact repository model](reviews/issue-0042-validation.md)
