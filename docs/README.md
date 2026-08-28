@@ -76,3 +76,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #36: Sandbox ownership](reviews/issue-0036-validation.md)
 - [ADR-0017: Image model](adr/0017-image-model.md)
 - [Issue #37: Image model](reviews/issue-0037-validation.md)
+- [Issue #38: Manifest-derived images](reviews/issue-0038-validation.md)
