@@ -421,7 +421,7 @@ lifecycle and trust meanings.
 
 ## Open decisions
 
-The following are intentionally not fixed by this ADRE:
+The following are intentionally not fixed by this ADR:
 
 1. Does “zero external dependencies” prohibit only runtime/link dependencies,
    or also all incorporated third-party source? This materially affects archive,
