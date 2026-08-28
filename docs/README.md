@@ -52,3 +52,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #21: TCC-only compiler enforcement](reviews/issue-0021-validation.md)
 - [ADR-0009: Third-party source policy](adr/0009-third-party-source-policy.md)
 - [Issue #22: Third-party source policy](reviews/issue-0022-validation.md)
+- [CIXPKG v1 binary specification](spec/cixpkg-1.0.md)
+- [Issue #23: CIXPKG v1 layout](reviews/issue-0023-validation.md)
