@@ -1,4 +1,4 @@
-# ADRE-0001: Establish CBS and CPDL
+# ADR-0001: Establish CBS and CPDL
 
 - Status: Proposed
 - Date: 2026-08-28
@@ -436,7 +436,7 @@ The following are intentionally not fixed by this ADRE:
 7. How are repository metadata, artifact signatures, upgrades, conflicts, and
    transactional installation represented?
 
-Each material answer should be captured by a focused follow-up ADRE or formal
+Each material answer should be captured by a focused follow-up ADR or formal
 specification.
 
 ## Acceptance criteria

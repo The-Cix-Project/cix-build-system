@@ -8,9 +8,8 @@ This directory contains the architecture and language documentation for:
 
 ## Architecture decisions
 
-- [ADRE-0001: Establish CBS and CPDL](adre/0001-cbs-and-cpdl.md)
+- [ADR-0001: Establish CBS and CPDL](adr/0001-cbs-and-cpdl.md)
 
-ADREs record decisions, their rationale, their consequences, and any questions
-that remain deliberately undecided. Once accepted, an ADRE is not rewritten to
-hide a changed decision; a later ADRE supersedes it.
-
+ADRs record decisions, their rationale, their consequences, and any questions
+that remain deliberately undecided. Once accepted, an ADR is not rewritten to
+hide a changed decision; a later ADR supersedes it.
