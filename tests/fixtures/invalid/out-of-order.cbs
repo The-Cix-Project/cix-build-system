@@ -1,0 +1,5 @@
+package "broken" {
+    release 1
+    version "1"
+}
+

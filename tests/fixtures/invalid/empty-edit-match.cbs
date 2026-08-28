@@ -1,0 +1,12 @@
+package "broken" {
+    version "1"
+    release 1
+    prepare {
+        replace "file" {
+            from ""
+            to "replacement"
+            exactly 1
+        }
+    }
+}
+

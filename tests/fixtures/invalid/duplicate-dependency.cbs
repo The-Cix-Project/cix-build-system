@@ -1,0 +1,11 @@
+package "broken" {
+    version "1"
+    release 1
+    requires {
+        build {
+            tool "make"
+            tool "make"
+        }
+    }
+}
+

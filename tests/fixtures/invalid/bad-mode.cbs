@@ -1,0 +1,8 @@
+package "broken" {
+    version "1"
+    release 1
+    install {
+        chmod 0999 "${dest}/file"
+    }
+}
+

@@ -1,0 +1,5 @@
+package "meta" {
+    version "1"
+    release 1
+}
+

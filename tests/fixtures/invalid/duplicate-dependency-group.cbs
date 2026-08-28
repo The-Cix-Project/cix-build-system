@@ -1,0 +1,13 @@
+package "broken" {
+    version "1"
+    release 1
+    requires {
+        build {
+            compiler "tcc"
+        }
+        build {
+            tool "make"
+        }
+    }
+}
+

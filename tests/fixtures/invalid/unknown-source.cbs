@@ -1,0 +1,8 @@
+package "broken" {
+    version "1"
+    release 1
+    prepare {
+        extract $source.missing into $src
+    }
+}
+

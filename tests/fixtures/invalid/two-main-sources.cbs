@@ -1,0 +1,15 @@
+package "broken" {
+    version "1"
+    release 1
+    sources {
+        main "first" {
+            url "https://example.invalid/a"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+        main "second" {
+            url "https://example.invalid/b"
+            sha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+    }
+}
+

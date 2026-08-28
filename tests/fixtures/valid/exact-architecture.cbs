@@ -1,0 +1,6 @@
+package "arch-example" {
+    version "1"
+    release 1
+    architecture "x86_64"
+}
+

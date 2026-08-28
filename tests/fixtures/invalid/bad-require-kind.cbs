@@ -1,0 +1,10 @@
+package "broken" {
+    version "1"
+    release 1
+    check {
+        require socket "path" {
+            exists
+        }
+    }
+}
+

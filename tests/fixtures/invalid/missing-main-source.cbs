@@ -1,0 +1,11 @@
+package "broken" {
+    version "1"
+    release 1
+    sources {
+        extra "extra" {
+            url "https://example.invalid/extra"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+    }
+}
+

@@ -1,0 +1,11 @@
+package "broken" {
+    version "1"
+    release 1
+    sources {
+        main "broken" {
+            url "relative/source.tar"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+    }
+}
+

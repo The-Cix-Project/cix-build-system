@@ -1,0 +1,5 @@
+package "Bad Name" {
+    version "1"
+    release 1
+}
+

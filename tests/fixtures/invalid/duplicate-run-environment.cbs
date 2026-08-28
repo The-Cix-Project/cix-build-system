@@ -1,0 +1,11 @@
+package "broken" {
+    version "1"
+    release 1
+    build {
+        run "make" {
+            env "CC" = "tcc"
+            env "CC" = "tcc"
+        }
+    }
+}
+

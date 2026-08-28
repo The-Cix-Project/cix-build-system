@@ -1,0 +1,13 @@
+package "broken" {
+    version "1"
+    release 1
+    requires {
+        runtime {
+            library "zlib"
+        }
+        build {
+            compiler "tcc"
+        }
+    }
+}
+

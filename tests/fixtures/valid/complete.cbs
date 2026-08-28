@@ -1,0 +1,114 @@
+package "example" {
+    version "1.2.3"
+    release 1
+    architecture any
+
+    sources {
+        main "example" {
+            url "https://example.invalid/example-1.2.3.tar.xz"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+        extra "support" {
+            url "https://example.invalid/support.tar.gz"
+            sha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+    }
+
+    requires {
+        build {
+            compiler "tcc"
+            tool "make"
+        }
+        runtime {
+            library "libexample"
+        }
+        test {
+            tool "tester"
+        }
+        bootstrap {
+            compiler "tcc"
+        }
+    }
+
+    prepare {
+        env "CFLAGS" = "-O2"
+        mkdir $build chmod 0755
+        extract $source.support into $src as "support"
+        write "${build}/generated.c" "int generated;\n" chmod 0644
+        write "${build}/multiline.txt" """
+            first
+            second
+            """
+        replace "${src}/configure" {
+            from "old"
+            to "new"
+            exactly 1
+        }
+        insert "${src}/configure" {
+            after "marker"
+            write "addition"
+            exactly 1
+        }
+        require directory $src {
+            exists
+        }
+    }
+
+    configure {
+        cd $build {
+            run "../configure" {
+                "--prefix=/usr tree"
+                "literal $ * ; ' quote"
+                ""
+                env "CC" = "tcc"
+                jobs 1
+                timeout 2m
+                expect exit 0
+            }
+        }
+    }
+
+    build {
+        run "make" {
+            "-j${jobs}"
+            jobs $jobs
+        }
+        on_fail {
+            run "make" {
+                "diagnose"
+                allow_failure
+            }
+            require glob "${build}/**/config.log" {
+                count 1
+            }
+        }
+    }
+
+    check {
+        run "make" {
+            "check"
+            timeout 5m
+        }
+    }
+
+    install {
+        run "make" {
+            "install"
+            "DESTDIR=${dest}"
+        }
+        copy "${dest}/usr/lib/libexample.so" to "${dest}/lib/"
+        move "${dest}/temporary" to "${dest}/final"
+        remove glob "${dest}/usr/share/man/**"
+        remove tree "${dest}/usr/share/locale"
+        symlink "/usr/lib/libexample.so" to "${dest}/lib/libexample-current.so"
+        chmod 0755 glob "${dest}/usr/bin/*"
+        require file "${dest}/usr/lib/libexample.so" {
+            exists
+            contains "ELF"
+        }
+        require glob "${dest}/usr/lib/libexample.so*" {
+            count 2
+        }
+    }
+}
+
