@@ -63,3 +63,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #28: Stage-0 library admissions](reviews/issue-0028-validation.md)
 - [ADR-0012: Stage-zero entry point](adr/0012-stage-zero-entry-point.md)
 - [Issue #29: Stage-zero entry point](reviews/issue-0029-validation.md)
+- [Issue #30: Canonical cbs.cbs](reviews/issue-0030-validation.md)

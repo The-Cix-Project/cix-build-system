@@ -1,0 +1,18 @@
+package "cbs" {
+    version "0.1"
+    release 1
+    sources {
+        main "cbs" {
+            url "https://git.home.arpa/itdlabs/cix-build-system/archive/main.tar.gz"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+    }
+    requires {
+        build { compiler "tcc" tool "make" }
+        runtime { library "libarchive" library "libzstd" }
+        bootstrap { compiler "tcc" }
+    }
+    configure { run "true" { expect exit 0 } }
+    build { run "make" { jobs $jobs } }
+    check { run "make" { "test" } }
+}
