@@ -82,10 +82,14 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o -lzstd -o tests/package-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		-lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o -lzstd -o tests/repro-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		-lzstd -o tests/repro-test
 	./tests/repro-test
 	rm -f tests/repro-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \

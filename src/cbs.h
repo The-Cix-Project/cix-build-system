@@ -213,6 +213,10 @@ typedef struct { const char *path; char type; unsigned mode; unsigned long long 
 int cbs_manifest_compare(const void *left, const void *right);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
+int cbs_cixpkg_write(const char *payload, const char *package_path,
+                     const char *identity);
+int cbs_cixpkg_verify(const char *package_path, char *identity,
+                      size_t identity_size);
 int cbs_install_atomic(const char *staged, const char *destination, unsigned mode);
 int cbs_compare_files(const char *left, const char *right);
 int cbs_identity_from_document(const CbsNode *document,
