@@ -85,6 +85,9 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o -lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o -lzstd -o tests/repro-test
+	./tests/repro-test
+	rm -f tests/repro-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -103,4 +106,5 @@ clean:
 	rm -f tests/stage-test
 	rm -f tests/manifest-test
 	rm -f tests/package-test
+	rm -f tests/repro-test
 	rm -f tests/dependency-test
