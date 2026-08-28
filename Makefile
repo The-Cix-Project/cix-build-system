@@ -83,12 +83,12 @@ test: $(TARGET)
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o src/manifest.o \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o src/manifest.o \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-lzstd -o tests/repro-test
 	./tests/repro-test

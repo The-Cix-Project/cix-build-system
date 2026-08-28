@@ -212,6 +212,8 @@ int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct { const char *path; char type; unsigned mode; unsigned long long size; const char *digest; } CbsManifestEntry;
 int cbs_manifest_compare(const void *left, const void *right);
 int cbs_manifest_write(const char *root, const char *output);
+int cbs_build_package(const char *recipe, const char *staged_root,
+                      const char *package_path);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write(const char *payload, const char *package_path,
