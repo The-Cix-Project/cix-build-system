@@ -67,3 +67,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #31: Stage reproducibility](reviews/issue-0031-validation.md)
 - [ADR-0013: Seed provenance](adr/0013-seed-provenance.md)
 - [Issue #32: Seed provenance](reviews/issue-0032-validation.md)
+- [ADR-0014: Seed transition](adr/0014-seed-transition.md)
+- [Issue #33: Seed transition](reviews/issue-0033-validation.md)
