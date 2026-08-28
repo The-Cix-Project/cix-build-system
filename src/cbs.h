@@ -104,6 +104,7 @@ typedef enum {
     CBS_DIAG_PARSE,
     CBS_DIAG_VALIDATION,
     CBS_DIAG_RUNTIME,
+    CBS_DIAG_SOURCE,
     CBS_DIAG_INTERNAL
 } CbsDiagCategory;
 
@@ -123,6 +124,21 @@ typedef struct {
     long release;
     const char *architecture;
 } CbsPackageIdentity;
+
+typedef struct {
+    const char *kind;
+    const char *name;
+    const char **urls;
+    size_t url_count;
+    const char *sha256;
+    char *verified_path;
+} CbsSource;
+
+typedef struct {
+    CbsSource *items;
+    size_t count;
+    CbsNamedSource *bindings;
+} CbsSourceSet;
 
 typedef struct {
     const char *recipe_path;
@@ -179,6 +195,13 @@ char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
                                    size_t *length);
 void cbs_identity_apply_execution_context(const CbsPackageIdentity *identity,
                                           CbsExecutionContext *context);
+int cbs_sources_from_document(const CbsNode *document, CbsSourceSet *sources);
+void cbs_source_set_destroy(CbsSourceSet *sources);
+int cbs_source_verify(CbsSource *source, const char *path,
+                      const char *recipe_path, const char *recipe_source,
+                      CbsLocation location);
+int cbs_sources_apply_execution_context(CbsSourceSet *sources,
+                                        CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

@@ -261,7 +261,7 @@ sources-declaration = "sources", "{", source-declaration,
                       { source-declaration }, "}" ;
 
 source-declaration = source-kind, string, "{",
-                     source-url, source-sha256,
+                     source-url, { source-url }, source-sha256,
                      "}" ;
 
 source-kind   = "main" | "extra" ;
@@ -274,13 +274,17 @@ sources. Source names are unique identifiers expressed as strings; after escape
 processing they must match the package-name pattern above. Source declarations
 must place `url` before `sha256`, each exactly once.
 
-URLs must be absolute and use a scheme enabled by CBS policy. The grammar does
+URLs are ordered mirrors for one source identity and share its one paired
+checksum. URLs must be absolute and use a scheme enabled by CBS policy. The grammar does
 not select permitted network schemes. A SHA-256 value must contain exactly 64
 lowercase hexadecimal digits.
 
 CBS fetches and verifies all declared sources. It extracts the main source into
 `$src`. Extra sources remain named verified inputs available as `$source.NAME`
 until an explicit `extract` operation uses them.
+
+No `$source.NAME` bindings are exposed until every declared source has been
+verified. A mismatch names the source and both expected and computed digests.
 
 ### 3.3 Dependencies
 
@@ -682,6 +686,7 @@ CPDL-E1xxx  lexical errors
 CPDL-E2xxx  parse errors
 CPDL-E3xxx  validation errors
 CPDL-E4xxx  runtime/operation errors
+CPDL-E5xxx  source preparation and verification errors
 CPDL-E9xxx  internal invariant failures
 CPDL-W3xxx  validation warnings
 CPDL-Nxxxx  related notes
@@ -711,6 +716,7 @@ The initial mandatory codes are:
 | `CPDL-E4004` | Filesystem operation failed |
 | `CPDL-E4005` | Assertion or cardinality check failed |
 | `CPDL-E4006` | Source extraction failed safety validation |
+| `CPDL-E5001` | Source checksum verification failed |
 | `CPDL-E9001` | CBS internal invariant failed |
 
 ### 8.3 Required wording examples

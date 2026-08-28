@@ -500,7 +500,6 @@ static CbsNode *parse_sources(CbsParser *parser)
            current(parser)->kind != CBS_TOKEN_EOF) {
         CbsToken *kind = current(parser);
         CbsToken *name;
-        CbsToken *url;
         CbsToken *hash;
         CbsNode *source;
 
@@ -515,13 +514,18 @@ static CbsNode *parse_sources(CbsParser *parser)
         if (name != NULL)
             source->value = cbs_duplicate(name->text);
         consume_kind(parser, CBS_TOKEN_LBRACE, "{");
-        consume_word(parser, "url");
-        url = consume_kind(parser, CBS_TOKEN_STRING, "source URL");
+        if (!is_word(parser, "url"))
+            expected(parser, "url");
+        while (!parser->failed && is_word(parser, "url")) {
+            CbsToken *url;
+            advance(parser);
+            url = consume_kind(parser, CBS_TOKEN_STRING, "source URL");
+            if (url != NULL)
+                cbs_node_add(source, node_from_token(CBS_NODE_URL, url));
+        }
         consume_word(parser, "sha256");
         hash = consume_kind(parser, CBS_TOKEN_STRING, "SHA-256 string");
         consume_kind(parser, CBS_TOKEN_RBRACE, "}");
-        if (url != NULL)
-            cbs_node_add(source, node_from_token(CBS_NODE_URL, url));
         if (hash != NULL)
             cbs_node_add(source, node_from_token(CBS_NODE_SHA256, hash));
         cbs_node_add(node, source);

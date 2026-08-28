@@ -455,13 +455,18 @@ static void validate_sources(Validator *validator, const CbsNode *sources)
                 validation_error(validator, source, "CPDL-E3002",
                                  "duplicate source name");
         }
-        if (source->child_count == 2) {
-            const CbsNode *url = source->children[0];
-            const CbsNode *hash = source->children[1];
-            if (url->value == NULL || strstr(url->value, "://") == NULL)
-                validation_error(validator, url, "CPDL-E3004",
-                                 "source URL must be absolute");
-            if (hash->value == NULL || !valid_sha256(hash->value))
+        if (source->child_count >= 2) {
+            const CbsNode *hash = source->children[source->child_count - 1];
+            size_t url_index;
+            for (url_index = 0; url_index + 1 < source->child_count; ++url_index) {
+                const CbsNode *url = source->children[url_index];
+                if (url->kind != CBS_NODE_URL || url->value == NULL ||
+                    strstr(url->value, "://") == NULL)
+                    validation_error(validator, url, "CPDL-E3004",
+                                     "source URL must be absolute");
+            }
+            if (hash->kind != CBS_NODE_SHA256 || hash->value == NULL ||
+                !valid_sha256(hash->value))
                 validation_error(validator, hash, "CPDL-E3004",
                                  "SHA-256 must be 64 lowercase hexadecimal digits");
         }

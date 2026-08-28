@@ -12,6 +12,7 @@ SOURCES := \
 	src/main.c \
 	src/parser.c \
 	src/runtime.c \
+	src/source.c \
 	src/validate.c
 OBJECTS := $(SOURCES:.c=.o)
 TARGET := cbs
@@ -53,9 +54,15 @@ test: $(TARGET)
 		src/validate.o -o tests/identity-test
 	./tests/identity-test tests/fixtures/execution/identity.cbs
 	rm -f tests/identity-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/source-test.c \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/validate.o -o tests/source-test
+	./tests/source-test tests/fixtures/execution/sources.cbs
+	rm -f tests/source-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
 		tests/edit-assert-test
 	rm -f tests/runtime-test
 	rm -f tests/identity-test
+	rm -f tests/source-test

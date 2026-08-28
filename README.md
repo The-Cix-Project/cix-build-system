@@ -19,6 +19,10 @@ Package identity has one canonical representation built from recipe name,
 upstream version, Cix release, and the CBS-supplied target architecture. Runtime
 values, artifact filenames, and digest metadata derive from that representation.
 
+Named sources pair one checksum with one or more ordered mirror URLs. CBS uses
+its internal SHA-256 implementation and exposes source paths to CPDL only after
+every declared source has verified successfully.
+
 ## Build
 
 TCC is the only supported compiler:
