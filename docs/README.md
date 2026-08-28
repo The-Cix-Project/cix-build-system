@@ -47,3 +47,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #17: Jobs ceiling](reviews/issue-0017-validation.md)
 - [Issue #18: Staged-tree policy](reviews/issue-0018-validation.md)
 - [Issue #19: Manifest ordering](reviews/issue-0019-validation.md)
+- [ADR-0008: CBS command surface](adr/0008-cbs-command-surface.md)
+- [Issue #20: Command contracts](reviews/issue-0020-validation.md)
