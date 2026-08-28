@@ -3,7 +3,8 @@
 - Issue: `#2 Implement the CPDL lexer, parser, and validator`
 - Date: 2026-08-28
 - Result: Pass
-- Implementation commit: recorded when merged
+- Implementation commits: `4d2d511` and the follow-on validation hardening
+  commits through `e747937`
 
 ## Delivered boundary
 
@@ -149,3 +150,9 @@ CRLF, BOM, invalid UTF-8, CLI misuse, and help output.
 Issue #3 may now implement process execution against this single AST and must
 not add parser syntax or an alternate recipe-reading path.
 
+## Backlog reconciliation
+
+The implementation remains present on `main` and was revalidated while
+reconciling the open tracker entry on 2026-08-28. The current `make test` gate
+reports 49 parser/validation cases in addition to the execution and source
+tests, with zero compiler warnings under TCC's mandatory warning policy.
