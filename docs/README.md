@@ -33,3 +33,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #9: Dependency roles and kinds](reviews/issue-0009-validation.md)
 - [ADR-0004: Native helper governance](adr/0004-native-helper-governance.md)
 - [Native helper registry](native-helpers.md)
+- [ADR-0005: Source networking boundary](adr/0005-source-networking-boundary.md)
