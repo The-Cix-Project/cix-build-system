@@ -102,8 +102,23 @@ typedef enum {
     CBS_DIAG_LEX,
     CBS_DIAG_PARSE,
     CBS_DIAG_VALIDATION,
+    CBS_DIAG_RUNTIME,
     CBS_DIAG_INTERNAL
 } CbsDiagCategory;
+
+typedef struct {
+    const char *recipe_path;
+    const char *recipe_source;
+    const char *name;
+    const char *version;
+    long release;
+    const char *arch;
+    const char *src;
+    const char *build;
+    const char *dest;
+    long jobs;
+    const char *working_directory;
+} CbsExecutionContext;
 
 void *cbs_allocate(size_t size);
 void *cbs_reallocate(void *pointer, size_t size);
@@ -121,6 +136,8 @@ CbsNode *cbs_parse(const char *path, const char *source, size_t length,
                    CbsTokenList *tokens);
 int cbs_validate(const CbsNode *document, const char *path,
                  const char *source);
+int cbs_is_forbidden_executable(const char *value);
+int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,
@@ -131,4 +148,3 @@ void cbs_diagnostic_expected(const char *path, const char *source,
                              const char *found);
 
 #endif
-

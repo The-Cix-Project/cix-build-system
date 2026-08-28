@@ -131,7 +131,7 @@ static void validate_bare_value(Validator *validator, const CbsNode *node,
 {
     const char *name;
 
-    if (value == NULL || value[0] != '$' || value[1] == '{')
+    if (value == NULL || value[0] != '$' || value[1] == '\0' || value[1] == '{')
         return;
     name = value + 1;
     if (!known_value_name(validator, name, strlen(name)))
@@ -144,22 +144,6 @@ static void validate_value(Validator *validator, const CbsNode *node,
 {
     validate_bare_value(validator, node, value);
     validate_interpolation(validator, node, value);
-}
-
-static int forbidden_executable(const char *value)
-{
-    static const char *const forbidden[] = {
-        "sh", "bash", "dash", "ash", "ksh", "zsh", "env"
-    };
-    const char *base = strrchr(value, '/');
-    size_t index;
-
-    base = base == NULL ? value : base + 1;
-    for (index = 0; index < sizeof(forbidden) / sizeof(forbidden[0]); ++index) {
-        if (strcmp(base, forbidden[index]) == 0)
-            return 1;
-    }
-    return 0;
 }
 
 static int valid_mode(const char *mode)
@@ -225,7 +209,7 @@ static void validate_run(Validator *validator, const CbsNode *run,
     size_t other;
 
     validate_value(validator, run, run->value);
-    if (run->value != NULL && forbidden_executable(run->value))
+    if (run->value != NULL && cbs_is_forbidden_executable(run->value))
         validation_error(validator, run, "CPDL-E3006",
                          "command interpreters are not valid run executables");
     for (index = 0; index < run->child_count; ++index) {

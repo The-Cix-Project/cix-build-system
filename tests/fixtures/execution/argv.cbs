@@ -1,0 +1,34 @@
+package "argv-test" {
+    version "1"
+    release 1
+    build {
+        run "${build}/exec-test" {
+            "--probe-with-env"
+            "space value"
+            "\"double quotes\""
+            "$"
+            "*"
+            ";"
+            "'single quotes'"
+            "back\\slash"
+            ""
+            "jobs=${jobs}"
+            env "CBS_TEST_ENV" = "literal $ * ; \" '"
+            jobs $jobs
+            expect exit 23
+        }
+        run "${build}/exec-test" {
+            "--probe-without-env"
+        }
+        run "${build}/exec-test" {
+            "--probe-fail"
+        }
+        run "${build}/exec-test" {
+            "--probe-sleep"
+            timeout 10ms
+        }
+        run "${build}/exec-test" {
+            "--probe-signal"
+        }
+    }
+}

@@ -5,6 +5,7 @@ CPPFLAGS := -Isrc
 SOURCES := \
 	src/ast.c \
 	src/diag.c \
+	src/exec.c \
 	src/lexer.c \
 	src/main.c \
 	src/parser.c \
@@ -24,7 +25,11 @@ src/%.o: src/%.c src/cbs.h
 
 test: $(TARGET)
 	./tests/parser-validation.sh ./$(TARGET)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		-o tests/exec-test
+	./tests/exec-test tests/fixtures/execution/argv.cbs
+	rm -f tests/exec-test
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
-
+	rm -f $(OBJECTS) $(TARGET) tests/exec-test

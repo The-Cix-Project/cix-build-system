@@ -24,3 +24,4 @@ hide a changed decision; a later ADR supersedes it.
 
 - [Issue #1: CPDL 0.1 grammar and diagnostics](reviews/issue-0001-validation.md)
 - [Issue #2: CPDL lexer, parser, AST, and validator](reviews/issue-0002-validation.md)
+- [Issue #3: Direct `run` execution](reviews/issue-0003-validation.md)

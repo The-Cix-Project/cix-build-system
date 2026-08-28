@@ -12,6 +12,8 @@ static const char *category_name(CbsDiagCategory category)
         return "parse";
     case CBS_DIAG_VALIDATION:
         return "validation";
+    case CBS_DIAG_RUNTIME:
+        return "runtime";
     case CBS_DIAG_INTERNAL:
         return "internal";
     }
