@@ -10,6 +10,7 @@ SOURCES := \
 	src/lexer.c \
 	src/main.c \
 	src/parser.c \
+	src/runtime.c \
 	src/validate.c
 OBJECTS := $(SOURCES:.c=.o)
 TARGET := cbs
@@ -33,15 +34,21 @@ test: $(TARGET)
 	rm -f tests/exec-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fs-test.c \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
-		src/validate.o -o tests/fs-test
+		src/runtime.o src/validate.o -o tests/fs-test
 	./tests/fs-test tests/fixtures/execution/filesystem.cbs
 	rm -f tests/fs-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/edit-assert-test.c \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
-		src/validate.o -o tests/edit-assert-test
+		src/runtime.o src/validate.o -o tests/edit-assert-test
 	./tests/edit-assert-test tests/fixtures/execution/edit-assert.cbs
 	rm -f tests/edit-assert-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/runtime-test.c \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/runtime.o src/validate.o -o tests/runtime-test
+	./tests/runtime-test tests/fixtures/execution/failure.cbs
+	rm -f tests/runtime-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
 		tests/edit-assert-test
+	rm -f tests/runtime-test

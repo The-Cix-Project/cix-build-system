@@ -1,0 +1,46 @@
+package "failure-test" {
+    version "1"
+    release 1
+
+    build {
+        env "BLOCK_ENV" = "scoped value"
+        run "${build}/runtime-test" {
+            "--fail"
+            "17"
+        }
+        on_fail {
+            run "${build}/runtime-test" {
+                "--fail"
+                "18"
+                allow_failure
+            }
+            run "${build}/runtime-test" {
+                "--record"
+                "${build}/continued"
+                "scoped value"
+            }
+            run "${build}/runtime-test" {
+                "--fail"
+                "19"
+            }
+            run "${build}/runtime-test" {
+                "--record"
+                "${build}/must-not-run"
+                "scoped value"
+            }
+        }
+    }
+
+    check {
+        run "${build}/runtime-test" {
+            "--succeed"
+        }
+        on_fail {
+            run "${build}/runtime-test" {
+                "--record"
+                "${build}/success-on-fail-ran"
+                ""
+            }
+        }
+    }
+}

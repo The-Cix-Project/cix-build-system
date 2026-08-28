@@ -113,6 +113,11 @@ typedef struct {
 } CbsNamedSource;
 
 typedef struct {
+    const char *name;
+    const char *value;
+} CbsEnvironmentBinding;
+
+typedef struct {
     const char *recipe_path;
     const char *recipe_source;
     const char *name;
@@ -126,6 +131,8 @@ typedef struct {
     const char *working_directory;
     const CbsNamedSource *sources;
     size_t source_count;
+    const CbsEnvironmentBinding *environment;
+    size_t environment_count;
 } CbsExecutionContext;
 
 void *cbs_allocate(size_t size);
@@ -152,6 +159,10 @@ int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context);
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
+char *cbs_resolve_confined_path(const char *logical,
+                                const CbsExecutionContext *context);
+int cbs_execute_block(const CbsNode *block,
+                      const CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

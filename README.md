@@ -9,9 +9,11 @@ phases.
 
 The production runtime implements direct `execve` execution for validated `run`
 AST nodes, the CPDL 0.1 filesystem vocabulary, and atomic source edits and
-assertions in C. Filesystem access is confined to CBS-supplied roots and does
-not invoke host utilities. These APIs are intentionally not exposed through a
-provisional CLI command; issue #20 will define the final command surface.
+assertions in C. A single block executor preserves primary failures while
+running subordinate `on_fail` diagnostics. Filesystem access is confined to
+CBS-supplied roots and does not invoke host utilities. These APIs are
+intentionally not exposed through a provisional CLI command; issue #20 will
+define the final command surface.
 
 ## Build
 

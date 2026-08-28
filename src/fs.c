@@ -18,6 +18,8 @@ typedef struct {
     size_t capacity;
 } PathList;
 
+static int safe_parents(const char *path, const char *root);
+
 static void fs_error(const CbsNode *operation,
                      const CbsExecutionContext *context,
                      const char *logical_path, const char *detail)
@@ -179,6 +181,21 @@ static char *resolve_path(const char *logical, const CbsExecutionContext *contex
     if (root_out != NULL)
         *root_out = root;
     return normalized;
+}
+
+char *cbs_resolve_confined_path(const char *logical,
+                                const CbsExecutionContext *context)
+{
+    const char *root;
+    char *path = resolve_path(logical, context, &root);
+
+    if (path == NULL)
+        return NULL;
+    if (!safe_root(root) || !safe_parents(path, root)) {
+        free(path);
+        return NULL;
+    }
+    return path;
 }
 
 static int safe_parents(const char *path, const char *root)

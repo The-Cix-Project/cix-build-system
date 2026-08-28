@@ -354,6 +354,10 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context)
     string_list_add(&arguments, cbs_duplicate(program));
     string_list_add(&environment,
                     cbs_duplicate("PATH=/usr/bin:/bin"));
+    for (index = 0; index < context->environment_count; ++index)
+        environment_set(&environment, context->environment[index].name,
+                        environment_entry(context->environment[index].name,
+                                          context->environment[index].value));
     for (index = 0; index < run->child_count; ++index) {
         const CbsNode *item = run->children[index];
         if (item->kind == CBS_NODE_ARGUMENT) {

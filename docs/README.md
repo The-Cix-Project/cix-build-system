@@ -27,3 +27,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #3: Direct `run` execution](reviews/issue-0003-validation.md)
 - [Issue #4: CPDL filesystem vocabulary](reviews/issue-0004-validation.md)
 - [Issue #5: Source edits and assertions](reviews/issue-0005-validation.md)
+- [Issue #6: Failure orchestration](reviews/issue-0006-validation.md)
