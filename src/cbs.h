@@ -225,6 +225,9 @@ int cbs_sandbox_run(CbsSandboxHook enter, CbsSandboxHook leave,
                     const char *root, void *user);
 typedef int (*CbsHealthCheck)(void *user);
 int cbs_service_health(CbsHealthCheck check, void *user);
+typedef int (*CbsDependencyObserver)(const char *path, void *user);
+int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
+                             void *user);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write(const char *payload, const char *package_path,

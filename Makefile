@@ -8,6 +8,7 @@ SOURCES := \
 	src/api.c \
 	src/sandbox.c \
 	src/service.c \
+	src/observe.c \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \
