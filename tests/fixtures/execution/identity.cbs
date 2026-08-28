@@ -1,0 +1,4 @@
+package "gcc" {
+    version "16.2.0"
+    release 11
+}

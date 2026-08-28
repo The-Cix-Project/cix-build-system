@@ -15,6 +15,10 @@ CBS-supplied roots and does not invoke host utilities. These APIs are
 intentionally not exposed through a provisional CLI command; issue #20 will
 define the final command surface.
 
+Package identity has one canonical representation built from recipe name,
+upstream version, Cix release, and the CBS-supplied target architecture. Runtime
+values, artifact filenames, and digest metadata derive from that representation.
+
 ## Build
 
 TCC is the only supported compiler:

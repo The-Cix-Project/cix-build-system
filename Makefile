@@ -7,6 +7,7 @@ SOURCES := \
 	src/diag.c \
 	src/exec.c \
 	src/fs.c \
+	src/identity.c \
 	src/lexer.c \
 	src/main.c \
 	src/parser.c \
@@ -47,8 +48,14 @@ test: $(TARGET)
 		src/runtime.o src/validate.o -o tests/runtime-test
 	./tests/runtime-test tests/fixtures/execution/failure.cbs
 	rm -f tests/runtime-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/identity-test.c \
+		src/ast.o src/diag.o src/exec.o src/identity.o src/lexer.o src/parser.o \
+		src/validate.o -o tests/identity-test
+	./tests/identity-test tests/fixtures/execution/identity.cbs
+	rm -f tests/identity-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
 		tests/edit-assert-test
 	rm -f tests/runtime-test
+	rm -f tests/identity-test

@@ -118,6 +118,13 @@ typedef struct {
 } CbsEnvironmentBinding;
 
 typedef struct {
+    const char *name;
+    const char *version;
+    long release;
+    const char *architecture;
+} CbsPackageIdentity;
+
+typedef struct {
     const char *recipe_path;
     const char *recipe_source;
     const char *name;
@@ -163,6 +170,15 @@ char *cbs_resolve_confined_path(const char *logical,
                                 const CbsExecutionContext *context);
 int cbs_execute_block(const CbsNode *block,
                       const CbsExecutionContext *context);
+int cbs_identity_from_document(const CbsNode *document,
+                               const char *architecture,
+                               CbsPackageIdentity *identity);
+char *cbs_identity_string(const CbsPackageIdentity *identity);
+char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity);
+char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
+                                   size_t *length);
+void cbs_identity_apply_execution_context(const CbsPackageIdentity *identity,
+                                          CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

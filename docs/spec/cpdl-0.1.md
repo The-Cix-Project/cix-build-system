@@ -213,7 +213,6 @@ package-declaration = "package", string, "{",
 
 package-item = version-declaration
              | release-declaration
-             | architecture-declaration
              | sources-declaration
              | requires-declaration
              | prepare-phase
@@ -224,16 +223,22 @@ package-item = version-declaration
 
 version-declaration      = "version", string ;
 release-declaration      = "release", integer ;
-architecture-declaration = "architecture", ( string | "any" ) ;
 ```
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
 
-The package name, version, and release are required. Architecture is optional;
-when omitted, CBS supplies the build target architecture. `architecture any`
-declares architecture-independent output. A quoted architecture fixes an exact
-architecture and must equal the CBS build target.
+The package name, version, and release are required. CBS supplies the build
+target architecture; a CPDL 0.1 recipe cannot select or override it. The
+`architecture` and `any` keywords remain reserved for a future decision about
+architecture-independent packages, but an architecture declaration is invalid
+in CPDL 0.1.
+
+CBS constructs one canonical identity tuple `(name, version, release,
+architecture)`. Its canonical text is
+`name-version-release-architecture`, and the artifact filename is that text
+plus `.cixpkg`. Artifact metadata and its digest input contain the same
+canonical text rather than independently reconstructing identity fields.
 
 Each package-level declaration may appear at most once. Package items must
 appear in the canonical order shown by `package-item`: identity, sources,

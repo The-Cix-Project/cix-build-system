@@ -1,8 +1,6 @@
 package "example" {
     version "1.2.3"
     release 1
-    architecture any
-
     sources {
         main "example" {
             url "https://example.invalid/example-1.2.3.tar.xz"
@@ -111,4 +109,3 @@ package "example" {
         }
     }
 }
-

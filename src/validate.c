@@ -564,9 +564,8 @@ static void validate_package(Validator *validator)
                                  "release must be greater than zero");
             break;
         case CBS_NODE_ARCHITECTURE:
-            if (item->value == NULL || item->value[0] == '\0')
-                validation_error(validator, item, "CPDL-E3004",
-                                 "architecture must not be empty");
+            validation_error(validator, item, "CPDL-E3006",
+                             "architecture is supplied by CBS in CPDL 0.1");
             break;
         case CBS_NODE_SOURCES:
             validate_sources(validator, item);

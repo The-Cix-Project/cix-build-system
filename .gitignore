@@ -4,3 +4,4 @@
 /tests/fs-test
 /tests/edit-assert-test
 /tests/runtime-test
+/tests/identity-test
