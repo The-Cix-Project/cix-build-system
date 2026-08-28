@@ -37,4 +37,6 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0004: Native helper governance](adr/0004-native-helper-governance.md)
 - [Native helper registry](native-helpers.md)
 - [ADR-0005: Source networking boundary](adr/0005-source-networking-boundary.md)
+- [ADR-0006: CBS v1 archive extraction formats](adr/0006-archive-extraction-formats.md)
 - [Issue #12: Verified source fetching](reviews/issue-0012-validation.md)
+- [Issue #13: Archive format decision](reviews/issue-0013-validation.md)
