@@ -79,3 +79,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #38: Manifest-derived images](reviews/issue-0038-validation.md)
 - [ADR-0018: Container recipes and CPDL](adr/0018-container-recipes.md)
 - [Issue #39: Container recipe relationship](reviews/issue-0039-validation.md)
+- [ADR-0019: Image recipes and CPDL](adr/0019-image-recipes.md)
+- [Issue #40: Image recipe relationship](reviews/issue-0040-validation.md)
