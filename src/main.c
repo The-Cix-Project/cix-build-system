@@ -106,7 +106,26 @@ static int validate_file(const char *path)
 
 static void usage(FILE *stream)
 {
-    fputs("usage: cbs validate PACKAGE.cbs\n       cbs inspect PACKAGE.cbs [ARTIFACT]\n", stream);
+    fputs("usage: cbs validate PACKAGE.cbs\n"
+          "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
+          "commands:\n"
+          "  cbs check RECIPE.cbs                 Validate without executing\n"
+          "  cbs validate RECIPE.cbs              Alias for check\n"
+          "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
+          "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
+          "  cbs --help                           Show this help\n"
+          "  cbs --version                        Show version\n", stream);
+}
+
+static int verify_file(const char *path)
+{
+    char identity[129];
+    if (!cbs_cixpkg_verify(path, identity, sizeof(identity))) {
+        fprintf(stderr, "%s: error[CIXPKG-E4001]: artifact verification failed\n", path);
+        return 4;
+    }
+    printf("%s: verified CIXPKG (identity=%s)\n", path, identity);
+    return 0;
 }
 
 static int inspect_file(const char *path, const char *artifact)
@@ -132,9 +151,16 @@ int main(int argc, char **argv)
         usage(stdout);
         return 0;
     }
+    if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+        puts("cbs 0.1.0");
+        return 0;
+    }
+    if (argc == 3 && strcmp(argv[1], "verify") == 0)
+        return verify_file(argv[2]);
     if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
     if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
-    if (argc != 3 || strcmp(argv[1], "validate") != 0) {
+    if (argc != 3 || (strcmp(argv[1], "validate") != 0 &&
+                      strcmp(argv[1], "check") != 0)) {
         usage(stderr);
         return 2;
     }

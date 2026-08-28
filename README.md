@@ -53,6 +53,12 @@ tcc -b -Isrc -std=c11 -Wall -Wextra -Werror -pedantic \
 ./tests/parser-validation.sh /tmp/cbs-bounds
 ```
 
+## Command-line use
+
+Run `./cbs --help` for the complete command list. `check` is the intuitive
+alias for `validate`; `inspect` reports recipe/source/artifact digests, and
+`verify` validates a CIXPKG without requiring its recipe.
+
 ## Validate a package definition
 
 ```text
