@@ -85,3 +85,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #41: Immutable image install](reviews/issue-0041-validation.md)
 - [ADR-0021: Unified artifact repository](adr/0021-artifact-repository.md)
 - [Issue #42: Artifact repository model](reviews/issue-0042-validation.md)
+- [ADR-0022: Build observability](adr/0022-build-observability.md)
+- [Issue #43: Build observability](reviews/issue-0043-validation.md)
