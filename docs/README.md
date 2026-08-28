@@ -118,3 +118,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #64: Security corpus](reviews/issue-0064-validation.md)
 - [Issue #65: Release CI gates](reviews/issue-0065-validation.md)
 - [Issue #66: Operations runbook](reviews/issue-0066-validation.md)
+- [ADR-0031: Replacement contract](adr/0031-replacement-contract.md)
+- [Issue #67: Replacement scope](reviews/issue-0067-validation.md)
