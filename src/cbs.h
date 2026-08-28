@@ -107,6 +107,11 @@ typedef enum {
 } CbsDiagCategory;
 
 typedef struct {
+    const char *name;
+    const char *path;
+} CbsNamedSource;
+
+typedef struct {
     const char *recipe_path;
     const char *recipe_source;
     const char *name;
@@ -118,6 +123,8 @@ typedef struct {
     const char *dest;
     long jobs;
     const char *working_directory;
+    const CbsNamedSource *sources;
+    size_t source_count;
 } CbsExecutionContext;
 
 void *cbs_allocate(size_t size);
@@ -137,7 +144,11 @@ CbsNode *cbs_parse(const char *path, const char *source, size_t length,
 int cbs_validate(const CbsNode *document, const char *path,
                  const char *source);
 int cbs_is_forbidden_executable(const char *value);
+char *cbs_resolve_value(const char *value, int token_kind,
+                        const CbsExecutionContext *context);
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
+int cbs_execute_filesystem(const CbsNode *operation,
+                           const CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

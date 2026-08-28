@@ -466,14 +466,23 @@ one literal path, even when it contains `*`, `?`, or `[`.
 an existing non-directory fails. Its default final mode is `0755`, filtered only
 by explicit CBS policy recorded in build metadata.
 
-`copy` preserves file bytes and permission bits. A directory source is invalid;
-recursive directory copying is not in CPDL 0.1. Multiple glob matches require an
-existing directory destination. A single source follows the same destination
-rules as POSIX `cp` without dereferencing a source symlink.
+`copy` preserves file bytes and permission bits. It does not preserve numeric
+ownership: new regular files are owned by the CBS build identity, and staged
+ownership is assigned later by CBS package policy. A directory source is
+invalid; recursive directory copying is not in CPDL 0.1. Multiple glob matches
+require an existing directory destination. A single source follows the same
+destination naming rules as POSIX `cp` without dereferencing a source symlink.
+An existing regular-file destination is replaced. An existing destination
+symlink is replaced rather than followed, so it cannot redirect a write outside
+the CBS roots. An existing directory is accepted only as the destination
+container; other destination types fail.
 
 `move` is confined to one staged build filesystem and must not silently fall
-back to copy-and-delete across filesystems. `remove` removes files, empty
-directories, and symlinks. Removing a non-empty directory requires `tree`.
+back to copy-and-delete across filesystems. It uses the same destination naming
+rules as `copy`; an existing non-directory destination is atomically replaced,
+while replacement of a non-empty directory fails. `remove` removes files,
+empty directories, and symlinks. Removing a non-empty directory requires
+`tree`; recursive removal never traverses a symlinked directory.
 
 `symlink TARGET to LINK_PATH` creates `LINK_PATH` with the exact target bytes.
 CBS does not canonicalize the target. An existing destination fails.

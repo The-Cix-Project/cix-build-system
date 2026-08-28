@@ -221,7 +221,16 @@ static CbsNode *parse_selector(CbsParser *parser, CbsNodeKind kind,
 
 static void parse_optional_mode(CbsParser *parser, CbsNode *node)
 {
-    if (is_word(parser, "chmod")) {
+    int standalone_chmod = 0;
+
+    if (is_word(parser, "chmod") && parser->cursor + 2 < parser->tokens.count) {
+        const CbsToken *selector = &parser->tokens.items[parser->cursor + 2];
+        standalone_chmod = selector->kind == CBS_TOKEN_STRING ||
+                           selector->kind == CBS_TOKEN_CBS_VALUE ||
+                           (selector->kind == CBS_TOKEN_WORD &&
+                            strcmp(selector->text, "glob") == 0);
+    }
+    if (is_word(parser, "chmod") && !standalone_chmod) {
         CbsToken *mode;
         advance(parser);
         mode = consume_kind(parser, CBS_TOKEN_MODE, "permission mode");

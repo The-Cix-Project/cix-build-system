@@ -1,3 +1,4 @@
 /cbs
 /src/*.o
 /tests/exec-test
+/tests/fs-test

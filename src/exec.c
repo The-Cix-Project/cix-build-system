@@ -69,6 +69,8 @@ static const char *context_value(const CbsExecutionContext *context,
                                  const char *name, size_t length,
                                  char *number, size_t number_size)
 {
+    size_t index;
+
     if (length == 4 && strncmp(name, "name", length) == 0)
         return context->name;
     if (length == 7 && strncmp(name, "version", length) == 0)
@@ -88,6 +90,14 @@ static const char *context_value(const CbsExecutionContext *context,
     if (length == 4 && strncmp(name, "jobs", length) == 0) {
         snprintf(number, number_size, "%ld", context->jobs);
         return number;
+    }
+    if (length > 7 && strncmp(name, "source.", 7) == 0) {
+        for (index = 0; index < context->source_count; ++index) {
+            if (strlen(context->sources[index].name) == length - 7 &&
+                strncmp(context->sources[index].name, name + 7,
+                        length - 7) == 0)
+                return context->sources[index].path;
+        }
     }
     return NULL;
 }
@@ -110,8 +120,8 @@ static void append_text(char **buffer, size_t *length, size_t *capacity,
     (*buffer)[*length] = '\0';
 }
 
-static char *resolve_value(const char *value, int token_kind,
-                           const CbsExecutionContext *context)
+char *cbs_resolve_value(const char *value, int token_kind,
+                        const CbsExecutionContext *context)
 {
     const char *cursor;
     char *result = NULL;
@@ -334,7 +344,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context)
 
     memset(&arguments, 0, sizeof(arguments));
     memset(&environment, 0, sizeof(environment));
-    program = resolve_value(run->value, run->flag, context);
+    program = cbs_resolve_value(run->value, run->flag, context);
     if (cbs_is_forbidden_executable(program)) {
         runtime_error(run, context, "CPDL-E4001",
                       "command interpreters are not valid run executables");
@@ -348,9 +358,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context)
         const CbsNode *item = run->children[index];
         if (item->kind == CBS_NODE_ARGUMENT) {
             string_list_add(&arguments,
-                            resolve_value(item->value, item->flag, context));
+                            cbs_resolve_value(item->value, item->flag, context));
         } else if (item->kind == CBS_NODE_RUN_ENV) {
-            char *value = resolve_value(item->value, item->flag, context);
+            char *value = cbs_resolve_value(item->value, item->flag, context);
             environment_set(&environment, item->name,
                             environment_entry(item->name, value));
             free(value);

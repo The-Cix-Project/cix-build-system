@@ -6,6 +6,7 @@ SOURCES := \
 	src/ast.c \
 	src/diag.c \
 	src/exec.c \
+	src/fs.c \
 	src/lexer.c \
 	src/main.c \
 	src/parser.c \
@@ -30,6 +31,11 @@ test: $(TARGET)
 		-o tests/exec-test
 	./tests/exec-test tests/fixtures/execution/argv.cbs
 	rm -f tests/exec-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fs-test.c \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/validate.o -o tests/fs-test
+	./tests/fs-test tests/fixtures/execution/filesystem.cbs
+	rm -f tests/fs-test
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) tests/exec-test
+	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test

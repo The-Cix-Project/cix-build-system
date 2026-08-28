@@ -1,0 +1,47 @@
+package "filesystem-test" {
+    version "1"
+    release 1
+
+    sources {
+        main "payload" {
+            url "https://example.invalid/payload"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+    }
+
+    build {
+        mkdir "${build}/input" chmod 0700
+        mkdir "${dest}/copied"
+        write "${dest}/copied/a.txt" "stale" chmod 0666
+        write "${build}/input/a.txt" "alpha" chmod 0600
+        write "${build}/input/b.txt" "beta"
+        write "${build}/input/drop.tmp" "temporary"
+        write "${build}/replace.txt" "old"
+        write "${build}/replace.txt" "new" chmod 0640
+        write "${src}/payload" "named source"
+        symlink "a.txt" to "${build}/input/a-link"
+        copy glob "${build}/input/*.txt" to "${dest}/copied"
+        copy "${build}/input/a-link" to "${dest}/copied/a-link"
+        copy $source.payload to "${dest}/named-source"
+        move "${dest}/copied/b.txt" to "${dest}/moved.txt"
+        chmod 0644 glob "${dest}/copied/*.txt"
+        remove glob "${build}/input/*.tmp"
+        mkdir "${build}/discard/nested"
+        write "${build}/discard/nested/value" "discard"
+        remove tree "${build}/discard"
+        mkdir "${build}/patterns"
+        write "${build}/patterns/a.txt" "a" chmod 0600
+        write "${build}/patterns/b.txt" "b" chmod 0600
+        write "${build}/patterns/c.txt" "c" chmod 0600
+        write "${build}/patterns/q.x" "q" chmod 0600
+        write "${build}/patterns/literal*.txt" "star" chmod 0600
+        chmod 0640 glob "${build}/patterns/[a-b].txt"
+        chmod 0641 glob "${build}/patterns/[!a-b].txt"
+        chmod 0642 glob "${build}/patterns/?.x"
+        chmod 0644 glob "${build}/patterns/literal\\*.txt"
+        mkdir "${build}/terminal/nested"
+        write "${build}/terminal/nested/value" "terminal"
+        chmod 0700 glob "${build}/terminal/**"
+        remove tree "${build}/terminal"
+    }
+}

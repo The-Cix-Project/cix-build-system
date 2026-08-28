@@ -7,9 +7,11 @@ The project is in its first implementation phase. The current executable can
 lex, parse, and validate the complete CPDL 0.1 grammar without executing package
 phases.
 
-The production runtime also implements direct `execve` execution for validated
-`run` AST nodes. This API is intentionally not exposed through a provisional CLI
-command; issue #20 will define the final command surface.
+The production runtime implements direct `execve` execution for validated `run`
+AST nodes and the CPDL 0.1 filesystem vocabulary in C. Filesystem mutations are
+confined to CBS-supplied roots and do not invoke host utilities. These APIs are
+intentionally not exposed through a provisional CLI command; issue #20 will
+define the final command surface.
 
 ## Build
 
@@ -35,8 +37,8 @@ For TCC bounds instrumentation:
 
 ```text
 tcc -b -Isrc -std=c11 -Wall -Wextra -Werror -pedantic \
-    src/ast.c src/diag.c src/exec.c src/lexer.c src/main.c src/parser.c \
-    src/validate.c \
+    src/ast.c src/diag.c src/exec.c src/fs.c src/lexer.c src/main.c \
+    src/parser.c src/validate.c \
     -o /tmp/cbs-bounds
 ./tests/parser-validation.sh /tmp/cbs-bounds
 ```
