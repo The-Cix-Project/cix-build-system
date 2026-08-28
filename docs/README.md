@@ -106,3 +106,4 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0030: Release default](adr/0030-release-default.md)
 - [Issue #53: Release default](reviews/issue-0053-validation.md)
 - [Issue #54: CIXPKG writer and reader](reviews/issue-0054-validation.md)
+- [Issue #55: Deterministic staged-tree manifests](reviews/issue-0055-validation.md)
