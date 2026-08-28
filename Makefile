@@ -13,6 +13,7 @@ SOURCES := \
 	src/lexer.c \
 	src/main.c \
 	src/manifest.c \
+	src/package.c \
 	src/parser.c \
 	src/runtime.c \
 	src/source.c \
@@ -25,7 +26,7 @@ TARGET := cbs
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -larchive -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) -larchive -lzstd -o $@
 
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -81,6 +82,9 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o -lzstd -o tests/package-test
+	./tests/package-test
+	rm -f tests/package-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -98,4 +102,5 @@ clean:
 	rm -f tests/jobs-test
 	rm -f tests/stage-test
 	rm -f tests/manifest-test
+	rm -f tests/package-test
 	rm -f tests/dependency-test
