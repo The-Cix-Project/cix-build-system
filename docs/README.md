@@ -10,6 +10,7 @@ This directory contains the architecture and language documentation for:
 
 - [ADR-0001: Establish CBS and CPDL](adr/0001-cbs-and-cpdl.md)
 - [ADR-0002: Bootstrap CBS and permit linked base libraries](adr/0002-cbs-bootstrap-and-libraries.md)
+- [ADR-0003: Use `.cbs` for package definition files](adr/0003-cbs-file-extension.md)
 
 ADRs record decisions, their rationale, their consequences, and any questions
 that remain deliberately undecided. Once accepted, an ADR is not rewritten to
