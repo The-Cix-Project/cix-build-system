@@ -108,3 +108,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #54: CIXPKG writer and reader](reviews/issue-0054-validation.md)
 - [Issue #55: Deterministic staged-tree manifests](reviews/issue-0055-validation.md)
 - [Issue #56: End-to-end build pipeline](reviews/issue-0056-validation.md)
+- [Issue #57: cixd API adapter](reviews/issue-0057-validation.md)
