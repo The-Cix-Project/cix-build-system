@@ -1,0 +1,227 @@
+#define _POSIX_C_SOURCE 200809L
+
+#include "cbs.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static char *read_source(const char *path, size_t *length)
+{
+    FILE *file = fopen(path, "rb");
+    long size;
+    char *source;
+
+    if (file == NULL || fseek(file, 0, SEEK_END) != 0 ||
+        (size = ftell(file)) < 0 || fseek(file, 0, SEEK_SET) != 0)
+        return NULL;
+    source = cbs_allocate((size_t)size + 1);
+    if (fread(source, 1, (size_t)size, file) != (size_t)size) {
+        fclose(file);
+        free(source);
+        return NULL;
+    }
+    fclose(file);
+    source[size] = '\0';
+    *length = (size_t)size;
+    return source;
+}
+
+static CbsNode *find_phase(CbsNode *document)
+{
+    CbsNode *package = document->children[0];
+    size_t index;
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_PHASE)
+            return package->children[index];
+    return NULL;
+}
+
+static int join(char *output, size_t size, const char *left, const char *right)
+{
+    return snprintf(output, size, "%s/%s", left, right) < (int)size;
+}
+
+static int file_equals(const char *path, const unsigned char *expected,
+                       size_t expected_length, mode_t mode)
+{
+    struct stat status;
+    unsigned char buffer[256];
+    FILE *file;
+    size_t length;
+
+    if (lstat(path, &status) != 0 || !S_ISREG(status.st_mode) ||
+        (status.st_mode & 07777) != mode)
+        return 0;
+    file = fopen(path, "rb");
+    if (file == NULL)
+        return 0;
+    length = fread(buffer, 1, sizeof(buffer), file);
+    fclose(file);
+    return length == expected_length &&
+           memcmp(buffer, expected, expected_length) == 0;
+}
+
+static int expected_failure(const CbsNode *operation,
+                            const CbsExecutionContext *context,
+                            const char *code)
+{
+    FILE *capture = tmpfile();
+    int saved = dup(STDERR_FILENO);
+    int executed;
+    char output[2048];
+    size_t length;
+
+    if (capture == NULL || saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0)
+        return 0;
+    executed = cbs_execute_edit_assertion(operation, context);
+    fflush(stderr);
+    dup2(saved, STDERR_FILENO);
+    close(saved);
+    rewind(capture);
+    length = fread(output, 1, sizeof(output) - 1, capture);
+    output[length] = '\0';
+    fclose(capture);
+    return !executed && strstr(output, code) != NULL;
+}
+
+static int write_binary(const char *path)
+{
+    static const unsigned char bytes[] = {'A', 0, 'o', 'l', 'd', 'Z'};
+    FILE *file = fopen(path, "wb");
+    if (file == NULL)
+        return 0;
+    if (fwrite(bytes, 1, sizeof(bytes), file) != sizeof(bytes)) {
+        fclose(file);
+        return 0;
+    }
+    return fclose(file) == 0 && chmod(path, 0600) == 0;
+}
+
+static int run_test(const char *recipe_path)
+{
+    static const unsigned char edited_binary[] = {'A', 0, 'n', 'e', 'w', 'Z'};
+    char template[] = "/tmp/cbs-edit-test-XXXXXX";
+    char *base = mkdtemp(template);
+    char src[512], build[512], dest[512], path[512], outside[512];
+    char *source = NULL;
+    size_t source_length = 0;
+    CbsTokenList tokens;
+    CbsNode *document = NULL;
+    CbsNode *phase;
+    CbsExecutionContext context;
+    CbsNode operation;
+    size_t index;
+    int result = 1;
+
+    memset(&tokens, 0, sizeof(tokens));
+    if (base == NULL || !join(src, sizeof(src), base, "src") ||
+        !join(build, sizeof(build), base, "build") ||
+        !join(dest, sizeof(dest), base, "dest") ||
+        !join(outside, sizeof(outside), base, "outside") ||
+        mkdir(src, 0755) != 0 || mkdir(build, 0755) != 0 ||
+        mkdir(dest, 0755) != 0 || mkdir(outside, 0755) != 0)
+        return 1;
+    source = read_source(recipe_path, &source_length);
+    if (source == NULL || !cbs_lex(recipe_path, source, source_length, &tokens))
+        goto cleanup;
+    document = cbs_parse(recipe_path, source, source_length, &tokens);
+    if (document == NULL || !cbs_validate(document, recipe_path, source))
+        goto cleanup;
+    phase = find_phase(document);
+    if (phase == NULL)
+        goto cleanup;
+    memset(&context, 0, sizeof(context));
+    context.recipe_path = recipe_path;
+    context.recipe_source = source;
+    context.name = "edit-assert-test";
+    context.version = "1";
+    context.release = 1;
+    context.arch = "x86_64";
+    context.src = src;
+    context.build = build;
+    context.dest = dest;
+    context.jobs = 1;
+    context.working_directory = src;
+    for (index = 0; index < phase->child_count; ++index) {
+        CbsNode *item = phase->children[index];
+        int success = item->kind == CBS_NODE_MKDIR || item->kind == CBS_NODE_WRITE ?
+                      cbs_execute_filesystem(item, &context) :
+                      cbs_execute_edit_assertion(item, &context);
+        if (!success)
+            goto cleanup;
+    }
+    join(path, sizeof(path), build, "input.bin");
+    if (!file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
+        goto cleanup;
+
+    memset(&operation, 0, sizeof(operation));
+    operation.location.path = recipe_path;
+    operation.location.line = 1;
+    operation.location.column = 1;
+    operation.kind = CBS_NODE_REPLACE;
+    operation.name = "${build}/input.bin";
+    operation.value = "new!";
+    operation.second_value = "wrong";
+    operation.flag = CBS_TOKEN_STRING;
+    operation.second_flag = CBS_TOKEN_STRING;
+    operation.number = 1;
+    if (!expected_failure(&operation, &context, "CPDL-E4005") ||
+        !file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
+        goto cleanup;
+    operation.number = 3;
+    if (!expected_failure(&operation, &context, "CPDL-E4005") ||
+        !file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
+        goto cleanup;
+
+    join(path, sizeof(path), build, "binary");
+    if (!write_binary(path))
+        goto cleanup;
+    operation.name = "${build}/binary";
+    operation.value = "old";
+    operation.second_value = "new";
+    operation.number = 1;
+    if (!cbs_execute_edit_assertion(&operation, &context) ||
+        !file_equals(path, edited_binary, sizeof(edited_binary), 0600))
+        goto cleanup;
+
+    operation.kind = CBS_NODE_REQUIRE;
+    operation.name = "glob";
+    operation.value = "${build}/matches/*";
+    operation.number = 1;
+    operation.flag = 0;
+    if (!expected_failure(&operation, &context, "CPDL-E4005"))
+        goto cleanup;
+
+    operation.kind = CBS_NODE_REPLACE;
+    operation.name = "${dest}/../outside/escaped";
+    operation.value = "x";
+    operation.second_value = "y";
+    operation.number = 1;
+    operation.flag = CBS_TOKEN_STRING;
+    if (!expected_failure(&operation, &context, "CPDL-E4004"))
+        goto cleanup;
+    result = 0;
+
+cleanup:
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(source);
+    return result;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 2) {
+        fputs("usage: edit-assert-test RECIPE.cbs\n", stderr);
+        return 2;
+    }
+    if (run_test(argv[1]) != 0) {
+        fputs("source edit and assertion tests: FAIL\n", stderr);
+        return 1;
+    }
+    puts("source edit and assertion tests: PASS (cardinality and atomicity)");
+    return 0;
+}

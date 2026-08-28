@@ -26,3 +26,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #2: CPDL lexer, parser, AST, and validator](reviews/issue-0002-validation.md)
 - [Issue #3: Direct `run` execution](reviews/issue-0003-validation.md)
 - [Issue #4: CPDL filesystem vocabulary](reviews/issue-0004-validation.md)
+- [Issue #5: Source edits and assertions](reviews/issue-0005-validation.md)

@@ -1,0 +1,35 @@
+package "edit-assert-test" {
+    version "1"
+    release 1
+
+    build {
+        mkdir "${build}/matches"
+        write "${build}/input.bin" "old middle old" chmod 0640
+        write "${build}/matches/a" "a"
+        write "${build}/matches/b" "b"
+        replace "${build}/input.bin" {
+            from "old"
+            to "new"
+            exactly 2
+        }
+        insert "${build}/input.bin" {
+            after "new"
+            write "!"
+            exactly 2
+        }
+        require file "${build}/input.bin" {
+            exists
+            contains "new! middle"
+            contains "middle new!"
+        }
+        require directory "${build}/matches" {
+            exists
+        }
+        require glob "${build}/matches/*" {
+            count 2
+        }
+        require glob "${build}/matches/*.missing" {
+            count 0
+        }
+    }
+}

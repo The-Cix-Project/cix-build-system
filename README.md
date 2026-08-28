@@ -8,10 +8,10 @@ lex, parse, and validate the complete CPDL 0.1 grammar without executing package
 phases.
 
 The production runtime implements direct `execve` execution for validated `run`
-AST nodes and the CPDL 0.1 filesystem vocabulary in C. Filesystem mutations are
-confined to CBS-supplied roots and do not invoke host utilities. These APIs are
-intentionally not exposed through a provisional CLI command; issue #20 will
-define the final command surface.
+AST nodes, the CPDL 0.1 filesystem vocabulary, and atomic source edits and
+assertions in C. Filesystem access is confined to CBS-supplied roots and does
+not invoke host utilities. These APIs are intentionally not exposed through a
+provisional CLI command; issue #20 will define the final command surface.
 
 ## Build
 

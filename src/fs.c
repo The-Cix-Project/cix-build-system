@@ -543,7 +543,8 @@ static int select_paths(const CbsNode *operation,
     return 1;
 }
 
-static int atomic_write(const char *path, const char *content, mode_t mode)
+static int atomic_write_bytes(const char *path, const unsigned char *content,
+                              size_t length, mode_t mode)
 {
     static const char suffix[] = "/.cbs-write-XXXXXX";
     char *template;
@@ -561,7 +562,6 @@ static int atomic_write(const char *path, const char *content, mode_t mode)
         return 0;
     }
     {
-        size_t length = strlen(content);
         size_t offset = 0;
         result = 1;
         while (offset < length) {
@@ -611,7 +611,9 @@ int cbs_execute_filesystem(const CbsNode *operation,
                                 operation->children[0]->value;
         second = cbs_resolve_value(operation->second_value, operation->flag,
                                    context);
-        result = atomic_write(first, second, parse_mode(mode_text, 0644));
+        result = atomic_write_bytes(first, (const unsigned char *)second,
+                                    strlen(second),
+                                    parse_mode(mode_text, 0644));
     } else if (operation->kind == CBS_NODE_SYMLINK) {
         first = resolve_path(operation->second_value, context, &root);
         second = cbs_resolve_value(operation->value,
@@ -680,5 +682,285 @@ failure:
     free(first);
     free(second);
     path_list_destroy(&paths);
+    return 0;
+}
+
+static void assertion_error(const CbsNode *operation,
+                            const CbsExecutionContext *context,
+                            const char *message)
+{
+    cbs_diagnostic(context->recipe_path, context->recipe_source,
+                   operation->location, "error", "CPDL-E4005",
+                   CBS_DIAG_RUNTIME, message);
+}
+
+static unsigned char *read_regular(const char *path, size_t *length,
+                                   mode_t *mode)
+{
+    struct stat status;
+    unsigned char *content;
+    size_t offset = 0;
+    int descriptor;
+
+    if (lstat(path, &status) != 0 || !S_ISREG(status.st_mode)) {
+        if (errno == 0)
+            errno = EINVAL;
+        return NULL;
+    }
+    if (status.st_size < 0 || (unsigned long long)status.st_size >
+        (unsigned long long)((size_t)-1) - 1) {
+        errno = EFBIG;
+        return NULL;
+    }
+    descriptor = open(path, O_RDONLY | O_NOFOLLOW);
+    if (descriptor < 0)
+        return NULL;
+    *length = (size_t)status.st_size;
+    content = cbs_allocate(*length + 1);
+    while (offset < *length) {
+        ssize_t received = read(descriptor, content + offset, *length - offset);
+        if (received < 0 && errno == EINTR)
+            continue;
+        if (received <= 0) {
+            close(descriptor);
+            free(content);
+            errno = received == 0 ? EIO : errno;
+            return NULL;
+        }
+        offset += (size_t)received;
+    }
+    if (close(descriptor) != 0) {
+        free(content);
+        return NULL;
+    }
+    content[*length] = '\0';
+    *mode = status.st_mode & 07777;
+    return content;
+}
+
+static size_t count_bytes(const unsigned char *content, size_t content_length,
+                          const unsigned char *needle, size_t needle_length)
+{
+    size_t count = 0;
+    size_t offset = 0;
+
+    if (needle_length == 0)
+        return 0;
+    while (offset + needle_length <= content_length) {
+        if (memcmp(content + offset, needle, needle_length) == 0) {
+            ++count;
+            offset += needle_length;
+        } else {
+            ++offset;
+        }
+    }
+    return count;
+}
+
+static int contains_bytes(const unsigned char *content, size_t content_length,
+                          const unsigned char *needle, size_t needle_length)
+{
+    if (needle_length == 0)
+        return 1;
+    return count_bytes(content, content_length, needle, needle_length) > 0;
+}
+
+static unsigned char *edited_content(const unsigned char *content,
+                                     size_t content_length,
+                                     const unsigned char *needle,
+                                     size_t needle_length,
+                                     const unsigned char *replacement,
+                                     size_t replacement_length,
+                                     size_t matches, int insert,
+                                     size_t *result_length)
+{
+    size_t addition = replacement_length + (insert ? needle_length : 0);
+    size_t removal = insert ? needle_length : needle_length;
+    size_t final_length;
+    unsigned char *result;
+    size_t source_offset = 0;
+    size_t result_offset = 0;
+
+    if (addition >= removal) {
+        size_t growth = addition - removal;
+        if (growth != 0 && matches > (((size_t)-1) - content_length) / growth) {
+            errno = EOVERFLOW;
+            return NULL;
+        }
+        final_length = content_length + matches * growth;
+    } else {
+        final_length = content_length - matches * (removal - addition);
+    }
+    result = cbs_allocate(final_length + 1);
+    while (source_offset < content_length) {
+        if (source_offset + needle_length <= content_length &&
+            memcmp(content + source_offset, needle, needle_length) == 0) {
+            if (insert) {
+                memcpy(result + result_offset, needle, needle_length);
+                result_offset += needle_length;
+            }
+            memcpy(result + result_offset, replacement, replacement_length);
+            result_offset += replacement_length;
+            source_offset += needle_length;
+        } else {
+            result[result_offset++] = content[source_offset++];
+        }
+    }
+    result[result_offset] = '\0';
+    *result_length = result_offset;
+    return result;
+}
+
+static int execute_edit(const CbsNode *operation,
+                        const CbsExecutionContext *context)
+{
+    const char *root;
+    char *path = resolve_path(operation->name, context, &root);
+    char *needle = cbs_resolve_value(operation->value, operation->flag, context);
+    char *replacement = cbs_resolve_value(operation->second_value,
+                                          operation->second_flag, context);
+    unsigned char *content = NULL;
+    unsigned char *result = NULL;
+    size_t content_length = 0;
+    size_t result_length = 0;
+    size_t matches;
+    mode_t mode = 0;
+    char message[256];
+    int success = 0;
+
+    if (path == NULL || !safe_parents(path, root))
+        goto filesystem_failure;
+    content = read_regular(path, &content_length, &mode);
+    if (content == NULL)
+        goto filesystem_failure;
+    matches = count_bytes(content, content_length,
+                          (const unsigned char *)needle, strlen(needle));
+    if (matches != (size_t)operation->number) {
+        snprintf(message, sizeof(message),
+                 "source edit expected %ld matches but found %lu",
+                 operation->number, (unsigned long)matches);
+        assertion_error(operation, context, message);
+        goto done;
+    }
+    result = edited_content(content, content_length,
+                            (const unsigned char *)needle, strlen(needle),
+                            (const unsigned char *)replacement,
+                            strlen(replacement), matches,
+                            operation->kind == CBS_NODE_INSERT, &result_length);
+    if (result == NULL)
+        goto filesystem_failure;
+    if (!atomic_write_bytes(path, result, result_length, mode))
+        goto filesystem_failure;
+    success = 1;
+    goto done;
+
+filesystem_failure:
+    fs_error(operation, context, operation->name, "source edit failed");
+done:
+    free(path);
+    free(needle);
+    free(replacement);
+    free(content);
+    free(result);
+    return success;
+}
+
+static int require_glob(const CbsNode *operation,
+                        const CbsExecutionContext *context)
+{
+    const char *root;
+    char *pattern = resolve_path(operation->value, context, &root);
+    PathList matches;
+    char message[256];
+    int success;
+
+    memset(&matches, 0, sizeof(matches));
+    if (pattern == NULL) {
+        fs_error(operation, context, operation->value,
+                 "assertion path resolution failed");
+        return 0;
+    }
+    collect_matches(root, pattern, &matches);
+    qsort(matches.items, matches.count, sizeof(*matches.items), compare_paths);
+    success = matches.count == (size_t)operation->number;
+    if (!success) {
+        snprintf(message, sizeof(message),
+                 "glob expected %ld matches but found %lu", operation->number,
+                 (unsigned long)matches.count);
+        assertion_error(operation, context, message);
+    }
+    free(pattern);
+    path_list_destroy(&matches);
+    return success;
+}
+
+static int require_path(const CbsNode *operation,
+                        const CbsExecutionContext *context)
+{
+    const char *root;
+    char *path = resolve_path(operation->value, context, &root);
+    struct stat status;
+    unsigned char *content = NULL;
+    size_t content_length = 0;
+    mode_t mode;
+    size_t index;
+    char message[256];
+    int success = 0;
+
+    if (path == NULL || !safe_parents(path, root) || lstat(path, &status) != 0)
+        goto failed;
+    if (strcmp(operation->name, "directory") == 0) {
+        if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode))
+            goto failed;
+        success = 1;
+        goto done;
+    }
+    if (!S_ISREG(status.st_mode) || S_ISLNK(status.st_mode))
+        goto failed;
+    content = read_regular(path, &content_length, &mode);
+    if (content == NULL)
+        goto failed;
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        char *needle = cbs_resolve_value(property->value, property->flag, context);
+        int present = contains_bytes(content, content_length,
+                                     (const unsigned char *)needle,
+                                     strlen(needle));
+        free(needle);
+        if (!present) {
+            snprintf(message, sizeof(message),
+                     "required file content %lu was not present",
+                     (unsigned long)(index + 1));
+            assertion_error(operation, context, message);
+            goto done;
+        }
+    }
+    success = 1;
+    goto done;
+
+failed:
+    snprintf(message, sizeof(message), "required %s `%s` does not exist",
+             operation->name, operation->value);
+    assertion_error(operation, context, message);
+done:
+    free(content);
+    free(path);
+    return success;
+}
+
+int cbs_execute_edit_assertion(const CbsNode *operation,
+                               const CbsExecutionContext *context)
+{
+    if (operation->kind == CBS_NODE_REPLACE ||
+        operation->kind == CBS_NODE_INSERT)
+        return execute_edit(operation, context);
+    if (operation->kind == CBS_NODE_REQUIRE) {
+        if (strcmp(operation->name, "glob") == 0)
+            return require_glob(operation, context);
+        return require_path(operation, context);
+    }
+    errno = EINVAL;
+    fs_error(operation, context, operation->value,
+             "invalid edit or assertion operation");
     return 0;
 }

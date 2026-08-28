@@ -84,6 +84,7 @@ struct CbsNode {
     char *second_value;
     long number;
     int flag;
+    int second_flag;
     CbsNode **children;
     size_t child_count;
     size_t child_capacity;
@@ -149,6 +150,8 @@ char *cbs_resolve_value(const char *value, int token_kind,
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context);
+int cbs_execute_edit_assertion(const CbsNode *operation,
+                               const CbsExecutionContext *context);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

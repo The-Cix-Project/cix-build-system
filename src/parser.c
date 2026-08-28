@@ -87,6 +87,7 @@ static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token)
 {
     CbsNode *node = cbs_node_create(kind, token->location);
     node->value = cbs_duplicate(token->text);
+    node->flag = token->kind;
     return node;
 }
 
@@ -372,8 +373,12 @@ static CbsNode *parse_edit(CbsParser *parser, int insert)
         node->name = cbs_duplicate(path->text);
     if (first != NULL)
         node->value = cbs_duplicate(first->text);
-    if (second != NULL)
+    if (first != NULL)
+        node->flag = first->kind;
+    if (second != NULL) {
         node->second_value = cbs_duplicate(second->text);
+        node->second_flag = second->kind;
+    }
     if (count != NULL)
         node->number = strtol(count->text, NULL, 10);
     return node;

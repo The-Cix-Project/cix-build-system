@@ -36,6 +36,12 @@ test: $(TARGET)
 		src/validate.o -o tests/fs-test
 	./tests/fs-test tests/fixtures/execution/filesystem.cbs
 	rm -f tests/fs-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/edit-assert-test.c \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/validate.o -o tests/edit-assert-test
+	./tests/edit-assert-test tests/fixtures/execution/edit-assert.cbs
+	rm -f tests/edit-assert-test
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test
+	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
+		tests/edit-assert-test
