@@ -69,3 +69,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #32: Seed provenance](reviews/issue-0032-validation.md)
 - [ADR-0014: Seed transition](adr/0014-seed-transition.md)
 - [Issue #33: Seed transition](reviews/issue-0033-validation.md)
+- [Issue #34: Dependency-cycle gate](reviews/issue-0034-validation.md)
