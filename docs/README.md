@@ -97,3 +97,5 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0026: Structural build dependencies](adr/0026-structural-build-dependencies.md)
 - [Issue #48: Structural build dependencies](reviews/issue-0048-validation.md)
 - [Issue #49: Recipe migration](reviews/issue-0049-validation.md)
+- [ADR-0027: Shell build retirement](adr/0027-shell-retirement.md)
+- [Issue #50: Shell build retirement](reviews/issue-0050-validation.md)
