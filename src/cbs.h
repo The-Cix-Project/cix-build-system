@@ -232,6 +232,8 @@ typedef int (*CbsSignatureVerifier)(const unsigned char *data, size_t length,
                                     void *user);
 int cbs_verify_signature(CbsSignatureVerifier verifier, const char *path,
                          void *user);
+int cbs_transaction(CbsSandboxHook prepare, CbsSandboxHook commit,
+                    const char *root, void *user);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write(const char *payload, const char *package_path,

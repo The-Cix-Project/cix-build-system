@@ -10,6 +10,7 @@ SOURCES := \
 	src/service.c \
 	src/observe.c \
 	src/signature.c \
+	src/transaction.c \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \
