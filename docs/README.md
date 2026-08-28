@@ -70,3 +70,7 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0014: Seed transition](adr/0014-seed-transition.md)
 - [Issue #33: Seed transition](reviews/issue-0033-validation.md)
 - [Issue #34: Dependency-cycle gate](reviews/issue-0034-validation.md)
+- [ADR-0015: CBS and cixd boundary](adr/0015-cixd-boundary.md)
+- [Issue #35: CBS and cixd boundary](reviews/issue-0035-validation.md)
+- [ADR-0016: Sandbox ownership](adr/0016-sandbox-owner.md)
+- [Issue #36: Sandbox ownership](reviews/issue-0036-validation.md)
