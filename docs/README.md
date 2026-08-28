@@ -141,3 +141,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Standalone CBS 0.1 language specification](spec/standalone-cbs-0.1.md)
 - [Issue #86: Standalone language scope](reviews/issue-0086-validation.md)
 - [Issue #87: Standalone build command](reviews/issue-0087-validation.md)
+- [Issue #88: Standalone workspace policy](reviews/issue-0088-validation.md)
