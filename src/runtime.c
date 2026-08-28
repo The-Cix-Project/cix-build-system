@@ -2,6 +2,14 @@
 
 #include "cbs.h"
 
+long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit)
+{
+    long result = requested > 0 ? requested : 1;
+    if (cpu_budget > 0 && result > cpu_budget) result = cpu_budget;
+    if (administrator_limit > 0 && result > administrator_limit) result = administrator_limit;
+    return result > 0 ? result : 1;
+}
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

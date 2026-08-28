@@ -70,6 +70,10 @@ test: $(TARGET)
 		-larchive -o tests/archive-test
 	./tests/archive-test
 	rm -f tests/archive-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/jobs-test.c src/ast.o src/diag.o src/exec.o \
+		src/fs.o src/lexer.o src/parser.o src/runtime.o src/validate.o -o tests/jobs-test
+	./tests/jobs-test
+	rm -f tests/jobs-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -84,4 +88,5 @@ clean:
 	rm -f tests/source-test
 	rm -f tests/fetch-test
 	rm -f tests/archive-test
+	rm -f tests/jobs-test
 	rm -f tests/dependency-test

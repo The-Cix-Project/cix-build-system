@@ -44,3 +44,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #15: Digest kinds](reviews/issue-0015-validation.md)
 - [ADR-0007: Build sandbox and dependency observation](adr/0007-build-sandbox-and-dependency-observation.md)
 - [Issue #16: Sandbox and dependency decision](reviews/issue-0016-validation.md)
+- [Issue #17: Jobs ceiling](reviews/issue-0017-validation.md)

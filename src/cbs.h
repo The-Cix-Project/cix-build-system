@@ -205,6 +205,7 @@ char *cbs_resolve_confined_path(const char *logical,
                                 const CbsExecutionContext *context);
 int cbs_execute_block(const CbsNode *block,
                       const CbsExecutionContext *context);
+long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit);
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,
                                CbsPackageIdentity *identity);
