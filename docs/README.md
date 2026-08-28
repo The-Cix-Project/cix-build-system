@@ -77,3 +77,5 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0017: Image model](adr/0017-image-model.md)
 - [Issue #37: Image model](reviews/issue-0037-validation.md)
 - [Issue #38: Manifest-derived images](reviews/issue-0038-validation.md)
+- [ADR-0018: Container recipes and CPDL](adr/0018-container-recipes.md)
+- [Issue #39: Container recipe relationship](reviews/issue-0039-validation.md)
