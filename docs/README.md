@@ -61,3 +61,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #27: Repository and transaction policy](reviews/issue-0027-validation.md)
 - [ADR-0011: Stage-0 library admissions](adr/0011-stage0-library-admissions.md)
 - [Issue #28: Stage-0 library admissions](reviews/issue-0028-validation.md)
+- [ADR-0012: Stage-zero entry point](adr/0012-stage-zero-entry-point.md)
+- [Issue #29: Stage-zero entry point](reviews/issue-0029-validation.md)
