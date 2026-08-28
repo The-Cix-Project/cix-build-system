@@ -60,6 +60,11 @@ test: $(TARGET)
 		src/validate.o -o tests/source-test
 	./tests/source-test tests/fixtures/execution/sources.cbs
 	rm -f tests/source-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fetch-test.c \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/validate.o -o tests/fetch-test
+	./tests/fetch-test tests/fixtures/execution/sources.cbs
+	rm -f tests/fetch-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -72,4 +77,5 @@ clean:
 	rm -f tests/runtime-test
 	rm -f tests/identity-test
 	rm -f tests/source-test
+	rm -f tests/fetch-test
 	rm -f tests/dependency-test

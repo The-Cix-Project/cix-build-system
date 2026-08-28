@@ -37,3 +37,4 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0004: Native helper governance](adr/0004-native-helper-governance.md)
 - [Native helper registry](native-helpers.md)
 - [ADR-0005: Source networking boundary](adr/0005-source-networking-boundary.md)
+- [Issue #12: Verified source fetching](reviews/issue-0012-validation.md)

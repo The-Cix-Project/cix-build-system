@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 typedef struct {
     uint32_t state[8];
@@ -79,4 +81,70 @@ int cbs_source_verify(CbsSource *source,const char *path,const char *recipe_path
 int cbs_sources_apply_execution_context(CbsSourceSet *set,CbsExecutionContext *context)
 {
     size_t i;for(i=0;i<set->count;++i)if(set->items[i].verified_path==NULL)return 0;free(set->bindings);set->bindings=cbs_allocate(set->count*sizeof(*set->bindings));for(i=0;i<set->count;++i){set->bindings[i].name=set->items[i].name;set->bindings[i].path=set->items[i].verified_path;}context->sources=set->bindings;context->source_count=set->count;return 1;
+}
+
+int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
+                      const CbsFetchService *service, const char *recipe_path,
+                      const char *recipe_source, CbsLocation location)
+{
+    size_t source_index, url_index;
+    char cache_path[4096], temporary_path[4096], error[256], message[768];
+    const char *last_url = "none";
+    int descriptor;
+
+    if (cache_directory == NULL)
+        return 0;
+    for (source_index = 0; source_index < set->count; ++source_index) {
+        CbsSource *source = &set->items[source_index];
+        int verified = 0;
+        if (snprintf(cache_path, sizeof(cache_path), "%s/%s",
+                     cache_directory, source->sha256) >= (int)sizeof(cache_path))
+            return 0;
+        if (access(cache_path, R_OK) == 0 &&
+            cbs_source_verify(source, cache_path, recipe_path, recipe_source,
+                              location))
+            continue;
+        unlink(cache_path);
+        if (service == NULL || service->fetch == NULL) {
+            snprintf(message, sizeof(message),
+                     "source `%s` is not cached and networking is unavailable",
+                     source->name);
+            cbs_diagnostic(recipe_path, recipe_source, location, "error",
+                           "CPDL-E5001", CBS_DIAG_SOURCE, message);
+            return 0;
+        }
+        for (url_index = 0; url_index < source->url_count; ++url_index) {
+            last_url = source->urls[url_index];
+            if (snprintf(temporary_path, sizeof(temporary_path),
+                         "%s/.cbs-fetch-XXXXXX", cache_directory) >=
+                (int)sizeof(temporary_path))
+                return 0;
+            descriptor = mkstemp(temporary_path);
+            if (descriptor < 0)
+                continue;
+            close(descriptor);
+            error[0] = '\0';
+            if (service->fetch(source->urls[url_index], temporary_path,
+                               service->user, error, sizeof(error)) &&
+                cbs_source_verify(source, temporary_path, recipe_path,
+                                  recipe_source, location) &&
+                rename(temporary_path, cache_path) == 0) {
+                free(source->verified_path);
+                source->verified_path = cbs_duplicate(cache_path);
+                verified = 1;
+                break;
+            }
+            unlink(temporary_path);
+        }
+        if (!verified) {
+            snprintf(message, sizeof(message),
+                     "source `%s` could not be fetched from `%s`; cause: %s",
+                     source->name, last_url,
+                     error[0] == '\0' ? "all mirrors failed" : error);
+            cbs_diagnostic(recipe_path, recipe_source, location, "error",
+                           "CPDL-E5001", CBS_DIAG_SOURCE, message);
+            return 0;
+        }
+    }
+    return 1;
 }

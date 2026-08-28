@@ -140,6 +140,14 @@ typedef struct {
     CbsNamedSource *bindings;
 } CbsSourceSet;
 
+typedef int (*CbsFetchFunction)(const char *url, const char *destination,
+                                void *user, char *error, size_t error_size);
+
+typedef struct {
+    CbsFetchFunction fetch;
+    void *user;
+} CbsFetchService;
+
 typedef struct {
     const char *role;
     const char *kind;
@@ -213,6 +221,10 @@ int cbs_source_verify(CbsSource *source, const char *path,
                       CbsLocation location);
 int cbs_sources_apply_execution_context(CbsSourceSet *sources,
                                         CbsExecutionContext *context);
+int cbs_sources_fetch(CbsSourceSet *sources, const char *cache_directory,
+                      const CbsFetchService *service,
+                      const char *recipe_path, const char *recipe_source,
+                      CbsLocation location);
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);
 void cbs_dependency_set_destroy(CbsDependencySet *dependencies);
