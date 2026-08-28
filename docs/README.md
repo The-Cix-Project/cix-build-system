@@ -101,3 +101,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #50: Shell build retirement](reviews/issue-0050-validation.md)
 - [ADR-0028: Legacy shell artifacts](adr/0028-legacy-artifacts.md)
 - [Issue #51: Legacy artifact policy](reviews/issue-0051-validation.md)
+- [ADR-0029: ADR supersession](adr/0029-adr-supersession.md)
+- [Issue #52: ADR supersession](reviews/issue-0052-validation.md)
+- [ADR-0030: Release default](adr/0030-release-default.md)
+- [Issue #53: Release default](reviews/issue-0053-validation.md)
