@@ -20,10 +20,12 @@ policy and machinery around that definition, including source acquisition,
 sandboxing, resource limits, hashing, manifests, normalization, packaging,
 artifact retrieval, verification, installation, and file ownership.
 
-CBS will be implemented in C, must compile with TCC, and will have no external
-userspace runtime or tool dependencies for its own core operations. Package
-builds may invoke tools declared by their CPDL definitions; those are package
-dependencies, not CBS dependencies.
+CBS will be implemented in C and compiled with TCC. TCC is the sole permitted
+external seed compiler throughout the Cix build lineage: it is a constitutional
+project constraint, not a default from which individual packages may opt out.
+CBS will also have no external userspace runtime or tool dependencies for its
+own core operations. Package builds may invoke non-compiler tools declared by
+their CPDL definitions; those are package dependencies, not CBS dependencies.
 
 CBS will turn the staged tree into one deterministic, self-describing,
 compressed `.cixpkg` file suitable for distribution. CPDL recipes do not script
@@ -109,9 +111,26 @@ CBS therefore owns, in C, the functionality needed for its job, including:
 - manifest generation and verification; and
 - `.cixpkg` creation, compression, inspection, verification, and installation.
 
-An upstream build system may require `make`, `m4`, a compiler, or other declared
-inputs. These belong to the package's build environment and do not weaken the
-CBS bootstrap boundary.
+An upstream build system may require `make`, `m4`, and other declared inputs.
+These belong to the package's build environment and do not weaken the CBS
+bootstrap boundary. Compiler requirements remain subject to the TCC rule below.
+
+### TCC, always
+
+Every Cix build lineage starts with TCC. CBS, first-party helpers, bootstrap
+utilities, and packages that require a seed C compiler must use TCC. CBS must
+not discover or fall back to an ambient GCC, Clang, or another host compiler.
+CPDL must not provide a mechanism for recipes to waive this rule.
+
+A package may build a new compiler and then use that compiler for its own
+upstream-required self-hosting stages, provided the entire lineage began with
+TCC and CBS records that lineage. The newly built compiler is an output of the
+TCC-rooted build, not an external seed.
+
+If a package cannot currently be built from TCC, that package is unsupported or
+the TCC-rooted bootstrap work is incomplete. CBS must fail clearly. Difficulty,
+build time, or an ambient compiler already being present are never grounds for
+an exception.
 
 ### Determinism and trust
 
@@ -245,7 +264,7 @@ requires {
     }
 
     bootstrap {
-        compiler "gcc"
+        compiler "tcc"
     }
 }
 ```
@@ -289,6 +308,9 @@ validation use operations such as `replace`, `insert`, `require`, and explicit
 `on_fail` runs diagnostics without consuming or replacing the original failure.
 `allow_failure` must be explicit for a diagnostic command whose failure is
 acceptable.
+
+The `bootstrap` role records an exceptional stage in a package's compiler
+lineage; it does not permit selecting an external seed compiler other than TCC.
 
 Package-specific native helpers may temporarily cover genuinely exceptional
 operations. Helpers must be named, audited CBS capabilities—not arbitrary shell
@@ -349,6 +371,7 @@ Exact command behavior and repository operations will be specified separately.
 - Simple packages remain small while difficult packages retain controlled escape
   hatches.
 - CBS forms a clear and auditable bootstrap boundary for Cix.
+- Every compiler lineage has one invariant, auditable TCC root.
 - Installation does not require evaluating the package's CPDL definition.
 
 ### Costs and risks
@@ -374,6 +397,13 @@ quoting, error propagation, and repeated policy implementations.
 
 Rejected because it expands the bootstrap and audit surface and provides far
 more capability than package definitions require.
+
+### Permit package-specific host compiler exceptions
+
+Rejected. Ambient GCC, Clang, or other compiler fallbacks would make Cix's
+bootstrap result depend on undeclared host state and would violate the single
+TCC-rooted lineage. Packages that expose TCC limitations remain explicit work
+to complete rather than exceptions to conceal.
 
 ### Make packaging a CPDL phase
 
@@ -416,8 +446,9 @@ that:
 
 - CBS and CPDL are separate components with the responsibility boundary above;
 - CBS core operations have zero external userspace dependencies;
+- TCC is the sole external seed compiler, with no per-package exceptions or
+  ambient compiler fallback;
 - CPDL has no implicit shell and is not a general-purpose language;
 - dependencies have explicit lifecycle roles;
 - `$dest` is the CPDL/CBS packaging boundary; and
 - CBS owns a deterministic, single-file `.cixpkg` artifact.
-
