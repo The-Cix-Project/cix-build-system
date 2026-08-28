@@ -15,3 +15,11 @@ This directory contains the architecture and language documentation for:
 ADRs record decisions, their rationale, their consequences, and any questions
 that remain deliberately undecided. Once accepted, an ADR is not rewritten to
 hide a changed decision; a later ADR supersedes it.
+
+## Specifications
+
+- [CPDL 0.1 language specification](spec/cpdl-0.1.md)
+
+## Validation records
+
+- [Issue #1: CPDL 0.1 grammar and diagnostics](reviews/issue-0001-validation.md)

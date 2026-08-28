@@ -1,0 +1,847 @@
+# CPDL 0.1 language specification
+
+- Status: Normative
+- Version: 0.1
+- Date: 2026-08-28
+- File extension: `.cbs`
+
+## 1. Purpose and conformance
+
+The Cix Package Definition Language (CPDL) defines how CBS turns named,
+verified inputs into a staged package tree. CPDL is deliberately not a general
+programming language. CBS owns fetching, verification, sandbox policy,
+normalization, manifest generation, packaging, and installation.
+
+This document is normative for CPDL 0.1. The words **must**, **must not**,
+**should**, and **may** carry their usual requirements meanings.
+
+A conforming implementation must:
+
+1. accept every document described as valid by this specification;
+2. reject every document that violates a lexical, grammar, or validation rule;
+3. validate a complete document without executing any phase;
+4. execute commands without invoking a shell or shell-compatible parser; and
+5. produce diagnostics and process exit statuses in the forms specified here.
+
+CBS package definition files use only the `.cbs` extension, as decided by
+ADR-0003. `.cpdl` is not an alias.
+
+## 2. Source text and lexical grammar
+
+### 2.1 Encoding and positions
+
+A source file must be valid UTF-8. A byte-order mark is not permitted. Invalid
+UTF-8 is a lexical error.
+
+Line numbering and column numbering begin at 1. A column counts Unicode scalar
+values, not UTF-8 bytes. A tab advances the column to the next 8-column tab stop
+for diagnostic display, although tabs outside strings otherwise behave as
+ordinary whitespace.
+
+The line endings LF and CRLF are accepted. CBS normalizes CRLF to LF before
+lexing. A bare CR is a lexical error.
+
+### 2.2 Notation
+
+The grammar uses this EBNF notation:
+
+```text
+name        = a grammar production
+"text"      = literal source text
+[ item ]    = zero or one item
+{ item }    = zero or more items
+item | item = alternatives
+```
+
+Whitespace and comments may appear between tokens unless a production says
+otherwise. They are not permitted inside a token.
+
+### 2.3 Whitespace and comments
+
+```ebnf
+whitespace = " " | "\t" | "\n" ;
+comment    = "#", { any character except "\n" }, [ "\n" ] ;
+
+digit         = "0"…"9" ;
+nonzero-digit = "1"…"9" ;
+octal-digit   = "0"…"7" ;
+hex-digit     = digit | "A"…"F" | "a"…"f" ;
+```
+
+Comments have no semantic value. CPDL 0.1 has no block comments.
+
+### 2.4 Identifiers and keywords
+
+```ebnf
+identifier       = identifier-start, { identifier-continue } ;
+identifier-start = "A"…"Z" | "a"…"z" | "_" ;
+identifier-continue = identifier-start | "0"…"9" | "-" ;
+```
+
+Identifiers are ASCII and case-sensitive. All keywords are lowercase. A
+keyword cannot be used where the grammar requires an identifier.
+
+The complete CPDL 0.1 keyword set is:
+
+```text
+allow_failure  after      any           architecture  as          bootstrap
+build          cd         check         chmod       compiler
+configure      contains   copy          count       directory
+env            exactly    exit          exists      expect
+extra          extract    file          from        glob          headers
+insert         into       jobs           library     main
+mkdir          move       on_fail        package     prepare
+release        remove     replace        require     requires
+run            runtime    sha256         source      sources
+symlink        test       timeout        to          tool
+tree           url        version        write
+```
+
+Keywords reserved for later versions are not silently accepted. An unknown
+word is an identifier only in the few positions where this grammar explicitly
+permits one.
+
+### 2.5 Integers, modes, and durations
+
+```ebnf
+integer  = "0" | nonzero-digit, { digit } ;
+mode     = "0", octal-digit, octal-digit, octal-digit
+         | "0", octal-digit, octal-digit, octal-digit, octal-digit ;
+duration = integer, ( "ms" | "s" | "m" | "h" ) ;
+```
+
+Integers are unsigned decimal values in the inclusive range 0 through
+2,147,483,647. Leading zeroes are forbidden except for the value `0` and mode
+tokens. Modes are octal permission bits from `0000` through `07777`; file-type
+bits are forbidden.
+
+A duration must be greater than zero. Its suffix means milliseconds, seconds,
+minutes, or hours. Whitespace is not permitted between the integer and suffix.
+
+### 2.6 Strings
+
+#### Quoted strings
+
+```ebnf
+string = '"', { string-character | escape }, '"' ;
+escape = "\\" ( '"' | "\\" | "n" | "r" | "t" | "0"
+               | "x", hex-digit, hex-digit
+               | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
+
+string-character = any Unicode scalar value except '"', "\\", "\n",
+                   control characters, and NUL ;
+block-string = opening-block-delimiter, block-content,
+               closing-block-delimiter ;
+opening-block-delimiter = '"""', "\n" ;
+closing-block-delimiter = line-indentation, '"""', [ "\n" ] ;
+```
+
+`block-content` and `line-indentation` are governed by the contextual indentation
+rules below; they cannot be expressed by context-free EBNF alone.
+
+An unescaped newline or control character is forbidden inside a quoted string.
+NUL is not allowed in source text. The `\0` and `\x00` escapes are also forbidden
+because CPDL strings must be representable as process arguments and filesystem
+paths. A `\u` escape that denotes a surrogate or zero is invalid.
+
+Unknown escapes are lexical errors. In particular, `\$` is invalid and is not
+needed: a dollar sign has no special meaning unless it begins the exact
+interpolation syntax below.
+
+#### Block strings
+
+A block string is intended for generated files and source-edit text:
+
+```text
+"""
+first line
+second line
+"""
+```
+
+The opening delimiter must be followed immediately by LF. The closing `"""`
+must be the only non-whitespace text on its line. Its indentation prefix is
+removed from every non-blank content line; a non-blank line with less indentation
+is a lexical error. Blank lines have all indentation removed. The LF immediately
+before the closing delimiter is part of the value. No escapes or interpolation
+are processed inside a block string. The three-byte sequence `"""` cannot occur
+in its content.
+
+#### Interpolation
+
+Quoted strings, but not block strings, support explicit CBS interpolation:
+
+```text
+${name}       ${version}    ${release}    ${arch}
+${src}        ${build}      ${dest}       ${jobs}
+${source.gmp}
+```
+
+Only the exact `${...}` form interpolates. `$`, `$name`, `$(command)`, shell
+metacharacters, quotes, spaces, `*`, and `;` are ordinary string bytes. A `${`
+sequence that does not name an allowed CBS value is a validation error.
+
+Interpolation produces one value and never causes word splitting or globbing.
+For example, `"--prefix=${dest}/usr tree"` remains one argument even when its
+result contains spaces.
+
+### 2.7 CBS values
+
+```ebnf
+cbs-value = "$name" | "$version" | "$release" | "$arch"
+          | "$src" | "$build" | "$dest" | "$jobs"
+          | "$source.", identifier ;
+value     = string | block-string | cbs-value | integer ;
+text-value = string | block-string | cbs-value ;
+path-value = string | cbs-value ;
+```
+
+A bare CBS value is a typed value, not shell syntax. `$release` and `$jobs` are
+integers; the other supplied values are strings. `$source.NAME` is valid only
+when `NAME` names a source declared in the same package.
+
+## 3. Document grammar
+
+### 3.1 Top level
+
+```ebnf
+document = package-declaration, end-of-file ;
+
+package-declaration = "package", string, "{",
+                      { package-item },
+                      "}" ;
+
+package-item = version-declaration
+             | release-declaration
+             | architecture-declaration
+             | sources-declaration
+             | requires-declaration
+             | prepare-phase
+             | configure-phase
+             | build-phase
+             | check-phase
+             | install-phase ;
+
+version-declaration      = "version", string ;
+release-declaration      = "release", integer ;
+architecture-declaration = "architecture", ( string | "any" ) ;
+```
+
+A document contains exactly one package declaration and no trailing tokens.
+Semicolons and commas are not part of CPDL.
+
+The package name, version, and release are required. Architecture is optional;
+when omitted, CBS supplies the build target architecture. `architecture any`
+declares architecture-independent output. A quoted architecture fixes an exact
+architecture and must equal the CBS build target.
+
+Each package-level declaration may appear at most once. Package items must
+appear in the canonical order shown by `package-item`: identity, sources,
+requirements, then the five phases. An omitted optional item does not affect
+the order of later items.
+
+Package names must match:
+
+```text
+[a-z0-9][a-z0-9+.-]*
+```
+
+They may not be `.` or `..`. Versions are non-empty UTF-8 strings without NUL,
+`/`, or ASCII whitespace. Release must be greater than zero.
+
+### 3.2 Sources
+
+```ebnf
+sources-declaration = "sources", "{", source-declaration,
+                      { source-declaration }, "}" ;
+
+source-declaration = source-kind, string, "{",
+                     source-url, source-sha256,
+                     "}" ;
+
+source-kind   = "main" | "extra" ;
+source-url    = "url", string ;
+source-sha256 = "sha256", string ;
+```
+
+A `sources` block contains exactly one `main` source and zero or more `extra`
+sources. Source names are unique identifiers expressed as strings; after escape
+processing they must match the package-name pattern above. Source declarations
+must place `url` before `sha256`, each exactly once.
+
+URLs must be absolute and use a scheme enabled by CBS policy. The grammar does
+not select permitted network schemes. A SHA-256 value must contain exactly 64
+lowercase hexadecimal digits.
+
+CBS fetches and verifies all declared sources. It extracts the main source into
+`$src`. Extra sources remain named verified inputs available as `$source.NAME`
+until an explicit `extract` operation uses them.
+
+### 3.3 Dependencies
+
+```ebnf
+requires-declaration = "requires", "{", { dependency-group }, "}" ;
+
+dependency-group = dependency-role, "{", { dependency }, "}" ;
+dependency-role  = "build" | "runtime" | "test" | "bootstrap" ;
+
+dependency      = dependency-kind, string ;
+dependency-kind = "tool" | "library" | "headers" | "compiler" | "package" ;
+```
+
+Each role may occur at most once and groups must appear in the role order shown
+above. A dependency tuple of role, kind, and name must be unique. Dependency
+names follow the package-name pattern.
+
+The meanings are:
+
+- `build`: required throughout package construction, including `check`;
+- `runtime`: required for the installed package's intended function;
+- `test`: added only for `check`;
+- `bootstrap`: a compiler-lineage seed requirement.
+
+The only external compiler dependency permitted by CPDL 0.1 is
+`compiler "tcc"`. A different compiler name in any dependency role is a
+validation error. A compiler produced inside a TCC-rooted build may be invoked
+by later phases without becoming an external dependency.
+
+## 4. Phases and operations
+
+### 4.1 Phase grammar
+
+```ebnf
+prepare-phase   = "prepare", operation-block ;
+configure-phase = "configure", operation-block ;
+build-phase     = "build", operation-block ;
+check-phase     = "check", operation-block ;
+install-phase   = "install", operation-block ;
+
+operation-block = "{", { operation }, [ on-fail ], "}" ;
+
+operation = run-operation
+          | cd-operation
+          | environment-operation
+          | mkdir-operation
+          | copy-operation
+          | move-operation
+          | remove-operation
+          | symlink-operation
+          | write-operation
+          | chmod-operation
+          | extract-operation
+          | replace-operation
+          | insert-operation
+          | require-operation ;
+
+on-fail = "on_fail", "{", { diagnostic-operation }, "}" ;
+
+diagnostic-operation = run-operation
+                     | require-operation ;
+```
+
+Each phase is optional and may occur at most once. Present phases appear in the
+fixed order `prepare`, `configure`, `build`, `check`, `install`. Operations
+execute in source order.
+
+An `on_fail` block may occur only once and only as the final member of its phase
+or `cd` block. It executes only after an operation in its associated block
+fails. It never changes the original failure into success. A failing diagnostic
+is reported as a note attached to the original failure.
+
+The environment at package start is constructed by CBS policy, not inherited
+implicitly from the invoking process. A phase receives a copy of that environment.
+CBS creates `$src`, `$build`, and `$dest` before phase execution. Every phase
+begins with `$src` as its directory context; recipes select an out-of-tree build
+directory explicitly with `cd $build { ... }`.
+
+### 4.2 `run`
+
+```ebnf
+run-operation = "run", text-value, "{", { run-item }, "}" ;
+
+run-item = argument
+         | run-environment
+         | run-jobs
+         | run-timeout
+         | run-expect
+         | "allow_failure" ;
+
+argument        = text-value ;
+run-environment = "env", string, "=", text-value ;
+run-jobs        = "jobs", ( integer | "$jobs" ) ;
+run-timeout     = "timeout", duration ;
+run-expect      = "expect", "exit", integer ;
+```
+
+The first value names the executable. Each bare `text-value` in the block adds
+exactly one argument in source order. The executable and arguments must not
+contain NUL.
+
+CBS constructs `argv` as:
+
+```text
+argv[0] = resolved executable value
+argv[1..n] = resolved argument values
+argv[n+1] = NULL
+```
+
+CBS passes this vector directly to the operating-system process execution
+interface. It must not invoke `sh`, `bash`, `env`, or another command
+interpreter on the recipe's behalf. CBS performs no shell parsing, field
+splitting, command substitution, pipeline construction, or implicit glob
+expansion.
+
+A recipe may execute a verified upstream script such as `./configure`; in that
+case the script is a named source input and the kernel honors its interpreter
+header. A recipe must not name a command interpreter as a `run` executable to
+embed recipe logic in an argument. CBS validation rejects the literal basenames
+`sh`, `bash`, `dash`, `ash`, `ksh`, `zsh`, and `env`. CBS runtime validation
+applies the same check to the resolved executable name. This rule prevents a shell
+escape in CPDL while allowing upstream build systems that are themselves
+scripts.
+
+The executable is resolved using the phase environment's deterministic `PATH`
+when it contains no `/`. A value containing `/` is resolved relative to the
+current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
+`system`, and `popen` are not conforming execution paths because they admit
+ambient environment or shell behavior.
+
+`env "NAME" = value` creates or replaces one command-local environment binding.
+It does not affect later commands. Names must match `[A-Z_][A-Z0-9_]*`; duplicate
+names in one command are validation errors. Values are passed as literal bytes
+after CBS interpolation.
+
+`jobs N` declares the maximum concurrency the command may use. `N` must be
+positive and must not exceed `$jobs`; `$jobs` selects the CBS policy value. This
+metadata does not alter `argv` and does not invent a tool-specific flag. A build
+tool receives its jobs flag through an explicit argument such as
+`"-j${jobs}"`. CBS may use the declaration for resource accounting.
+
+At most one each of `jobs`, `timeout`, `expect`, and `allow_failure` may occur.
+The default expected exit status is 0. An expected status must be between 0 and
+255 inclusive. A non-matching status or terminating
+signal fails the operation. `allow_failure` records the result but permits the
+next operation to run; it is valid only inside `on_fail` in CPDL 0.1. It cannot
+hide a normal phase failure.
+
+A timeout terminates the complete CBS-created process group, waits for it to be
+reaped, and fails the operation. The grace period and signal sequence are CBS
+policy and must appear in the diagnostic.
+
+### 4.3 Environment and directory scope
+
+```ebnf
+environment-operation = "env", string, "=", text-value ;
+cd-operation          = "cd", path-value, operation-block ;
+```
+
+A block-level `env` binding applies from its declaration through the remainder
+of the current lexical block, including nested `cd` blocks. A nested binding
+shadows the outer value and the outer value is restored on leaving the block.
+Environment-name validation is the same as for command-local bindings.
+
+`cd` resolves its path in the current directory context and executes its block
+with that directory as the context. It does not change the CBS process working
+directory globally. Leaving the block restores the prior context even on failure.
+
+### 4.4 Filesystem operations
+
+```ebnf
+mkdir-operation   = "mkdir", path-value, [ "chmod", mode ] ;
+copy-operation    = "copy", source-selector, "to", path-value ;
+move-operation    = "move", source-selector, "to", path-value ;
+remove-operation  = "remove", [ "tree" ], source-selector ;
+symlink-operation = "symlink", path-value, "to", path-value ;
+write-operation   = "write", path-value, text-value, [ "chmod", mode ] ;
+chmod-operation   = "chmod", mode, source-selector ;
+
+source-selector = path-value | "glob", string ;
+```
+
+Paths are interpreted by CBS, never by a shell. A glob selector is evaluated by
+CBS using the CPDL glob rules in section 4.7. A non-glob selector always denotes
+one literal path, even when it contains `*`, `?`, or `[`.
+
+`mkdir` creates all missing path components. Existing directories are accepted;
+an existing non-directory fails. Its default final mode is `0755`, filtered only
+by explicit CBS policy recorded in build metadata.
+
+`copy` preserves file bytes and permission bits. A directory source is invalid;
+recursive directory copying is not in CPDL 0.1. Multiple glob matches require an
+existing directory destination. A single source follows the same destination
+rules as POSIX `cp` without dereferencing a source symlink.
+
+`move` is confined to one staged build filesystem and must not silently fall
+back to copy-and-delete across filesystems. `remove` removes files, empty
+directories, and symlinks. Removing a non-empty directory requires `tree`.
+
+`symlink TARGET to LINK_PATH` creates `LINK_PATH` with the exact target bytes.
+CBS does not canonicalize the target. An existing destination fails.
+
+`write` creates or replaces one regular file atomically within the build
+filesystem. Its default mode is `0644`. `chmod` changes permission bits without
+following a final symlink.
+
+Filesystem operations fail on zero glob matches unless their grammar includes
+an explicit cardinality assertion that permits zero. CPDL 0.1 provides no
+force, ignore-missing, or overwrite switch; accepted overwrite behavior is
+defined explicitly above.
+
+### 4.5 Extraction
+
+```ebnf
+extract-operation = "extract", source-reference,
+                    "into", path-value,
+                    [ "as", string ] ;
+
+source-reference = "$source.", identifier ;
+```
+
+`extract` accepts only a declared named source. CBS verifies the source before
+phase execution. It extracts beneath the `into` directory using the supported
+archive-format policy. `as "NAME"` requires the archive to contain one logical
+top-level directory and renames that directory to `NAME` after safe extraction.
+
+Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
+and entries escaping through symlinks are runtime failures. Exact archive
+formats and additional metadata rules are decided separately.
+
+### 4.6 Source edits
+
+```ebnf
+replace-operation = "replace", path-value, "{",
+                    "from", text-value,
+                    "to", text-value,
+                    "exactly", integer,
+                    "}" ;
+
+insert-operation = "insert", path-value, "{",
+                   "after", text-value,
+                   "write", text-value,
+                   "exactly", integer,
+                   "}" ;
+```
+
+`replace` counts non-overlapping byte-for-byte matches of `from`. The count must
+equal `exactly` before any mutation occurs. An empty `from` is invalid.
+
+`insert` counts non-overlapping byte-for-byte matches of `after`. The count must
+equal `exactly` before mutation. It inserts `write` immediately after every
+matched byte sequence. An empty `after` is invalid.
+
+Both operations read and replace a regular file atomically, preserve its mode,
+and fail without modifying it when validation, counting, reading, or writing
+fails. CPDL 0.1 source edits are byte operations; they do not implement regular
+expressions or locale-dependent text matching.
+
+### 4.7 Assertions and globs
+
+```ebnf
+require-operation = require-file
+                  | require-directory
+                  | require-glob ;
+
+require-file = "require", "file", path-value, "{",
+               "exists",
+               { "contains", text-value },
+               "}" ;
+
+require-directory = "require", "directory", path-value, "{",
+                    "exists",
+                    "}" ;
+
+require-glob = "require", "glob", string, "{",
+               "count", integer,
+               "}" ;
+```
+
+`require file` follows no final symlink and requires a regular file.
+`require directory` requires a directory. Each `contains` performs a literal
+byte search. `require glob` requires exactly the stated number of matches.
+
+CPDL globs recognize:
+
+- `?` for one non-`/` byte;
+- `*` for zero or more non-`/` bytes;
+- `**` as a complete path component for zero or more path components;
+- `[abc]` and `[a-z]` byte classes; and
+- `[!abc]` negated byte classes.
+
+Backslash quotes the next glob byte. An unterminated or empty class is a
+validation error. Matching is bytewise and case-sensitive. Results are sorted
+by unsigned UTF-8 byte order before an operation observes them. Hidden path
+components are not special. A glob never traverses a symlinked directory.
+
+## 5. Validation contract
+
+Parsing constructs a complete syntax tree without executing operations.
+Validation is a separate pass over that tree. A command that validates a file
+must not fetch sources, inspect the host filesystem, resolve dependencies, spawn
+processes, or run phase operations.
+
+Validation checks every statically decidable rule, including:
+
+- required, unique, and canonically ordered declarations;
+- package, source, dependency, and environment names;
+- source uniqueness and exactly one main source;
+- URL structure and SHA-256 spelling;
+- phase uniqueness and order;
+- dependency group uniqueness and TCC bootstrap policy;
+- the prohibition on command interpreters as `run` executables;
+- operation placement, option uniqueness, and typed values;
+- references to declared sources;
+- variable availability and interpolation spelling;
+- integer, mode, duration, and expected-exit ranges;
+- non-empty source-edit needles;
+- glob syntax; and
+- path rules that can be checked without accessing the filesystem.
+
+Validation reports all independent errors it can safely find in source order.
+A parse error may prevent recovery; recovery rules are implementation details,
+but CBS must never execute a partially parsed or invalid document.
+
+## 6. Path and value safety
+
+Source paths are UTF-8 strings without NUL. CBS normalizes repeated `/` and `.`
+components for resolution but retains the original spelling for diagnostics.
+`..` may not escape the current phase root. Absolute paths are permitted only
+when they begin with a CBS-supplied root (`$src`, `$build`, or `$dest`) after
+interpolation. This is checked again at operation time against filesystem links.
+
+The value `$dest` is available in all phases but writes outside phase-appropriate
+roots may be rejected by CBS policy. Package creation observes only `$dest`.
+
+CBS-supplied values are immutable. CPDL 0.1 has no user variables, arithmetic,
+conditionals, loops, functions, imports, or includes.
+
+## 7. Failure model
+
+Every operation either succeeds or returns one structured failure. A phase stops
+at its first non-allowed failure. CBS retains that failure while running the
+associated `on_fail` diagnostics, then returns the original failure.
+
+Process failure records at least:
+
+- executable as declared and resolved;
+- phase and operation location;
+- exit status or terminating signal;
+- timeout information when applicable; and
+- captured-log location when logging is enabled.
+
+Filesystem failure records the CPDL operation, logical path, and operating-system
+error. CBS must not reinterpret an error as success based on later diagnostic
+operations.
+
+## 8. Diagnostic contract
+
+### 8.1 Primary form
+
+Every diagnostic begins with exactly this machine-recognizable line:
+
+```text
+PATH:LINE:COLUMN: SEVERITY[CODE]: CATEGORY: MESSAGE
+```
+
+Where:
+
+- `PATH` is the recipe path as passed to CBS, or `<command-line>`;
+- `LINE` and `COLUMN` identify the first source token responsible;
+- `SEVERITY` is `error`, `warning`, or `note`;
+- `CODE` is a stable identifier described below;
+- `CATEGORY` is `lex`, `parse`, `validation`, `runtime`, or `internal`; and
+- `MESSAGE` is one complete sentence without a trailing period.
+
+CBS emits source context on following lines when source is available:
+
+```text
+  LINE | source text
+       |     ^~~~
+```
+
+Related information uses additional `note[...]` diagnostics. Diagnostics go to
+standard error. Normal command output goes to standard output.
+
+### 8.2 Code ranges
+
+```text
+CPDL-E1xxx  lexical errors
+CPDL-E2xxx  parse errors
+CPDL-E3xxx  validation errors
+CPDL-E4xxx  runtime/operation errors
+CPDL-E9xxx  internal invariant failures
+CPDL-W3xxx  validation warnings
+CPDL-Nxxxx  related notes
+```
+
+Once assigned, a code retains its meaning throughout CPDL 0.x. New diagnostics
+receive new codes; code reuse is forbidden.
+
+The initial mandatory codes are:
+
+| Code | Meaning |
+| --- | --- |
+| `CPDL-E1001` | Invalid UTF-8 or line ending |
+| `CPDL-E1002` | Invalid character or token |
+| `CPDL-E1003` | Invalid or unterminated string |
+| `CPDL-E2001` | Expected token was not present |
+| `CPDL-E2002` | Unexpected token or trailing input |
+| `CPDL-E3001` | Missing required declaration |
+| `CPDL-E3002` | Duplicate declaration or option |
+| `CPDL-E3003` | Declaration appears out of order |
+| `CPDL-E3004` | Invalid name or literal value |
+| `CPDL-E3005` | Unknown or invalid reference |
+| `CPDL-E3006` | Operation is invalid in this context |
+| `CPDL-E4001` | Process exited with an unexpected status |
+| `CPDL-E4002` | Process terminated by a signal |
+| `CPDL-E4003` | Process timed out |
+| `CPDL-E4004` | Filesystem operation failed |
+| `CPDL-E4005` | Assertion or cardinality check failed |
+| `CPDL-E4006` | Source extraction failed safety validation |
+| `CPDL-E9001` | CBS internal invariant failed |
+
+### 8.3 Required wording examples
+
+Parse error:
+
+```text
+zlib.cbs:7:5: error[CPDL-E2001]: parse: expected `sha256`, found `}`
+  7 |     }
+    |     ^
+```
+
+Validation error:
+
+```text
+gcc.cbs:24:9: error[CPDL-E3005]: validation: source `mpc` is not declared
+  24 |         extract $source.mpc into $src
+     |         ^~~~~~~
+```
+
+Runtime process failure:
+
+```text
+zlib.cbs:31:9: error[CPDL-E4001]: runtime: `make` exited with status 2; expected 0
+  31 |         run "make" {
+     |         ^~~
+```
+
+The wording before interpolated names and numbers is stable. Operating-system
+error text may follow after a semicolon and is locale-independent: CBS uses its
+own English mapping or includes the numeric error value.
+
+### 8.4 Internal failures
+
+An internal invariant failure is never reported as invalid recipe input. CBS
+emits `CPDL-E9001`, identifies its own source location when built with diagnostic
+metadata, and exits without executing further operations. It must not crash
+silently or continue with a partial package.
+
+## 9. CBS process exit statuses
+
+```text
+0   requested operation completed successfully
+2   invalid CBS command-line usage
+3   recipe I/O, lexical, parse, or validation failure
+4   build/runtime operation failure
+5   source, dependency, or policy preparation failure
+6   package creation, verification, or installation failure
+70  CBS internal invariant failure
+```
+
+CBS returns the category status, not the raw child status. The raw exit status
+or signal remains present in the structured diagnostic and build record.
+
+## 10. Explicit exclusions from CPDL 0.1
+
+CPDL 0.1 has no:
+
+- implicit or unsafe shell escape;
+- pipelines, redirections, command substitution, or shell operators;
+- user-defined functions, types, classes, or modules;
+- imports or includes;
+- general variables or assignment;
+- arithmetic or boolean expressions;
+- conditionals, loops, or arbitrary control flow;
+- regular expressions;
+- version-constraint expressions or dependency solver syntax;
+- package feature/options matrix;
+- package-container or compression scripting;
+- network operations inside phases; or
+- native `helper` operation until issue #10 defines its governance.
+
+Unknown constructs must fail parsing or validation. They must never be forwarded
+to a shell or ignored for compatibility.
+
+## 11. Complete structural example
+
+This example demonstrates the complete shape, not a final zlib recipe or a
+promise that the shown checksum is current:
+
+```cpdl
+package "zlib" {
+    version "1.3.1"
+    release 1
+
+    sources {
+        main "zlib" {
+            url "https://zlib.net/zlib-1.3.1.tar.xz"
+            sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    }
+
+    requires {
+        build {
+            compiler "tcc"
+            tool "make"
+        }
+    }
+
+    configure {
+        run "./configure" {
+            "--prefix=/usr"
+            env "CC" = "tcc"
+            timeout 2m
+        }
+    }
+
+    build {
+        run "make" {
+            "-j${jobs}"
+            jobs $jobs
+        }
+    }
+
+    check {
+        run "make" {
+            "check"
+            timeout 5m
+        }
+    }
+
+    install {
+        run "make" {
+            "install"
+            "DESTDIR=${dest}"
+        }
+
+        require file "${dest}/usr/lib/libz.a" {
+            exists
+        }
+    }
+}
+```
+
+## 12. Implementation gates
+
+The parser implementation for issue #2 must include positive and negative
+fixtures covering every production and validation rule in this document.
+
+The `run` implementation for issue #3 must include a child fixture that records
+its received argument vector and environment without interpretation. The test
+must pass arguments containing spaces, single and double quotes, `$`, `*`, `;`,
+backslashes, and an empty string, then compare every received byte with the
+expected value. The process path must be inspected or instrumented sufficiently
+to prove that no shell function is reachable from CPDL execution.
+
+No later implementation issue may introduce syntax by accident. A new construct
+requires a specification change and, when architectural, an ADR before code.
