@@ -94,3 +94,5 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0025: User namespace ownership](adr/0025-userns-ownership.md)
 - [Issue #46: User namespace mapping](reviews/issue-0046-validation.md)
 - [Issue #47: Shell recipe inventory](reviews/issue-0047-validation.md)
+- [ADR-0026: Structural build dependencies](adr/0026-structural-build-dependencies.md)
+- [Issue #48: Structural build dependencies](reviews/issue-0048-validation.md)
