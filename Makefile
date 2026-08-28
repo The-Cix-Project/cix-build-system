@@ -6,6 +6,7 @@ SOURCES := \
 	src/ast.c \
 	src/archive.c \
 	src/api.c \
+	src/sandbox.c \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \

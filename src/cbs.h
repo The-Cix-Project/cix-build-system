@@ -220,6 +220,9 @@ typedef int (*CbsDaemonRequest)(const char *operation, const char *payload,
 int cbs_daemon_request(CbsDaemonRequest request, void *user,
                        const char *operation, const char *payload,
                        char *response, size_t response_size);
+typedef int (*CbsSandboxHook)(const char *root, void *user);
+int cbs_sandbox_run(CbsSandboxHook enter, CbsSandboxHook leave,
+                    const char *root, void *user);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write(const char *payload, const char *package_path,
