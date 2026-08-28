@@ -121,3 +121,4 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0031: Replacement contract](adr/0031-replacement-contract.md)
 - [Issue #67: Replacement scope](reviews/issue-0067-validation.md)
 - [Issue #68: Real cixd integration](reviews/issue-0068-validation.md)
+- [Issue #69: Production CIXPKG metadata](reviews/issue-0069-validation.md)
