@@ -59,3 +59,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
 - [ADR-0010: Repository and installation policy](adr/0010-repository-and-installation-policy.md)
 - [Issue #27: Repository and transaction policy](reviews/issue-0027-validation.md)
+- [ADR-0011: Stage-0 library admissions](adr/0011-stage0-library-admissions.md)
+- [Issue #28: Stage-0 library admissions](reviews/issue-0028-validation.md)
