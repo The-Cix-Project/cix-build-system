@@ -87,3 +87,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #42: Artifact repository model](reviews/issue-0042-validation.md)
 - [ADR-0022: Build observability](adr/0022-build-observability.md)
 - [Issue #43: Build observability](reviews/issue-0043-validation.md)
+- [ADR-0023: Host builds](adr/0023-host-builds.md)
+- [Issue #44: Host build policy](reviews/issue-0044-validation.md)
