@@ -96,3 +96,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #47: Shell recipe inventory](reviews/issue-0047-validation.md)
 - [ADR-0026: Structural build dependencies](adr/0026-structural-build-dependencies.md)
 - [Issue #48: Structural build dependencies](reviews/issue-0048-validation.md)
+- [Issue #49: Recipe migration](reviews/issue-0049-validation.md)
