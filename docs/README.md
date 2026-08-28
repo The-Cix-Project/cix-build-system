@@ -57,3 +57,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
+- [ADR-0010: Repository and installation policy](adr/0010-repository-and-installation-policy.md)
+- [Issue #27: Repository and transaction policy](reviews/issue-0027-validation.md)
