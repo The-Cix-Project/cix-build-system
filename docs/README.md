@@ -93,3 +93,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #45: Build provenance](reviews/issue-0045-validation.md)
 - [ADR-0025: User namespace ownership](adr/0025-userns-ownership.md)
 - [Issue #46: User namespace mapping](reviews/issue-0046-validation.md)
+- [Issue #47: Shell recipe inventory](reviews/issue-0047-validation.md)
