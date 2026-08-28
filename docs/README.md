@@ -114,3 +114,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #60: ELF dependency observation](reviews/issue-0060-validation.md)
 - [Issue #61: Signed repository metadata](reviews/issue-0061-validation.md)
 - [Issue #62: Transactional image installation](reviews/issue-0062-validation.md)
+- [Issue #63: Recipe corpus migration](reviews/issue-0063-validation.md)
+- [Issue #64: Security corpus](reviews/issue-0064-validation.md)
+- [Issue #65: Release CI gates](reviews/issue-0065-validation.md)
+- [Issue #66: Operations runbook](reviews/issue-0066-validation.md)
