@@ -110,3 +110,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #56: End-to-end build pipeline](reviews/issue-0056-validation.md)
 - [Issue #57: cixd API adapter](reviews/issue-0057-validation.md)
 - [Issue #58: Production sandbox backend](reviews/issue-0058-validation.md)
+- [Issue #59: Service lifecycle and health](reviews/issue-0059-validation.md)
