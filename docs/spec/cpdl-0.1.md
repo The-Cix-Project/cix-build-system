@@ -787,7 +787,8 @@ CPDL 0.1 has no:
 - package feature/options matrix;
 - package-container or compression scripting;
 - network operations inside phases; or
-- native `helper` operation until issue #10 defines its governance.
+- native `helper` operation; any exceptional helper must satisfy ADR-0004 and
+  appear in the native-helper registry.
 
 Unknown constructs must fail parsing or validation. They must never be forwarded
 to a shell or ignored for compatibility.
