@@ -91,3 +91,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #44: Host build policy](reviews/issue-0044-validation.md)
 - [ADR-0024: Build provenance mandate](adr/0024-build-provenance.md)
 - [Issue #45: Build provenance](reviews/issue-0045-validation.md)
+- [ADR-0025: User namespace ownership](adr/0025-userns-ownership.md)
+- [Issue #46: User namespace mapping](reviews/issue-0046-validation.md)
