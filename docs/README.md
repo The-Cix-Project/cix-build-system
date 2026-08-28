@@ -65,3 +65,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #29: Stage-zero entry point](reviews/issue-0029-validation.md)
 - [Issue #30: Canonical cbs.cbs](reviews/issue-0030-validation.md)
 - [Issue #31: Stage reproducibility](reviews/issue-0031-validation.md)
+- [ADR-0013: Seed provenance](adr/0013-seed-provenance.md)
+- [Issue #32: Seed provenance](reviews/issue-0032-validation.md)
