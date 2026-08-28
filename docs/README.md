@@ -64,3 +64,4 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0012: Stage-zero entry point](adr/0012-stage-zero-entry-point.md)
 - [Issue #29: Stage-zero entry point](reviews/issue-0029-validation.md)
 - [Issue #30: Canonical cbs.cbs](reviews/issue-0030-validation.md)
+- [Issue #31: Stage reproducibility](reviews/issue-0031-validation.md)
