@@ -138,3 +138,5 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #83: Cutover](reviews/issue-0083-validation.md)
 - [Issue #84: Shell retirement](reviews/issue-0084-validation.md)
 - [Issue #85: Operator handoff](reviews/issue-0085-validation.md)
+- [Standalone CBS 0.1 language specification](spec/standalone-cbs-0.1.md)
+- [Issue #86: Standalone language scope](reviews/issue-0086-validation.md)
