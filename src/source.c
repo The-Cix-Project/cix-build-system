@@ -57,9 +57,17 @@ static void finish(Sha256 *sha,unsigned char digest[32])
     size_t i;sha->block[sha->used++]=0x80;if(sha->used>56){while(sha->used<64)sha->block[sha->used++]=0;transform(sha,sha->block);sha->used=0;}while(sha->used<56)sha->block[sha->used++]=0;for(i=0;i<8;++i)sha->block[56+i]=(unsigned char)(sha->bits>>(56-8*i));transform(sha,sha->block);for(i=0;i<32;++i)digest[i]=(unsigned char)(sha->state[i/4]>>(24-8*(i%4)));
 }
 
-static int file_digest(const char *path,char output[65])
+int cbs_digest_file(const char *path,char output[65])
 {
     static const char hex[]="0123456789abcdef";unsigned char buffer[32768],digest[32];Sha256 sha;FILE *file=fopen(path,"rb");size_t length,i;if(file==NULL)return 0;initialize(&sha);while((length=fread(buffer,1,sizeof(buffer),file))>0)update(&sha,buffer,length);if(ferror(file)||fclose(file)!=0)return 0;finish(&sha,digest);for(i=0;i<32;++i){output[i*2]=hex[digest[i]>>4];output[i*2+1]=hex[digest[i]&15];}output[64]='\0';return 1;
+}
+
+int cbs_digest_text(const char *text, size_t length, char output[65])
+{
+    Sha256 sha; unsigned char digest[32]; size_t i; static const char hex[]="0123456789abcdef";
+    if (text == NULL || output == NULL) return 0;
+    initialize(&sha); update(&sha, (const unsigned char *)text, length); finish(&sha, digest);
+    for (i=0;i<32;++i){output[i*2]=hex[digest[i]>>4];output[i*2+1]=hex[digest[i]&15];} output[64]='\0'; return 1;
 }
 
 int cbs_sources_from_document(const CbsNode *document,CbsSourceSet *set)
@@ -75,7 +83,7 @@ void cbs_source_set_destroy(CbsSourceSet *set)
 int cbs_source_verify(CbsSource *source,const char *path,const char *recipe_path,
                       const char *recipe_source,CbsLocation location)
 {
-    char actual[65],message[512];free(source->verified_path);source->verified_path=NULL;if(!file_digest(path,actual)){snprintf(message,sizeof(message),"source `%s` could not be hashed; errno=%d",source->name,errno);cbs_diagnostic(recipe_path,recipe_source,location,"error","CPDL-E5001",CBS_DIAG_SOURCE,message);return 0;}if(strcmp(actual,source->sha256)!=0){snprintf(message,sizeof(message),"source `%s` checksum mismatch; expected %s; computed %s",source->name,source->sha256,actual);cbs_diagnostic(recipe_path,recipe_source,location,"error","CPDL-E5001",CBS_DIAG_SOURCE,message);return 0;}source->verified_path=cbs_duplicate(path);return 1;
+    char actual[65],message[512];free(source->verified_path);source->verified_path=NULL;if(!cbs_digest_file(path,actual)){snprintf(message,sizeof(message),"source `%s` could not be hashed; errno=%d",source->name,errno);cbs_diagnostic(recipe_path,recipe_source,location,"error","CPDL-E5001",CBS_DIAG_SOURCE,message);return 0;}if(strcmp(actual,source->sha256)!=0){snprintf(message,sizeof(message),"source `%s` checksum mismatch; expected %s; computed %s",source->name,source->sha256,actual);cbs_diagnostic(recipe_path,recipe_source,location,"error","CPDL-E5001",CBS_DIAG_SOURCE,message);return 0;}source->verified_path=cbs_duplicate(path);return 1;
 }
 
 int cbs_sources_apply_execution_context(CbsSourceSet *set,CbsExecutionContext *context)

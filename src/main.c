@@ -106,7 +106,23 @@ static int validate_file(const char *path)
 
 static void usage(FILE *stream)
 {
-    fputs("usage: cbs validate PACKAGE.cbs\n", stream);
+    fputs("usage: cbs validate PACKAGE.cbs\n       cbs inspect PACKAGE.cbs [ARTIFACT]\n", stream);
+}
+
+static int inspect_file(const char *path, const char *artifact)
+{
+    char *source; size_t length; char recipe_digest[65], artifact_digest[65];
+    CbsTokenList tokens = {0}; CbsNode *document; CbsSourceSet sources = {0}; size_t i;
+    source = read_file(path, &length); if (source == NULL) return 3;
+    if (!cbs_lex(path, source, length, &tokens)) return 3;
+    document = cbs_parse(path, source, length, &tokens);
+    if (document == NULL || !cbs_validate(document, path, source) ||
+        !cbs_sources_from_document(document, &sources) ||
+        !cbs_digest_text(source, length, recipe_digest)) return 3;
+    printf("recipe-digest %s\n", recipe_digest);
+    for (i=0;i<sources.count;++i) printf("source-digest %s %s\n", sources.items[i].name, sources.items[i].sha256);
+    if (artifact != NULL && cbs_digest_file(artifact, artifact_digest)) printf("artifact-digest %s\n", artifact_digest);
+    cbs_source_set_destroy(&sources); cbs_node_destroy(document); cbs_token_list_destroy(&tokens); free(source); return 0;
 }
 
 int main(int argc, char **argv)
@@ -116,6 +132,8 @@ int main(int argc, char **argv)
         usage(stdout);
         return 0;
     }
+    if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
+    if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
     if (argc != 3 || strcmp(argv[1], "validate") != 0) {
         usage(stderr);
         return 2;

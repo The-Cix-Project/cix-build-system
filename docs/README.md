@@ -41,3 +41,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #12: Verified source fetching](reviews/issue-0012-validation.md)
 - [Issue #13: Archive format decision](reviews/issue-0013-validation.md)
 - [Issue #14: Confined archive extraction](reviews/issue-0014-validation.md)
+- [Issue #15: Digest kinds](reviews/issue-0015-validation.md)
