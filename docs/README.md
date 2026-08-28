@@ -45,3 +45,4 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0007: Build sandbox and dependency observation](adr/0007-build-sandbox-and-dependency-observation.md)
 - [Issue #16: Sandbox and dependency decision](reviews/issue-0016-validation.md)
 - [Issue #17: Jobs ceiling](reviews/issue-0017-validation.md)
+- [Issue #18: Staged-tree policy](reviews/issue-0018-validation.md)

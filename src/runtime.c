@@ -2,6 +2,8 @@
 
 #include "cbs.h"
 
+#include <string.h>
+
 long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit)
 {
     long result = requested > 0 ? requested : 1;
@@ -10,10 +12,20 @@ long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limi
     return result > 0 ? result : 1;
 }
 
+int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy)
+{
+    const char *part;
+    if (path == NULL || policy == NULL || (policy->reject_empty && path[0] == '\0')) return 0;
+    if (policy->reject_absolute && path[0] == '/') return 0;
+    if (!policy->reject_parent) return 1;
+    part = path;
+    while (*part) { const char *end = strchr(part, '/'); size_t n = end ? (size_t)(end-part) : strlen(part); if (n == 2 && strncmp(part, "..", 2) == 0) return 0; part = end ? end+1 : part+n; }
+    return 1;
+}
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

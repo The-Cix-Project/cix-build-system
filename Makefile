@@ -74,6 +74,9 @@ test: $(TARGET)
 		src/fs.o src/lexer.o src/parser.o src/runtime.o src/validate.o -o tests/jobs-test
 	./tests/jobs-test
 	rm -f tests/jobs-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -o tests/stage-test
+	./tests/stage-test
+	rm -f tests/stage-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -89,4 +92,5 @@ clean:
 	rm -f tests/fetch-test
 	rm -f tests/archive-test
 	rm -f tests/jobs-test
+	rm -f tests/stage-test
 	rm -f tests/dependency-test
