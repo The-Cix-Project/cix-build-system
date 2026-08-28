@@ -212,6 +212,7 @@ int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct { const char *path; char type; unsigned mode; unsigned long long size; const char *digest; } CbsManifestEntry;
 int cbs_manifest_compare(const void *left, const void *right);
 int cbs_cixpkg_compress(const char *input, const char *output);
+int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,
                                CbsPackageIdentity *identity);

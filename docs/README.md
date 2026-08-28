@@ -55,3 +55,4 @@ hide a changed decision; a later ADR supersedes it.
 - [CIXPKG v1 binary specification](spec/cixpkg-1.0.md)
 - [Issue #23: CIXPKG v1 layout](reviews/issue-0023-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
+- [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
