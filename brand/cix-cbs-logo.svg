@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1001" height="276" viewBox="0 0 1001 276" role="img"
+     aria-labelledby="title desc">
+  <title id="title">Cix Build System</title>
+  <desc id="desc">CIX CBS logo</desc>
+  <image x="0" y="0" width="1001" height="276"
+         preserveAspectRatio="none" href="cix-cbs-logo.png"
+         xlink:href="cix-cbs-logo.png"/>
+</svg>

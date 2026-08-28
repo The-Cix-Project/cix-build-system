@@ -2,6 +2,9 @@
 
 This directory contains the architecture and language documentation for:
 
+The canonical [Cix Build System logo](../brand/cix-cbs-logo.svg) is maintained
+in the repository brand directory.
+
 - **CBS** — the Cix Build System;
 - **CPDL** — the Cix Package Definition Language; and
 - **CIXPKG** — the distributable package format produced and consumed by CBS.
