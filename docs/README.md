@@ -112,3 +112,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #58: Production sandbox backend](reviews/issue-0058-validation.md)
 - [Issue #59: Service lifecycle and health](reviews/issue-0059-validation.md)
 - [Issue #60: ELF dependency observation](reviews/issue-0060-validation.md)
+- [Issue #61: Signed repository metadata](reviews/issue-0061-validation.md)

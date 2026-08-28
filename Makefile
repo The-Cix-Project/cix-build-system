@@ -9,6 +9,7 @@ SOURCES := \
 	src/sandbox.c \
 	src/service.c \
 	src/observe.c \
+	src/signature.c \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \
