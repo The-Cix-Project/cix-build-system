@@ -141,6 +141,17 @@ typedef struct {
 } CbsSourceSet;
 
 typedef struct {
+    const char *role;
+    const char *kind;
+    const char *name;
+} CbsDependency;
+
+typedef struct {
+    CbsDependency *items;
+    size_t count;
+} CbsDependencySet;
+
+typedef struct {
     const char *recipe_path;
     const char *recipe_source;
     const char *name;
@@ -202,6 +213,11 @@ int cbs_source_verify(CbsSource *source, const char *path,
                       CbsLocation location);
 int cbs_sources_apply_execution_context(CbsSourceSet *sources,
                                         CbsExecutionContext *context);
+int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
+                               CbsDependencySet *dependencies);
+void cbs_dependency_set_destroy(CbsDependencySet *dependencies);
+int cbs_dependency_set_contains(const CbsDependencySet *dependencies,
+                                const char *kind, const char *name);
 
 void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,

@@ -5,6 +5,7 @@ CPPFLAGS := -Isrc
 SOURCES := \
 	src/ast.c \
 	src/diag.c \
+	src/dependency.c \
 	src/exec.c \
 	src/fs.c \
 	src/identity.c \
@@ -59,6 +60,11 @@ test: $(TARGET)
 		src/validate.o -o tests/source-test
 	./tests/source-test tests/fixtures/execution/sources.cbs
 	rm -f tests/source-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
+		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
+		src/validate.o -o tests/dependency-test
+	./tests/dependency-test tests/fixtures/valid/complete.cbs
+	rm -f tests/dependency-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
@@ -66,3 +72,4 @@ clean:
 	rm -f tests/runtime-test
 	rm -f tests/identity-test
 	rm -f tests/source-test
+	rm -f tests/dependency-test

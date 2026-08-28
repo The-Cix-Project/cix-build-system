@@ -30,3 +30,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #6: Failure orchestration](reviews/issue-0006-validation.md)
 - [Issue #7: Canonical package identity](reviews/issue-0007-validation.md)
 - [Issue #8: Named sources and checksum verification](reviews/issue-0008-validation.md)
+- [Issue #9: Dependency roles and kinds](reviews/issue-0009-validation.md)

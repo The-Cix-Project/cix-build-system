@@ -6,3 +6,4 @@
 /tests/runtime-test
 /tests/identity-test
 /tests/source-test
+/tests/dependency-test

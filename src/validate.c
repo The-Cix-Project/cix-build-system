@@ -496,6 +496,12 @@ static void validate_requires(Validator *validator, const CbsNode *requires)
     for (index = 0; index < requires->child_count; ++index) {
         const CbsNode *group = requires->children[index];
         int rank = dependency_role_rank(group->name);
+        if (strcmp(group->name, "build") != 0 &&
+            strcmp(group->name, "runtime") != 0 &&
+            strcmp(group->name, "test") != 0 &&
+            strcmp(group->name, "bootstrap") != 0)
+            validation_error(validator, group, "CPDL-E3004",
+                             "invalid dependency role");
         if (rank < last_rank)
             validation_error(validator, group, "CPDL-E3003",
                              "dependency group appears out of order");
