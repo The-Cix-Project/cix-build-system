@@ -12,6 +12,7 @@ SOURCES := \
 	src/identity.c \
 	src/lexer.c \
 	src/main.c \
+	src/manifest.c \
 	src/parser.c \
 	src/runtime.c \
 	src/source.c \
@@ -77,6 +78,9 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -o tests/stage-test
 	./tests/stage-test
 	rm -f tests/stage-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o -o tests/manifest-test
+	./tests/manifest-test
+	rm -f tests/manifest-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -93,4 +97,5 @@ clean:
 	rm -f tests/archive-test
 	rm -f tests/jobs-test
 	rm -f tests/stage-test
+	rm -f tests/manifest-test
 	rm -f tests/dependency-test
