@@ -4,6 +4,7 @@ CPPFLAGS := -Isrc
 
 SOURCES := \
 	src/ast.c \
+	src/archive.c \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \
@@ -23,7 +24,7 @@ TARGET := cbs
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) -larchive -o $@
 
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -65,6 +66,10 @@ test: $(TARGET)
 		src/validate.o -o tests/fetch-test
 	./tests/fetch-test tests/fixtures/execution/sources.cbs
 	rm -f tests/fetch-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/archive-test.c src/archive.o src/diag.o \
+		-larchive -o tests/archive-test
+	./tests/archive-test
+	rm -f tests/archive-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
 		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
@@ -78,4 +83,5 @@ clean:
 	rm -f tests/identity-test
 	rm -f tests/source-test
 	rm -f tests/fetch-test
+	rm -f tests/archive-test
 	rm -f tests/dependency-test

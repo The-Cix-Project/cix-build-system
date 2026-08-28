@@ -225,6 +225,9 @@ int cbs_sources_fetch(CbsSourceSet *sources, const char *cache_directory,
                       const CbsFetchService *service,
                       const char *recipe_path, const char *recipe_source,
                       CbsLocation location);
+int cbs_extract_archive(const char *archive_path, const char *destination,
+                        const char *source_name, const char *recipe_path,
+                        const char *recipe_source, CbsLocation location);
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);
 void cbs_dependency_set_destroy(CbsDependencySet *dependencies);
