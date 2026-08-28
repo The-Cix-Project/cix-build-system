@@ -209,7 +209,8 @@ static void validate_run(Validator *validator, const CbsNode *run,
     size_t other;
 
     validate_value(validator, run, run->value);
-    if (run->value != NULL && cbs_is_forbidden_executable(run->value))
+    if (run->value != NULL && (cbs_is_forbidden_executable(run->value) ||
+                               cbs_is_forbidden_compiler(run->value)))
         validation_error(validator, run, "CPDL-E3006",
                          "command interpreters are not valid run executables");
     for (index = 0; index < run->child_count; ++index) {

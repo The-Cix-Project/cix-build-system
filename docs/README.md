@@ -49,3 +49,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #19: Manifest ordering](reviews/issue-0019-validation.md)
 - [ADR-0008: CBS command surface](adr/0008-cbs-command-surface.md)
 - [Issue #20: Command contracts](reviews/issue-0020-validation.md)
+- [Issue #21: TCC-only compiler enforcement](reviews/issue-0021-validation.md)

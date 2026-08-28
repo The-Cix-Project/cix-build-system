@@ -35,6 +35,15 @@ int cbs_is_forbidden_executable(const char *value)
     return 0;
 }
 
+int cbs_is_forbidden_compiler(const char *value)
+{
+    const char *base = strrchr(value == NULL ? "" : value, '/');
+    base = base == NULL ? value : base + 1;
+    return base != NULL && (strcmp(base, "cc") == 0 || strcmp(base, "gcc") == 0 ||
+                            strcmp(base, "clang") == 0 || strcmp(base, "g++") == 0 ||
+                            strcmp(base, "c++") == 0);
+}
+
 static void string_list_add(StringList *list, char *value)
 {
     size_t capacity;

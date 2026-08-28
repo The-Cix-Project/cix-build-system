@@ -194,6 +194,7 @@ CbsNode *cbs_parse(const char *path, const char *source, size_t length,
 int cbs_validate(const CbsNode *document, const char *path,
                  const char *source);
 int cbs_is_forbidden_executable(const char *value);
+int cbs_is_forbidden_compiler(const char *value);
 char *cbs_resolve_value(const char *value, int token_kind,
                         const CbsExecutionContext *context);
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
