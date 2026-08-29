@@ -214,6 +214,8 @@ int cbs_manifest_compare(const void *left, const void *right);
 int cbs_manifest_write(const char *root, const char *output);
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
+typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
+int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
 typedef int (*CbsDaemonRequest)(const char *operation, const char *payload,
                                 char *response, size_t response_size,
                                 void *user);

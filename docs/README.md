@@ -154,3 +154,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #98: CLI conformance](reviews/issue-0098-validation.md)
 - [Issue #99: Language conformance suite](reviews/issue-0099-validation.md)
 - [Issue #100: Standalone packaging](reviews/issue-0100-validation.md)
+- [Issue #101: Standalone execution plan](reviews/issue-0101-validation.md)
