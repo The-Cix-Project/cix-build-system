@@ -156,3 +156,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #100: Standalone packaging](reviews/issue-0100-validation.md)
 - [Issue #101: Standalone execution plan](reviews/issue-0101-validation.md)
 - [Issue #102: Standalone workspace lifecycle](reviews/issue-0102-validation.md)
+- [Issue #103: Source fetch and archive preparation](reviews/issue-0103-validation.md)

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 typedef struct {
     uint32_t state[8];
@@ -153,6 +154,28 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
                            "CPDL-E5001", CBS_DIAG_SOURCE, message);
             return 0;
         }
+    }
+    return 1;
+}
+
+int cbs_prepare_sources(CbsSourceSet *set, const char *cache_directory,
+                        const char *source_root, const CbsFetchService *service,
+                        const char *recipe_path, const char *recipe_source,
+                        CbsLocation location)
+{
+    size_t i; char destination[4096];
+    if (set == NULL || cache_directory == NULL || source_root == NULL ||
+        !cbs_sources_fetch(set, cache_directory, service, recipe_path,
+                           recipe_source, location)) return 0;
+    for (i = 0; i < set->count; ++i) {
+        CbsSource *source = &set->items[i];
+        if (source->verified_path == NULL || source->name == NULL ||
+            snprintf(destination, sizeof(destination), "%s/%s", source_root,
+                     source->name) >= (int)sizeof(destination) ||
+            (mkdir(destination, 0700) != 0 && errno != EEXIST)) return 0;
+        if (!cbs_extract_archive(source->verified_path, destination,
+                                 source->name, recipe_path, recipe_source,
+                                 location)) return 0;
     }
     return 1;
 }

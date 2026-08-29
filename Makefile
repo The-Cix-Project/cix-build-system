@@ -67,13 +67,13 @@ test: $(TARGET)
 	./tests/identity-test tests/fixtures/execution/identity.cbs
 	rm -f tests/identity-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/source-test.c \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
-		src/validate.o -o tests/source-test
+		src/ast.o src/archive.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/validate.o -larchive -o tests/source-test
 	./tests/source-test tests/fixtures/execution/sources.cbs
 	rm -f tests/source-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fetch-test.c \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
-		src/validate.o -o tests/fetch-test
+		src/ast.o src/archive.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/validate.o -larchive -o tests/fetch-test
 	./tests/fetch-test tests/fixtures/execution/sources.cbs
 	rm -f tests/fetch-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/archive-test.c src/archive.o src/diag.o \
@@ -87,18 +87,18 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -o tests/stage-test
 	./tests/stage-test
 	rm -f tests/stage-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o src/source.o \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -o tests/manifest-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o src/source.o src/archive.o \
+		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o src/manifest.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
-		-lzstd -o tests/package-test
+		-larchive -lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o src/manifest.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
-		-lzstd -o tests/repro-test
+		-larchive -lzstd -o tests/repro-test
 	./tests/repro-test
 	rm -f tests/repro-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \

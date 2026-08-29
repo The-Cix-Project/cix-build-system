@@ -267,7 +267,11 @@ int cbs_sources_fetch(CbsSourceSet *sources, const char *cache_directory,
                       CbsLocation location);
 int cbs_extract_archive(const char *archive_path, const char *destination,
                         const char *source_name, const char *recipe_path,
-                        const char *recipe_source, CbsLocation location);
+                      const char *recipe_source, CbsLocation location);
+int cbs_prepare_sources(CbsSourceSet *sources, const char *cache_directory,
+                        const char *source_root, const CbsFetchService *service,
+                        const char *recipe_path, const char *recipe_source,
+                        CbsLocation location);
 int cbs_digest_file(const char *path, char output[65]);
 int cbs_digest_text(const char *text, size_t length, char output[65]);
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
