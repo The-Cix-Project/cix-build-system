@@ -159,3 +159,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #103: Source fetch and archive preparation](reviews/issue-0103-validation.md)
 - [Issue #104: Standalone phase runner](reviews/issue-0104-validation.md)
 - [Issue #105: Standalone execution context](reviews/issue-0105-validation.md)
+- [Issue #106: Standalone resource and cancellation controls](reviews/issue-0106-validation.md)
