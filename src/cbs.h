@@ -216,6 +216,7 @@ int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
 typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
+int cbs_execute_plan(const CbsBuildPlan *plan, const CbsExecutionContext *context);
 int cbs_workspace_prepare(const char *root);
 typedef int (*CbsDaemonRequest)(const char *operation, const char *payload,
                                 char *response, size_t response_size,
