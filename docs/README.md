@@ -161,3 +161,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #105: Standalone execution context](reviews/issue-0105-validation.md)
 - [Issue #106: Standalone resource and cancellation controls](reviews/issue-0106-validation.md)
 - [Issue #107: Complete staged-tree validation](reviews/issue-0107-validation.md)
+- [Issue #108: Complete standalone CIXPKG](reviews/issue-0108-validation.md)
