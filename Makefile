@@ -21,6 +21,7 @@ SOURCES := \
 	src/manifest.c \
 	src/package.c \
 	src/plan.c \
+	src/workspace.c \
 	src/parser.c \
 	src/runtime.c \
 	src/source.c \
