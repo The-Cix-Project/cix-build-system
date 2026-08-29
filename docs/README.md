@@ -164,3 +164,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #108: Complete standalone CIXPKG](reviews/issue-0108-validation.md)
 - [Issue #109: Standalone dependency resolution](reviews/issue-0109-validation.md)
 - [Issue #110: Standalone CLI configuration](reviews/issue-0110-validation.md)
+- [Issue #111: End-to-end standalone fixtures](reviews/issue-0111-validation.md)
