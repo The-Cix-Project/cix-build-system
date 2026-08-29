@@ -214,6 +214,9 @@ int cbs_manifest_compare(const void *left, const void *right);
 int cbs_manifest_write(const char *root, const char *output);
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
+int cbs_build_standalone(const char *recipe, const char *workspace,
+                         const char *package_path, const char *architecture,
+                         const CbsFetchService *fetch_service);
 typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
 int cbs_execute_plan(const CbsBuildPlan *plan, const CbsExecutionContext *context);

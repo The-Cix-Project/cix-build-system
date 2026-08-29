@@ -167,3 +167,4 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #111: End-to-end standalone fixtures](reviews/issue-0111-validation.md)
 - [Standalone CBS runbook](standalone-runbook.md)
 - [Issue #112: Standalone production workflow](reviews/issue-0112-validation.md)
+- [Issue #114: Complete standalone build pipeline](reviews/issue-0114-validation.md)

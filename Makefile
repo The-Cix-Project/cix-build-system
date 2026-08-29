@@ -92,12 +92,12 @@ test: $(TARGET)
 	./tests/manifest-test
 	rm -f tests/manifest-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o src/manifest.o src/archive.o \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o src/manifest.o src/archive.o \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/repro-test
 	./tests/repro-test
 	rm -f tests/repro-test

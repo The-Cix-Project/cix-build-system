@@ -131,7 +131,7 @@ static int verify_file(const char *path)
 
 static int build_file(const char *recipe, const char *staged, const char *output)
 {
-    if (!cbs_build_package(recipe, staged, output)) {
+    if (!cbs_build_standalone(recipe, staged, output, "x86_64", NULL)) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output was rejected\n");
         return 3;
     }
