@@ -112,7 +112,7 @@ static void usage(FILE *stream)
           "  cbs check RECIPE.cbs                 Validate without executing\n"
           "  cbs validate RECIPE.cbs              Alias for check\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
-          "  cbs build RECIPE.cbs --staged ROOT --output FILE\n"
+          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE\n"
           "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
           "  cbs --help                           Show this help\n"
           "  cbs --version                        Show version\n", stream);
@@ -129,9 +129,10 @@ static int verify_file(const char *path)
     return 0;
 }
 
-static int build_file(const char *recipe, const char *staged, const char *output)
+static int build_file(const char *recipe, const char *architecture,
+                      const char *staged, const char *output)
 {
-    if (!cbs_build_standalone(recipe, staged, output, "x86_64", NULL)) {
+    if (!cbs_build_standalone(recipe, staged, output, architecture, NULL)) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output was rejected\n");
         return 3;
     }
@@ -168,9 +169,10 @@ int main(int argc, char **argv)
     }
     if (argc == 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);
-    if (argc == 7 && strcmp(argv[1], "build") == 0 &&
-        strcmp(argv[3], "--staged") == 0 && strcmp(argv[5], "--output") == 0)
-        return build_file(argv[2], argv[4], argv[6]);
+    if (argc == 9 && strcmp(argv[1], "build") == 0 &&
+        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
+        strcmp(argv[7], "--output") == 0)
+        return build_file(argv[2], argv[4], argv[6], argv[8]);
     if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
     if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
     if (argc != 3 || (strcmp(argv[1], "validate") != 0 &&
