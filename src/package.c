@@ -16,8 +16,33 @@ int cbs_compare_files(const char *left,const char *right){FILE*a=fopen(left,"rb"
 static int package_blob(const char *path, unsigned char **data, size_t *size){FILE*f=fopen(path,"rb");long n;if(!f||fseek(f,0,SEEK_END)||(n=ftell(f))<0||fseek(f,0,SEEK_SET)){if(f)fclose(f);return 0;}*data=malloc((size_t)n);if(*data==NULL||fread(*data,1,(size_t)n,f)!=(size_t)n){free(*data);fclose(f);return 0;}fclose(f);*size=(size_t)n;return 1;}
 static void put64(unsigned char *p,uint64_t v){size_t i;for(i=0;i<8;++i)p[i]=(unsigned char)(v>>(i*8));}
 static uint64_t get64(const unsigned char *p){uint64_t v=0;size_t i;for(i=0;i<8;++i)v|=(uint64_t)p[i]<<(i*8);return v;}
-int cbs_cixpkg_write(const char *payload,const char *package_path,const char *identity){unsigned char*src,*dst,digest[65],header[8+8+8+64+128];size_t size,bound,written,idlen;FILE*f;if(!identity||!cbs_digest_file(payload,(char*)digest))return 0;if(!package_blob(payload,&src,&size))return 0;bound=ZSTD_compressBound(size);dst=malloc(bound);if(!dst){free(src);return 0;}written=ZSTD_compress(dst,bound,src,size,19);free(src);if(ZSTD_isError(written)){free(dst);return 0;}memcpy(header,"CIXPKG\0\1",8);put64(header+8,(uint64_t)(8+8+8+64+128));put64(header+16,(uint64_t)size);memcpy(header+24,digest,64);idlen=strlen(identity);if(idlen>=128)idlen=127;memset(header+88,0,128);memcpy(header+88,identity,idlen);f=fopen(package_path,"wb");if(!f||fwrite(header,1,sizeof(header),f)!=sizeof(header)||fwrite(dst,1,written,f)!=written||fclose(f)!=0){if(f)fclose(f);free(dst);return 0;}free(dst);return 1;}
-int cbs_cixpkg_verify(const char *package_path,char *identity,size_t identity_size){unsigned char h[216],*compressed,*raw;size_t size,written;uint64_t raw_size;FILE*f=fopen(package_path,"rb");if(!f||fread(h,1,sizeof(h),f)!=sizeof(h)||memcmp(h,"CIXPKG\0\1",8)!=0){if(f)fclose(f);return 0;}raw_size=get64(h+16);fseek(f,0,SEEK_END);{long n=ftell(f);if(n<216||fseek(f,216,SEEK_SET)!=0){fclose(f);return 0;}size=(size_t)n-216;}compressed=malloc(size);raw=malloc((size_t)raw_size);if(!compressed||!raw||fread(compressed,1,size,f)!=size){free(compressed);free(raw);fclose(f);return 0;}fclose(f);written=ZSTD_decompress(raw,(size_t)raw_size,compressed,size);free(compressed);if(ZSTD_isError(written)||written!=(size_t)raw_size){free(raw);return 0;}if(identity!=NULL&&identity_size>0){strncpy(identity,(char*)(h+88),identity_size-1);identity[identity_size-1]='\0';}free(raw);return 1;}
+int cbs_cixpkg_write(const char *payload,const char *package_path,const char *identity){
+    unsigned char *src,*dst,manifest_digest[65],header[352];
+    size_t size,bound,written,idlen; FILE *f;
+    if(!payload||!package_path||!identity||!cbs_digest_file(payload,(char*)manifest_digest)||!package_blob(payload,&src,&size))return 0;
+    bound=ZSTD_compressBound(size); dst=malloc(bound); if(!dst){free(src);return 0;}
+    written=ZSTD_compress(dst,bound,src,size,19); free(src);
+    if(ZSTD_isError(written)){free(dst);return 0;}
+    memset(header,0,sizeof(header)); memcpy(header,"CIXPKG\0\1",8);
+    put64(header+8,352); put64(header+16,size); put64(header+24,0);
+    memcpy(header+32,manifest_digest,64); memset(header+96,'0',64);
+    idlen=strlen(identity); if(idlen>127)idlen=127; memcpy(header+160,identity,idlen);
+    f=fopen(package_path,"wb");
+    if(!f||fwrite(header,1,sizeof(header),f)!=sizeof(header)||fwrite(dst,1,written,f)!=written||fclose(f)!=0){if(f)fclose(f);free(dst);return 0;}
+    free(dst); return 1;
+}
+
+int cbs_cixpkg_verify(const char *package_path,char *identity,size_t identity_size){
+    unsigned char h[352],*compressed,*raw; size_t size,written; uint64_t manifest_size,payload_size; FILE*f; char digest[65]; long n;
+    f=fopen(package_path,"rb"); if(!f||fread(h,1,sizeof(h),f)!=sizeof(h)||memcmp(h,"CIXPKG\0\1",8)!=0){if(f)fclose(f);return 0;}
+    if(get64(h+8)!=352||(manifest_size=get64(h+16))>1024ULL*1024ULL*1024ULL||(payload_size=get64(h+24))!=0){fclose(f);return 0;}
+    if(fseek(f,0,SEEK_END)!=0||(n=ftell(f))<352||fseek(f,352,SEEK_SET)!=0){fclose(f);return 0;} size=(size_t)n-352;
+    compressed=malloc(size); raw=malloc((size_t)manifest_size+1); if(!compressed||!raw||fread(compressed,1,size,f)!=size){free(compressed);free(raw);fclose(f);return 0;} fclose(f);
+    written=ZSTD_decompress(raw,(size_t)manifest_size,compressed,size); free(compressed);
+    if(ZSTD_isError(written)||written!=(size_t)manifest_size||!cbs_digest_text((char*)raw,written,digest)||memcmp(h+32,digest,64)!=0){free(raw);return 0;}
+    if(identity&&identity_size){size_t ncopy=identity_size-1; if(ncopy>127)ncopy=127; memcpy(identity,h+160,ncopy); identity[ncopy]='\0';}
+    free(raw); return 1;
+}
 
 int cbs_build_package(const char *recipe,const char *staged_root,const char *package_path){FILE*f;long n;char*text;size_t length;CbsTokenList tokens={0};CbsNode*document;char manifest[4096];int ok;if(!recipe||!staged_root||!package_path)return 0;f=fopen(recipe,"rb");if(!f||fseek(f,0,SEEK_END)||(n=ftell(f))<0||fseek(f,0,SEEK_SET)){if(f)fclose(f);return 0;}text=malloc((size_t)n+1);if(!text||fread(text,1,(size_t)n,f)!=(size_t)n){free(text);fclose(f);return 0;}fclose(f);text[n]='\0';length=(size_t)n;ok=cbs_lex(recipe,text,length,&tokens);document=ok?cbs_parse(recipe,text,length,&tokens):NULL;ok=document!=NULL&&cbs_validate(document,recipe,text);snprintf(manifest,sizeof(manifest),"%s/.cbs-manifest",staged_root);if(ok)ok=cbs_manifest_write(staged_root,manifest);if(ok)ok=cbs_cixpkg_write(manifest,package_path,"cbs");unlink(manifest);if(document)cbs_node_destroy(document);cbs_token_list_destroy(&tokens);free(text);return ok;}
 
