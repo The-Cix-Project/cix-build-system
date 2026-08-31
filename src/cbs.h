@@ -211,6 +211,9 @@ typedef struct { int reject_absolute; int reject_parent; int reject_empty; } Cbs
 int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct { const char *path; char type; unsigned mode; unsigned long long size; const char *digest; } CbsManifestEntry;
 int cbs_manifest_compare(const void *left, const void *right);
+int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
+                         size_t *count);
+void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count);
 int cbs_manifest_write(const char *root, const char *output);
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
