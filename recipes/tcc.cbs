@@ -449,6 +449,86 @@ package "tcc" {
             expect exit 0
         }
 
+        write "${build}/cix_tcc_fde.c" """
+            int fde_a(int value) { return value + 1; }
+            int fde_b(int value) { return value * 2 + 3; }
+            int fde_c(int value) { int i, sum = 0; for (i = 0; i < value; ++i) sum += i; return sum; }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-g"
+            "-c"
+            "${build}/cix_tcc_fde.c"
+            "-o"
+            "${build}/cix_tcc_fde.o"
+        }
+        write "${build}/cix_tcc_fde_check.c" """
+            #include <elf.h>
+            #include <stdio.h>
+            #include <string.h>
+            static int has_name(const char *table, size_t size, Elf64_Word offset, const char *name)
+            {
+                return offset < size && strcmp(table + offset, name) == 0;
+            }
+            int main(int argc, char **argv)
+            {
+                FILE *file;
+                Elf64_Ehdr header;
+                Elf64_Shdr *sections;
+                char *names;
+                int i, j, count = 0;
+                Elf64_Addr seen[16];
+                if (argc != 2) return 10;
+                file = fopen(argv[1], "rb");
+                if (!file || fread(&header, sizeof header, 1, file) != 1) return 1;
+                if (header.e_ident[EI_CLASS] != ELFCLASS64 || header.e_shentsize != sizeof(Elf64_Shdr)) return 2;
+                sections = (Elf64_Shdr *)malloc(header.e_shnum * sizeof(*sections));
+                if (!sections || fseek(file, (long)header.e_shoff, SEEK_SET) || fread(sections, sizeof(*sections), header.e_shnum, file) != header.e_shnum) return 3;
+                names = (char *)malloc(sections[header.e_shstrndx].sh_size);
+                if (!names || fseek(file, (long)sections[header.e_shstrndx].sh_offset, SEEK_SET) || fread(names, 1, sections[header.e_shstrndx].sh_size, file) != sections[header.e_shstrndx].sh_size) return 4;
+                for (i = 0; i < header.e_shnum; ++i) if (has_name(names, sections[header.e_shstrndx].sh_size, sections[i].sh_name, ".rela.eh_frame")) {
+                    Elf64_Rela *relocs = (Elf64_Rela *)malloc(sections[i].sh_size);
+                    size_t total = sections[i].sh_size / sizeof(*relocs);
+                    if (!relocs || fseek(file, (long)sections[i].sh_offset, SEEK_SET) || fread(relocs, sizeof(*relocs), total, file) != total) return 5;
+                    for (j = 0; j < (int)total && count < 16; ++j) {
+                        int duplicate = 0, k;
+                        for (k = 0; k < count; ++k) if (seen[k] == (Elf64_Addr)relocs[j].r_addend) duplicate = 1;
+                        if (!duplicate) seen[count++] = (Elf64_Addr)relocs[j].r_addend;
+                    }
+                    free(relocs);
+                }
+                free(names); free(sections); fclose(file);
+                return count >= 3 ? 0 : 6;
+            }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-I${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/include"
+            "${build}/cix_tcc_fde_check.c"
+            "-o"
+            "${build}/cix_tcc_fde_check"
+        }
+        run "${build}/cix_tcc_fde_check" {
+            "${build}/cix_tcc_fde.o"
+            expect exit 0
+        }
+
+        write "${build}/cix_tcc_libpath.c" """
+            #include <stdio.h>
+            int main(void) { return puts("cix-libpath") < 0 ? 1 : 0; }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-I${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/include"
+            "${build}/cix_tcc_libpath.c"
+            "-lc"
+            "-o"
+            "${build}/cix_tcc_libpath"
+        }
+        run "${build}/cix_tcc_libpath" {
+            expect exit 0
+        }
+
         write "${build}/cix_tcc_atomic.c" """
             static char lock;
             int __atomic_test_and_set(volatile void *, int);
