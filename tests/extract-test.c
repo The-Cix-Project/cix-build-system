@@ -96,7 +96,7 @@ int main(int argc, char **argv)
         return 1;
     {
         FILE *config = fopen(config_path, "wb");
-        if (config == NULL || fputs("CONFIG_TEST=y\n", config) < 0 ||
+        if (config == NULL || fputs("CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n", config) < 0 ||
             fclose(config) != 0)
             return 1;
     }
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
     free(data);
     snprintf(result, sizeof(result), "%s/.config", build);
     data = read_all(result, &length);
-    if (data == NULL || strcmp(data, "CONFIG_TEST=y\n") != 0)
+    if (data == NULL || strcmp(data, "CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n") != 0)
         goto done;
     free(data);
     if (lstat("/dev/null", &status) != 0)

@@ -1008,6 +1008,78 @@ done:
     return success;
 }
 
+static int config_state(const unsigned char *content, size_t length,
+                        const char *symbol, const char *wanted)
+{
+    size_t offset = 0;
+    size_t symbol_length = strlen(symbol);
+    int active = 0;
+    int disabled = 0;
+
+    while (offset < length) {
+        size_t end = offset;
+        while (end < length && content[end] != '\n')
+            ++end;
+        if (end >= symbol_length + 2 &&
+            memcmp(content + offset, symbol, symbol_length) == 0 &&
+            content[offset + symbol_length] == '=') {
+            active = end - offset == symbol_length + 2 &&
+                     content[offset + symbol_length + 1] == wanted[0];
+            if (strcmp(wanted, "absent") == 0)
+                return 0;
+        }
+        {
+            static const char marker[] = "# ";
+            size_t disabled_length = symbol_length + 13;
+            if (end - offset == disabled_length &&
+                memcmp(content + offset, marker, sizeof(marker) - 1) == 0 &&
+                memcmp(content + offset + 2, symbol, symbol_length) == 0 &&
+                memcmp(content + offset + 2 + symbol_length,
+                       " is not set", 11) == 0)
+                disabled = 1;
+        }
+        offset = end < length ? end + 1 : end;
+    }
+    if (strcmp(wanted, "absent") == 0)
+        return !active && !disabled;
+    if (strcmp(wanted, "n") == 0)
+        return active || disabled;
+    return active;
+}
+
+static int require_config(const CbsNode *operation,
+                          const CbsExecutionContext *context)
+{
+    const char *root;
+    char *path = resolve_path(operation->value, context, &root);
+    unsigned char *content = NULL;
+    size_t length = 0;
+    mode_t mode;
+    size_t index;
+    char message[256];
+
+    if (path == NULL || !safe_parents(path, root) ||
+        (content = read_regular(path, &length, &mode)) == NULL) {
+        assertion_error(operation, context, "required config file does not exist");
+        free(path);
+        return 0;
+    }
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        if (!config_state(content, length, property->name, property->value)) {
+            snprintf(message, sizeof(message), "config assertion failed: %s = %s",
+                     property->name, property->value);
+            assertion_error(operation, context, message);
+            free(content);
+            free(path);
+            return 0;
+        }
+    }
+    free(content);
+    free(path);
+    return 1;
+}
+
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context)
 {
@@ -1017,6 +1089,8 @@ int cbs_execute_edit_assertion(const CbsNode *operation,
     if (operation->kind == CBS_NODE_REQUIRE) {
         if (strcmp(operation->name, "glob") == 0)
             return require_glob(operation, context);
+        if (strcmp(operation->name, "config") == 0)
+            return require_config(operation, context);
         return require_path(operation, context);
     }
     errno = EINVAL;

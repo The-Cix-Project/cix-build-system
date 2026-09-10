@@ -85,7 +85,7 @@ The complete CPDL 0.1 keyword set is:
 
 ```text
 allow_failure  after      any           architecture  as          bootstrap
-build          cd         check         chmod       compiler
+build          cd         check         chmod       compiler       config
 configure      contains   copy          count       directory
 env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
@@ -530,6 +530,10 @@ top-level directory and renames that directory to `NAME` after safe extraction.
 archive. It copies that exact regular file into the confined build filesystem;
 it cannot read an arbitrary cache path or follow a source symlink. This is
 intended for checked configuration fragments and other auxiliary source files.
+
+Configuration assertions use `require config PATH { SYMBOL = STATE ... }`.
+`STATE` is `y`, `m`, `n`, or `absent`; `n` accepts either `SYMBOL=n` or Linux's
+`# SYMBOL is not set` spelling, while `absent` requires neither form.
 
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
 and entries escaping through symlinks are runtime failures. Exact archive

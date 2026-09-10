@@ -18,5 +18,10 @@ package "extract-test" {
     prepare {
         extract $source.support into $src as "support"
         materialize $source.config to "${build}/.config"
+        require config "${build}/.config" {
+            CONFIG_TEST = y
+            CONFIG_DISABLED = n
+            CONFIG_OPTIONAL = absent
+        }
     }
 }

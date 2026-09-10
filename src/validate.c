@@ -396,18 +396,32 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         if (operation->name == NULL ||
             (strcmp(operation->name, "file") != 0 &&
              strcmp(operation->name, "directory") != 0 &&
-             strcmp(operation->name, "glob") != 0)) {
+             strcmp(operation->name, "glob") != 0 &&
+             strcmp(operation->name, "config") != 0)) {
             validation_error(validator, operation, "CPDL-E3004",
-                             "require kind must be file, directory, or glob");
+                             "require kind must be file, directory, glob, or config");
         }
         validate_value(validator, operation, operation->value);
         if (operation->name != NULL && strcmp(operation->name, "glob") == 0 &&
             operation->value != NULL && !valid_glob(operation->value))
             validation_error(validator, operation, "CPDL-E3004",
                              "invalid glob expression");
-        for (index = 0; index < operation->child_count; ++index)
-            validate_value(validator, operation->children[index],
-                           operation->children[index]->value);
+        for (index = 0; index < operation->child_count; ++index) {
+            const CbsNode *property = operation->children[index];
+            if (operation->name != NULL && strcmp(operation->name, "config") == 0) {
+                if (property->name == NULL ||
+                    strncmp(property->name, "CONFIG_", 7) != 0 ||
+                    property->name[7] == '\0' ||
+                    (strcmp(property->value, "y") != 0 &&
+                     strcmp(property->value, "m") != 0 &&
+                     strcmp(property->value, "n") != 0 &&
+                     strcmp(property->value, "absent") != 0))
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "config assertion must use CONFIG_* = y, m, n, or absent");
+            } else {
+                validate_value(validator, property, property->value);
+            }
+        }
         break;
     default:
         validation_error(validator, operation, "CPDL-E9001",

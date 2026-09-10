@@ -418,7 +418,25 @@ static CbsNode *parse_require(CbsParser *parser)
     if (target != NULL)
         node->value = cbs_duplicate(target->text);
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
-    if (kind != NULL && strcmp(kind->text, "glob") == 0) {
+    if (kind != NULL && strcmp(kind->text, "config") == 0) {
+        while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+               current(parser)->kind != CBS_TOKEN_EOF) {
+            CbsToken *symbol = consume_kind(parser, CBS_TOKEN_WORD,
+                                            "configuration symbol");
+            CbsNode *property;
+            CbsToken *state;
+            consume_kind(parser, CBS_TOKEN_EQUAL, "=");
+            state = consume_kind(parser, CBS_TOKEN_WORD,
+                                 "configuration state");
+            if (symbol == NULL || state == NULL)
+                continue;
+            property = cbs_node_create(CBS_NODE_PROPERTY, symbol->location);
+            property->name = cbs_duplicate(symbol->text);
+            property->value = cbs_duplicate(state->text);
+            property->flag = state->kind;
+            cbs_node_add(node, property);
+        }
+    } else if (kind != NULL && strcmp(kind->text, "glob") == 0) {
         CbsToken *count;
         consume_word(parser, "count");
         count = consume_kind(parser, CBS_TOKEN_INTEGER, "cardinality");
