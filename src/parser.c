@@ -693,6 +693,8 @@ static CbsNode *parse_package_item(CbsParser *parser)
         return parse_build_metadata(parser, CBS_NODE_CAPABILITY);
     if (is_word(parser, "toolchain"))
         return parse_build_metadata(parser, CBS_NODE_TOOLCHAIN);
+    if (is_word(parser, "upstream"))
+        return parse_build_metadata(parser, CBS_NODE_UPSTREAM);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);

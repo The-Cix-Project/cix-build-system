@@ -75,7 +75,8 @@ typedef enum {
     CBS_NODE_PROPERTY,
     CBS_NODE_BUILD_IMAGE,
     CBS_NODE_CAPABILITY,
-    CBS_NODE_TOOLCHAIN
+    CBS_NODE_TOOLCHAIN,
+    CBS_NODE_UPSTREAM
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;
@@ -237,7 +238,16 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
 typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
+typedef struct {
+    const char *build_image;
+    const char *upstream;
+    const char *toolchain;
+    const char *toolchain_reason;
+    const char **capabilities;
+    size_t capability_count;
+} CbsBuildMetadata;
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
+int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata);
 int cbs_execute_plan(const CbsBuildPlan *plan, const CbsExecutionContext *context);
 int cbs_workspace_prepare(const char *root);
 typedef int (*CbsDaemonRequest)(const char *operation, const char *payload,

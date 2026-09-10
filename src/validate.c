@@ -437,8 +437,10 @@ static int package_item_rank(CbsNodeKind kind, const char *name)
         return 1;
     case CBS_NODE_RELEASE:
         return 2;
-    case CBS_NODE_ARCHITECTURE:
+    case CBS_NODE_UPSTREAM:
         return 3;
+    case CBS_NODE_ARCHITECTURE:
+        return 4;
     case CBS_NODE_SOURCES:
         return 4;
     case CBS_NODE_REQUIRES:
@@ -645,6 +647,11 @@ static void validate_package(Validator *validator)
                 item->children[0]->value[0] == '\0')
                 validation_error(validator, item, "CPDL-E3006",
                                  "gcc toolchain use requires an explicit reason");
+            break;
+        case CBS_NODE_UPSTREAM:
+            if (item->value == NULL || strcmp(item->value, "kernel.org") != 0)
+                validation_error(validator, item, "CPDL-E3006",
+                                 "unsupported upstream discovery provider");
             break;
         case CBS_NODE_PHASE:
             validate_block(validator, item, 0);

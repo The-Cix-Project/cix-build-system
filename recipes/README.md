@@ -38,9 +38,9 @@ before porting the remaining GCC-specific gates and install policy.
 
 [`cix.cbs`](cix.cbs) translates the Cix builder's source identity, TCC-rooted
 build, selftest, #296 mutation gate, staged binaries, and web assets. CPDL 0.1
-does not yet have declarations for the legacy build-image or capability policy,
-so those two deployment controls remain explicitly documented as pending
-executor metadata rather than being silently discarded.
+can now express the legacy build-image and capability policy. The recipe still
+does not claim to grant those controls in standalone mode; the validated
+metadata is exposed to the execution plan for the daemon/orchestrator.
 
 ## Kernel
 

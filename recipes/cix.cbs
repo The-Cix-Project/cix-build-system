@@ -31,6 +31,9 @@ package "cix" {
         }
     }
 
+    build_image "cix-builder"
+    capability "CAP_SYS_ADMIN"
+
     prepare {
         require directory "${src}/cix-v2.57.55" {
             exists

@@ -132,6 +132,22 @@ static int verify_file(const char *path)
     return 0;
 }
 
+static void print_json_string(const char *value)
+{
+    const unsigned char *cursor;
+    if (value == NULL) {
+        fputs("null", stdout);
+        return;
+    }
+    putchar('"');
+    for (cursor = (const unsigned char *)value; *cursor != '\0'; ++cursor) {
+        if (*cursor == '"' || *cursor == '\\')
+            putchar('\\');
+        putchar(*cursor);
+    }
+    putchar('"');
+}
+
 static int explain_file(const char *path, int json)
 {
     char *source;
@@ -139,6 +155,7 @@ static int explain_file(const char *path, int json)
     CbsTokenList tokens = {0};
     CbsNode *document;
     CbsBuildPlan plan;
+    CbsBuildMetadata metadata;
 
     if (!has_cbs_extension(path)) {
         fprintf(stderr,
@@ -161,8 +178,23 @@ static int explain_file(const char *path, int json)
         free(source);
         return 3;
     }
+    if (!cbs_build_metadata(document, &metadata)) {
+        cbs_node_destroy(document);
+        cbs_token_list_destroy(&tokens);
+        free(source);
+        return 3;
+    }
     if (json) {
-        fputs("{\"phases\":[", stdout);
+        fputs("{\"build_image\":", stdout);
+        print_json_string(metadata.build_image);
+        fputs(",\"upstream\":", stdout);
+        print_json_string(metadata.upstream);
+        fputs(",\"toolchain\":", stdout);
+        print_json_string(metadata.toolchain);
+        fputs(",\"toolchain_reason\":", stdout);
+        print_json_string(metadata.toolchain_reason);
+        printf(",\"capabilities\":%zu,\"phases\":[",
+               metadata.capability_count);
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,
@@ -170,6 +202,11 @@ static int explain_file(const char *path, int json)
         puts("]}");
     } else {
         printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
+        printf("metadata build_image=%s upstream=%s toolchain=%s capabilities=%zu\n",
+               metadata.build_image == NULL ? "none" : metadata.build_image,
+               metadata.upstream == NULL ? "none" : metadata.upstream,
+               metadata.toolchain == NULL ? "none" : metadata.toolchain,
+               metadata.capability_count);
         for (index = 0; index < plan.count; ++index)
             printf("%zu %s operations=%zu\n", index + 1,
                    plan.phases[index]->name, plan.phases[index]->child_count);

@@ -87,7 +87,7 @@ The complete CPDL 0.1 keyword set is:
 allow_failure  after      any           architecture  as          bootstrap
 build          cd         check         chmod       compiler       config
 configure      contains   copy          count       directory      build_image
-capability     toolchain
+capability     toolchain  upstream
 env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
 insert         into       jobs           library     main
@@ -221,6 +221,7 @@ package-item = version-declaration
              | build-image-declaration
              | capability-declaration
              | toolchain-declaration
+             | upstream-declaration
              | prepare-phase
              | configure-phase
              | build-phase
@@ -232,6 +233,7 @@ release-declaration      = "release", integer ;
 build-image-declaration  = "build_image", string ;
 capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
+upstream-declaration     = "upstream", string ;
 ```
 
 `build_image` and `capability` are execution metadata consumed by the build
@@ -239,6 +241,9 @@ orchestrator; standalone CBS records and validates them but cannot create an
 image or grant a capability. A non-TCC compiler requires a matching
 `toolchain` declaration with a non-empty reason. GCC is currently the only
 permitted exception to the TCC compiler policy.
+`upstream` identifies a registered release-discovery provider; CPDL 0.1
+currently registers `kernel.org`, while the declared source URL and digest
+remain the immutable build input until a resolver selects a new release.
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
@@ -255,10 +260,11 @@ architecture)`. Its canonical text is
 plus `.cixpkg`. Artifact metadata and its digest input contain the same
 canonical text rather than independently reconstructing identity fields.
 
-Each package-level declaration may appear at most once. Package items must
-appear in the canonical order shown by `package-item`: identity, sources,
-requirements, then the five phases. An omitted optional item does not affect
-the order of later items.
+Each package-level declaration may appear at most once, except that
+`capability` may be repeated. Package items must appear in the canonical order
+shown by `package-item`: identity, upstream, sources, requirements, execution
+metadata, then the five phases. An omitted optional item does not affect the
+order of later items.
 
 Package names must match:
 
