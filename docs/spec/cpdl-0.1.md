@@ -595,7 +595,7 @@ require-operation = require-file
 
 require-file = "require", "file", path-value, "{",
                "exists",
-               { "contains", text-value },
+               { "contains", text-value | "same_as", path-value },
                "}" ;
 
 require-directory = "require", "directory", path-value, "{",
@@ -609,7 +609,8 @@ require-glob = "require", "glob", string, "{",
 
 `require file` follows no final symlink and requires a regular file.
 `require directory` requires a directory. Each `contains` performs a literal
-byte search. `require glob` requires exactly the stated number of matches.
+byte search. `same_as` compares two confined regular files byte-for-byte.
+`require glob` requires exactly the stated number of matches.
 
 CPDL globs recognize:
 

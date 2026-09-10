@@ -444,15 +444,17 @@ static CbsNode *parse_require(CbsParser *parser)
             node->number = strtol(count->text, NULL, 10);
     } else {
         consume_word(parser, "exists");
-        while (is_word(parser, "contains")) {
+        while (is_word(parser, "contains") || is_word(parser, "same_as")) {
             CbsToken *text;
             CbsNode *property;
+            int same_as = is_word(parser, "same_as");
             advance(parser);
-            text = consume_text_value(parser, "contained value");
+            text = same_as ? consume_path(parser) :
+                            consume_text_value(parser, "contained value");
             if (text == NULL)
                 break;
             property = node_from_token(CBS_NODE_PROPERTY, text);
-            property->name = cbs_duplicate("contains");
+            property->name = cbs_duplicate(same_as ? "same_as" : "contains");
             cbs_node_add(node, property);
         }
     }

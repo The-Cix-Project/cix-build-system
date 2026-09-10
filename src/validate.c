@@ -419,6 +419,11 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                     validation_error(validator, property, "CPDL-E3004",
                                      "config assertion must use CONFIG_* = y, m, n, or absent");
             } else {
+                if (property->name == NULL ||
+                    (strcmp(property->name, "contains") != 0 &&
+                     strcmp(property->name, "same_as") != 0))
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "file assertion must use contains or same_as");
                 validate_value(validator, property, property->value);
             }
         }

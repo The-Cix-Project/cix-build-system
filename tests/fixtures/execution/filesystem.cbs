@@ -14,6 +14,11 @@ package "filesystem-test" {
         mkdir "${dest}/copied"
         write "${dest}/copied/a.txt" "stale" chmod 0666
         write "${build}/input/a.txt" "alpha" chmod 0600
+        write "${build}/input/reference.txt" "alpha"
+        require file "${build}/input/a.txt" {
+            exists
+            same_as "${build}/input/reference.txt"
+        }
         write "${build}/input/b.txt" "beta"
         write "${build}/input/drop.tmp" "temporary"
         write "${build}/replace.txt" "old"

@@ -19,24 +19,22 @@ verification, extraction, and mode-preservation tests.
 
 ## Blockers and unblock actions
 
-### 1. CIXPKG contract must be made single-source
+### 1. CIXPKG contract: production format complete
 
-The new tree writer/verifier is used by real builds, but the old
-manifest-only `cbs_cixpkg_write()`/`cbs_cixpkg_verify()` API remains for
-compatibility tests. The implementation also stores textual 64-character
-SHA-256 values in the section table, while the normative specification
-describes binary 32-byte digests and a header digest.
+The tree writer/verifier is used by real builds and matches the normative v1
+specification. The old manifest-only API remains only for compatibility tests
+and is not used by the standalone production path.
 
-Unblock action: choose one CIXPKG v1 wire layout, update the implementation,
-tests, and spec together, then remove or clearly mark the legacy API. This is
-an internal CBS decision; no external service is needed.
+Unblock action: keep the tree format as the sole production format, mark the
+legacy API deprecated, and retire it with its compatibility tests.
 
-### 2. The replacement recipe corpus is not yet in this repository
+### 2. The replacement recipe corpus is in progress
 
 The legacy shell recipes are the system CBS is replacing; they are not a CBS
 dependency and must not be executed or treated as CPDL input. This repository
-contains CPDL examples and fixtures, but not yet an authoritative production
-set of `.cbs` recipes covering the packages CBS is expected to build.
+contains six migrated recipes (`tcc`, `gcc`, `cix`, `kernel`,
+`squashfs-tools`, and `wireless-regdb`). They validate as CPDL, but GCC and
+kernel remain explicitly non-building migrations.
 
 Unblock action: define the first in-repository CPDL seed set and migrate each
 recipe deliberately, with validation and end-to-end build tests. The migration

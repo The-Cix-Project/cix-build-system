@@ -16,25 +16,28 @@ standalone builds, and the end-to-end user workflow.
 
 Applicable issues: #23–#26, #54–#56, #69, #95, #100, #107, #108, #115.
 
-Status: payload packaging, verification, and extraction are implemented. The
-remaining work is to complete the CIXPKG v1 wire-layout decision, remove or
-isolate the legacy manifest-only writer, add complete entry-type support, and
-expand corruption tests. See [the integration blocker register](integration-blockers.md).
+Status: the production tree writer, verifier, extractor, deterministic
+manifest, and corruption tests are implemented. A legacy manifest-only API is
+retained only for compatibility tests and is not part of the production path.
+Remaining work is compatibility API retirement and broader hostile-input
+coverage. See [the integration blocker register](integration-blockers.md).
 
 ## Workstream 2: usable CLI
 
 Applicable issues: #20, #78, #97, #110.
 
-Next deliverables are structured diagnostics, phase-aware failure reporting,
-`--jobs`, dry-run/explain output, and less positional option parsing.
+Status: structured diagnostics, phase-aware failure reporting, explain output,
+and bounded job policy are implemented. Remaining work is CLI option parsing
+ergonomics and additional machine-readable operation modes.
 
 ## Workstream 3: dependencies and trust
 
 Applicable issues: #27, #42, #45, #61, #72, #109.
 
-Next deliverables are dependency graph resolution, lock files, conflict
-handling, complete provenance records, package signatures, and offline graph
-replay. Repository and key-management policy remains cixd-owned.
+Status: dependency declarations, role-aware phase inputs, cycle checks, source
+digests, and package identity are implemented. Full graph resolution, lock
+files, conflict handling, package signatures, and offline graph replay remain
+open; repository and key-management policy remains cixd-owned.
 
 ## Workstream 4: qualification
 

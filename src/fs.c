@@ -982,6 +982,25 @@ static int require_path(const CbsNode *operation,
         goto failed;
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
+        if (strcmp(property->name, "same_as") == 0) {
+            char *other_path = cbs_resolve_confined_path(property->value, context);
+            unsigned char *other = NULL;
+            size_t other_length = 0;
+            mode_t other_mode;
+            int equal = other_path != NULL && safe_parents(other_path, root) &&
+                        (other = read_regular(other_path, &other_length,
+                                              &other_mode)) != NULL &&
+                        other_length == content_length &&
+                        memcmp(other, content, content_length) == 0;
+            free(other);
+            free(other_path);
+            if (!equal) {
+                assertion_error(operation, context,
+                                "required file does not match same_as file");
+                goto done;
+            }
+            continue;
+        }
         char *needle = cbs_resolve_value(property->value, property->flag, context);
         int present = contains_bytes(content, content_length,
                                      (const unsigned char *)needle,

@@ -47,6 +47,7 @@ package "wireless-regdb" {
         require file "${build}/regulatory.db" {
             exists
             contains "RGDB"
+            same_as "${build}/upstream-regulatory.db"
         }
         require file "${build}/upstream-regulatory.db" {
             exists
