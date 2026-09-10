@@ -10,8 +10,13 @@ package "extract-test" {
             url "https://example.invalid/support.tar"
             sha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
+        extra "config" {
+            url "https://example.invalid/config"
+            sha256 "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
     }
     prepare {
         extract $source.support into $src as "support"
+        materialize $source.config to "${build}/.config"
     }
 }

@@ -94,7 +94,7 @@ mkdir          move       on_fail        package     prepare
 release        remove     replace        require     requires
 run            runtime    sha256         source      sources
 symlink        test       timeout        to          tool
-tree           url        version        write
+tree           url        version        write       materialize
 ```
 
 Keywords reserved for later versions are not silently accepted. An unknown
@@ -340,6 +340,7 @@ operation = run-operation
           | write-operation
           | chmod-operation
           | extract-operation
+          | materialize-operation
           | replace-operation
           | insert-operation
           | require-operation ;
@@ -514,6 +515,9 @@ extract-operation = "extract", source-reference,
                     "into", path-value,
                     [ "as", string ] ;
 
+materialize-operation = "materialize", source-reference,
+                        "to", path-value ;
+
 source-reference = "$source.", identifier ;
 ```
 
@@ -521,6 +525,11 @@ source-reference = "$source.", identifier ;
 phase execution. It extracts beneath the `into` directory using the supported
 archive-format policy. `as "NAME"` requires the archive to contain one logical
 top-level directory and renames that directory to `NAME` after safe extraction.
+
+`materialize` accepts only a declared, verified source whose bytes are not an
+archive. It copies that exact regular file into the confined build filesystem;
+it cannot read an arbitrary cache path or follow a source symlink. This is
+intended for checked configuration fragments and other auxiliary source files.
 
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
 and entries escaping through symlinks are runtime failures. Exact archive

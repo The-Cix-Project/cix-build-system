@@ -381,6 +381,49 @@ done:
     return result;
 }
 
+int cbs_execute_materialize(const CbsNode *operation,
+                            const CbsExecutionContext *context)
+{
+    char *source = cbs_resolve_value(operation->value,
+                                     CBS_TOKEN_CBS_VALUE, context);
+    char *destination;
+    const char *root;
+    size_t index;
+    struct stat status;
+    int declared = 0;
+    int result;
+
+    if (source == NULL)
+        goto failure;
+    for (index = 0; index < context->source_count; ++index)
+        if (context->sources[index].path != NULL &&
+            strcmp(source, context->sources[index].path) == 0) {
+            declared = 1;
+            break;
+        }
+    if (!declared || lstat(source, &status) != 0 || !S_ISREG(status.st_mode) ||
+        S_ISLNK(status.st_mode))
+        goto failure;
+    destination = resolve_path(operation->second_value, context, &root);
+    if (destination == NULL || !safe_parents(destination, root)) {
+        free(destination);
+        goto failure;
+    }
+    result = copy_one(source, destination);
+    if (!result)
+        fs_error(operation, context, operation->second_value,
+                 "source materialization failed");
+    free(source);
+    free(destination);
+    return result;
+
+failure:
+    fs_error(operation, context, operation->value,
+             "verified source cannot be materialized");
+    free(source);
+    return 0;
+}
+
 static int remove_tree(const char *path)
 {
     struct stat status;

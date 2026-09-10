@@ -374,6 +374,15 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         }
         validate_value(validator, operation, operation->second_value);
         break;
+    case CBS_NODE_MATERIALIZE:
+        if (operation->value == NULL || strncmp(operation->value, "$source.", 8) != 0)
+            validation_error(validator, operation, "CPDL-E3005",
+                             "materialize requires a named source value");
+        else if (!source_declared(validator, operation->value + 8))
+            validation_error(validator, operation, "CPDL-E3005",
+                             "materialize source is not declared");
+        validate_value(validator, operation, operation->second_value);
+        break;
     case CBS_NODE_REPLACE:
     case CBS_NODE_INSERT:
         validate_value(validator, operation, operation->name);

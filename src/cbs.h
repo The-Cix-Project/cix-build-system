@@ -67,6 +67,7 @@ typedef enum {
     CBS_NODE_WRITE,
     CBS_NODE_CHMOD,
     CBS_NODE_EXTRACT,
+    CBS_NODE_MATERIALIZE,
     CBS_NODE_REPLACE,
     CBS_NODE_INSERT,
     CBS_NODE_REQUIRE,
@@ -203,6 +204,8 @@ char *cbs_resolve_value(const char *value, int token_kind,
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context);
+int cbs_execute_materialize(const CbsNode *operation,
+                            const CbsExecutionContext *context);
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
 char *cbs_resolve_confined_path(const char *logical,

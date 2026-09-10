@@ -193,6 +193,7 @@ install {
 ```
 
 `replace`, `insert`, `write`, `copy`, `move`, `remove`, `symlink`, `extract`,
+`materialize`,
 `require`, globbing, environment bindings, timeouts, expected exit status, and
 `on_fail` diagnostics are specified in the [CPDL specification](spec/cpdl-0.1.md).
 

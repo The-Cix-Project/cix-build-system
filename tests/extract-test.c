@@ -71,14 +71,14 @@ done:
 int main(int argc, char **argv)
 {
     char root[] = "/tmp/cbs-extract-XXXXXX";
-    char archive_path[512], src[512], build[512], dest[512], result[512];
+    char archive_path[512], config_path[512], src[512], build[512], dest[512], result[512];
     char *source, *data;
     size_t length;
     CbsTokenList tokens = {0};
     CbsNode *document;
     CbsNode *prepare = NULL;
     CbsExecutionContext context;
-    CbsNamedSource named;
+    CbsNamedSource named[2];
     struct stat status;
     size_t index;
     int ok = 0;
@@ -90,8 +90,16 @@ int main(int argc, char **argv)
         snprintf(build, sizeof(build), "%s/build", root) >= (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", root) >= (int)sizeof(dest) ||
         mkdir(src, 0700) != 0 || mkdir(build, 0700) != 0 ||
-        mkdir(dest, 0700) != 0 || !make_archive(archive_path))
+        mkdir(dest, 0700) != 0 || !make_archive(archive_path) ||
+        snprintf(config_path, sizeof(config_path), "%s/config", root) >=
+            (int)sizeof(config_path))
         return 1;
+    {
+        FILE *config = fopen(config_path, "wb");
+        if (config == NULL || fputs("CONFIG_TEST=y\n", config) < 0 ||
+            fclose(config) != 0)
+            return 1;
+    }
     source = read_all(argv[1], &length);
     document = source == NULL || !cbs_lex(argv[1], source, length, &tokens) ?
                NULL : cbs_parse(argv[1], source, length, &tokens);
@@ -102,8 +110,10 @@ int main(int argc, char **argv)
         if (node->kind == CBS_NODE_PHASE && strcmp(node->name, "prepare") == 0)
             prepare = node;
     }
-    named.name = "support";
-    named.path = archive_path;
+    named[0].name = "support";
+    named[0].path = archive_path;
+    named[1].name = "config";
+    named[1].path = config_path;
     memset(&context, 0, sizeof(context));
     context.recipe_path = argv[1];
     context.recipe_source = source;
@@ -115,14 +125,19 @@ int main(int argc, char **argv)
     context.build = build;
     context.dest = dest;
     context.working_directory = src;
-    context.sources = &named;
-    context.source_count = 1;
+    context.sources = named;
+    context.source_count = 2;
     if (prepare == NULL || !cbs_execute_block(prepare, &context))
         goto done;
     snprintf(result, sizeof(result), "%s/support/data.txt", src);
     data = read_all(result, &length);
     if (data == NULL || strcmp(data, "support data\n") != 0 ||
         lstat(result, &status) != 0 || !S_ISREG(status.st_mode))
+        goto done;
+    free(data);
+    snprintf(result, sizeof(result), "%s/.config", build);
+    data = read_all(result, &length);
+    if (data == NULL || strcmp(data, "CONFIG_TEST=y\n") != 0)
         goto done;
     free(data);
     if (lstat("/dev/null", &status) != 0)

@@ -350,6 +350,23 @@ static CbsNode *parse_extract(CbsParser *parser)
     return node;
 }
 
+static CbsNode *parse_materialize(CbsParser *parser)
+{
+    CbsToken *keyword = consume_word(parser, "materialize");
+    CbsToken *source = consume_kind(parser, CBS_TOKEN_CBS_VALUE,
+                                    "named source value");
+    CbsNode *node = cbs_node_create(CBS_NODE_MATERIALIZE, keyword->location);
+    consume_word(parser, "to");
+    {
+        CbsToken *destination = consume_path(parser);
+        if (source != NULL)
+            node->value = cbs_duplicate(source->text);
+        if (destination != NULL)
+            node->second_value = cbs_duplicate(destination->text);
+    }
+    return node;
+}
+
 static CbsNode *parse_edit(CbsParser *parser, int insert)
 {
     CbsToken *keyword = advance(parser);
@@ -456,6 +473,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only)
         return parse_filesystem(parser);
     if (is_word(parser, "extract"))
         return parse_extract(parser);
+    if (is_word(parser, "materialize"))
+        return parse_materialize(parser);
     if (is_word(parser, "replace"))
         return parse_edit(parser, 0);
     if (is_word(parser, "insert"))
