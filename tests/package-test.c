@@ -32,18 +32,21 @@ int main(void)
 {
     char in[] = "/tmp/cixpkg-in", out[] = "/tmp/cixpkg-out";
     char round[] = "/tmp/cixpkg-round";
+    char extracted[64], extracted_file[128];
     char identity[32];
     FILE *file = fopen(in, "wb");
     if (file == NULL) return 1;
     fputs("payload", file);
     fclose(file);
+    snprintf(extracted, sizeof(extracted), "/tmp/cixpkg-extracted-%ld", (long)getpid());
     if (!cbs_cixpkg_compress(in, out) || !cbs_cixpkg_decompress(out, round) ||
         !cbs_build_package("cbs.cbs", "tests/fixtures/execution",
                            "/tmp/cixpkg-build") ||
         !cbs_cixpkg_verify_tree("/tmp/cixpkg-build", identity,
                                 sizeof(identity)) ||
-        !cbs_cixpkg_extract("/tmp/cixpkg-build", "/tmp/cixpkg-extracted") ||
-        access("/tmp/cixpkg-extracted/argv.cbs", F_OK) != 0) return 1;
+        !cbs_cixpkg_extract("/tmp/cixpkg-build", extracted) ||
+        snprintf(extracted_file, sizeof(extracted_file), "%s/argv.cbs", extracted) >=
+            (int)sizeof(extracted_file) || access(extracted_file, F_OK) != 0) return 1;
     if (!flip_byte("/tmp/cixpkg-build", 32) ||
         cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0)) return 1;
     if (!flip_byte("/tmp/cixpkg-build", 32) ||
