@@ -251,6 +251,15 @@ package "tcc" {
 
     configure {
         cd $build {
+            # CPDL 0.1 has no computed-value operation for discovering the
+            # libc triplet. This recipe is therefore deliberately scoped to
+            # the measured x86-64 Linux layout instead of guessing on other
+            # targets.
+            run "test" {
+                "${arch}"
+                "="
+                "x86_64"
+            }
             run "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/configure" {
                 "--prefix=/usr"
                 "--cc=tcc"

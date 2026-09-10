@@ -16,7 +16,9 @@ The draft now builds successfully in CBS's local sandbox and emits a verified
 edits, executable gates, and three-stage self-bootstrap with a byte-identity
 gate. One portability difference remains: the legacy recipe derives the libc
 triplet at build time, while this CPDL recipe pins the x86-64 Linux triplet;
-that is called out in the recipe before production use on another target.
+and the recipe now rejects other architectures explicitly rather than
+silently using the wrong library path. Dynamic triplet discovery can be added
+when CPDL gains a computed-value operation.
 
 ## GCC
 
