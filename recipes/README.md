@@ -7,15 +7,16 @@ source of truth and must not invoke a shell interpreter.
 ## TCC
 
 [`tcc.cbs`](tcc.cbs) is the first migration draft. It carries the exact pinned
-TCC source commit, checksum, package identity, dependency declarations, and
-basic configure/build/install flow from the legacy recipe.
+TCC source commit, checksum, package identity, dependency declarations,
+compatibility edits, executable gates, and configure/build/install flow from
+the legacy recipe.
 
 The draft now builds successfully in CBS's local sandbox and emits a verified
-`tcc-0.9.28rc-29-x86_64.cixpkg`. It is not yet release-equivalent to the legacy
-recipe: that recipe also applies compatibility edits, runs compiler conformance
-gates, and performs a three-stage bootstrap. Those behaviors are called out in
-the CPDL file and must be translated into explicit operations and assertions
-before this recipe can replace the legacy build in production.
+`tcc-0.9.28rc-29-x86_64.cixpkg`. The recipe now performs the compatibility
+edits, executable gates, and three-stage self-bootstrap with a byte-identity
+gate. One portability difference remains: the legacy recipe derives the libc
+triplet at build time, while this CPDL recipe pins the x86-64 Linux triplet;
+that is called out in the recipe before production use on another target.
 
 ## GCC
 
