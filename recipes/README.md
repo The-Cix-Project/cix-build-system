@@ -18,6 +18,12 @@ gate. The libc triplet is computed from the target architecture by CBS and is
 used in every bootstrap configure pass. Architectures without a registered
 mapping resolve empty and remain unsupported until their mapping is added.
 
+The remaining shell-recipe-only inspections are the detailed `.eh_frame`
+relocation parser and a probe that temporarily installs a library under
+`/lib/<triplet>`. The corresponding source patch, configure path, and build
+checks are present; these two checks need a richer CBS output/assertion
+primitive before claiming byte-for-byte gate parity with the shell recipe.
+
 ## GCC
 
 [`gcc.cbs`](gcc.cbs) is the next migration draft. It carries the GCC and GMP

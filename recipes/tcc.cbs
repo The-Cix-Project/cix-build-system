@@ -325,6 +325,130 @@ package "tcc" {
         require directory "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             exists
         }
+        write "${build}/cix_tcc_has_include.c" """
+            #if __has_include(<stdio.h>)
+            int present = 1;
+            #else
+            #error existing header was reported absent
+            #endif
+            #if __has_include(<cix_missing_header.h>)
+            #error missing header was reported present
+            #endif
+            int main(void) { return present == 1 ? 0 : 1; }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "${build}/cix_tcc_has_include.c"
+            "-o"
+            "${build}/cix_tcc_has_include"
+        }
+        run "${build}/cix_tcc_has_include" {
+            expect exit 0
+        }
+
+        write "${build}/cix_tcc_dso.c" """
+            extern void *__dso_handle;
+            int main(void) { return &__dso_handle == (void *)0; }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "${build}/cix_tcc_dso.c"
+            "-o"
+            "${build}/cix_tcc_dso"
+        }
+        run "${build}/cix_tcc_dso" {
+            expect exit 0
+        }
+
+        write "${build}/cix_tcc_bswap_so.c" """
+            unsigned int swap(unsigned int value) { return __builtin_bswap32(value); }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-shared"
+            "${build}/cix_tcc_bswap_so.c"
+            "-o"
+            "${build}/cix_tcc_bswap.so"
+        }
+        write "${build}/cix_tcc_dlopen.c" """
+            #include <dlfcn.h>
+            int main(int argc, char **argv)
+            {
+                void *handle;
+                unsigned int (*swap)(unsigned int);
+                if (argc != 2) return 10;
+                handle = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+                if (!handle) return 1;
+                swap = (unsigned int (*)(unsigned int))dlsym(handle, "swap");
+                if (!swap || swap(0x12345678u) != 0x78563412u) return 2;
+                dlclose(handle);
+                return 0;
+            }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-I${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/include"
+            "${build}/cix_tcc_dlopen.c"
+            "-ldl"
+            "-o"
+            "${build}/cix_tcc_dlopen"
+        }
+        run "${build}/cix_tcc_dlopen" {
+            "${build}/cix_tcc_bswap.so"
+            expect exit 0
+        }
+
+        write "${build}/cix_tcc_stack.c" """
+            int cix_stack_value(void) { return 7; }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-shared"
+            "${build}/cix_tcc_stack.c"
+            "-o"
+            "${build}/cix_tcc_stack.so"
+        }
+        write "${build}/cix_tcc_stack_check.c" """
+            #define _GNU_SOURCE
+            #include <link.h>
+            #include <string.h>
+            static int found;
+            static int callback(struct dl_phdr_info *info, size_t size)
+            {
+                int i;
+                (void)size;
+                if (!info->dlpi_name || !strstr(info->dlpi_name, "cix_tcc_stack.so")) return 0;
+                for (i = 0; i < (int)info->dlpi_phnum; ++i)
+                    if (info->dlpi_phdr[i].p_type == PT_GNU_STACK) {
+                        found = (info->dlpi_phdr[i].p_flags & PF_X) == 0;
+                        return 1;
+                    }
+                return 1;
+            }
+            int main(int argc, char **argv)
+            {
+                void *handle;
+                if (argc != 2) return 10;
+                handle = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+                if (!handle) return 1;
+                dl_iterate_phdr(callback, 0);
+                dlclose(handle);
+                return found ? 0 : 2;
+            }
+            """
+        run "${build}/tcc" {
+            "-B${build}"
+            "-I${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/include"
+            "${build}/cix_tcc_stack_check.c"
+            "-ldl"
+            "-o"
+            "${build}/cix_tcc_stack_check"
+        }
+        run "${build}/cix_tcc_stack_check" {
+            "${build}/cix_tcc_stack.so"
+            expect exit 0
+        }
+
         write "${build}/cix_tcc_atomic.c" """
             static char lock;
             int __atomic_test_and_set(volatile void *, int);
@@ -391,6 +515,14 @@ package "tcc" {
         run "${build}/cix_tcc_c11" {
             expect exit 0
         }
+        write "${build}/cix_tcc_c11_false.c" "_Static_assert(0, \"false assertion must fail\");\nint main(void) { return 0; }\n"
+        run "${build}/tcc" {
+            "-B${build}"
+            "${build}/cix_tcc_c11_false.c"
+            "-o"
+            "${build}/cix_tcc_c11_false"
+            expect exit 1
+        }
 
         write "${build}/cix_tcc_ctor.c" """
             static int sequence;
@@ -414,18 +546,29 @@ package "tcc" {
 
         write "${build}/cix_tcc_regressions.c" """
             struct pair { int a; int b; };
+            enum { I0, I1, I2 };
             static int calls;
             static int condition(void) { return ++calls >= 3; }
             int main(void)
             {
-                struct pair values[] = { (struct pair){1, 2}, (struct pair){3, 4} };
+                struct pair a[] = { (struct pair){1, 2}, (struct pair){3, 4}, (struct pair){5, 6} };
+                struct pair b[] = { [I2]=(struct pair){30,31}, [I0]=(struct pair){10,11}, [I1]=(struct pair){20,21} };
+                struct pair c[] = { 1,2, 3,4, 5,6 };
+                struct pair d[] = { (1),2, (3),4 };
+                static int grid[][2] = { 1,2, 3,4, 5,6 };
+                static char text[] = "hello";
                 int iterations = 0;
                 do {
                     iterations++;
                     continue;
                 } while (!condition());
-                if (values[1].a != 3 || values[1].b != 4) return 1;
-                return (iterations == 3 && calls == 3) ? 0 : 2;
+                if (sizeof a / sizeof a[0] != 3 || a[2].b != 6) return 1;
+                if (sizeof b / sizeof b[0] != 3 || b[0].a != 10 || b[2].a != 30) return 2;
+                if (sizeof c / sizeof c[0] != 3 || c[1].a != 3) return 3;
+                if (sizeof d / sizeof d[0] != 2 || d[1].b != 4) return 4;
+                if (sizeof grid / sizeof grid[0] != 3 || grid[2][0] != 5) return 5;
+                if (sizeof text != 6 || text[4] != 'o') return 6;
+                return (iterations == 3 && calls == 3) ? 0 : 7;
             }
             """
         run "${build}/tcc" {
@@ -439,13 +582,36 @@ package "tcc" {
         }
 
         write "${build}/cix_tcc_slots.c" """
-            int main(void)
+            void *opaque(int n) { static char buffer[8]; return buffer + (n & 1); }
+            int pick(void) { return 1; }
+            static int value_survives(void)
             {
-                void *first;
-                void *second;
-                first = (void *)1;
-                second = (void *)0;
-                return (&first == &second || first == (void *)0 || second != (void *)0) ? 1 : 0;
+                switch (1) {
+                case 0: return -1;
+                { void *first; void *second;
+                case 1:
+                    if (pick()) first = opaque(1); else first = opaque(2);
+                    second = (void *)0;
+                    if (first == (void *)0 || second != (void *)0) return 1;
+                    return 0;
+                }
+                }
+                return 2;
+            }
+            static int addresses_differ(void)
+            {
+                switch (1) {
+                case 0: return -1;
+                { void *first; void *second;
+                case 1:
+                    if (pick()) first = (void *)1; else first = (void *)2;
+                    second = (void *)0;
+                    return (&first == &second || first == (void *)0 || second != (void *)0) ? 1 : 0;
+                }
+                }
+                return 2;
+            }
+            int main(void) { return value_survives() || addresses_differ();
             }
             """
         run "${build}/tcc" {
