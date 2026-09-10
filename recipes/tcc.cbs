@@ -40,7 +40,7 @@ package "tcc" {
     }
 
     prepare {
-        require directory $src {
+        require directory "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             exists
         }
         # The legacy recipe patches include/tccdefs.h, lib/Makefile,
@@ -50,7 +50,7 @@ package "tcc" {
     }
 
     configure {
-        cd $src {
+        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             run "./configure" {
                 "--prefix=/usr"
                 "--cc=tcc"
@@ -60,7 +60,7 @@ package "tcc" {
     }
 
     build {
-        cd $src {
+        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             run "make" {
                 "-j${jobs}"
                 jobs $jobs
@@ -72,13 +72,13 @@ package "tcc" {
         # The legacy recipe's compiler gates are not yet represented. This
         # phase remains explicit so the migration cannot silently claim that
         # the source-level conformance checks were preserved.
-        require directory $src {
+        require directory "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             exists
         }
     }
 
     install {
-        cd $src {
+        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             run "make" {
                 "install"
                 "DESTDIR=${dest}"
