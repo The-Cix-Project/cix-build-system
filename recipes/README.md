@@ -16,7 +16,9 @@ The draft now builds successfully in CBS's local sandbox and emits a verified
 edits, executable gates, and three-stage self-bootstrap with a byte-identity
 gate. The libc triplet is computed from the target architecture by CBS and is
 used in every bootstrap configure pass. Architectures without a registered
-mapping resolve empty and remain unsupported until their mapping is added.
+mapping resolve empty and remain unsupported until their mapping is added. The
+TCC recipe is deliberately restricted to `x86_64`, matching its measured
+ELF64 and `R_X86_64` compatibility gates.
 
 The `.eh_frame` relocation inspection is implemented as a native ELF64 helper,
 and the library-path check is an isolated `-lc` link probe using the computed
