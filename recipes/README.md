@@ -51,3 +51,11 @@ materializes the verified configuration, runs native kconfig operations, and
 checks the required built-in, modular, and firmware inputs. It remains
 non-building until the executor can provide the kernel-builder image's
 firmware root and the remaining kernel-specific helper operations.
+
+## squashfs-tools
+
+[`squashfs-tools.cbs`](squashfs-tools.cbs) carries the XZ-only build, the
+TCC compatibility flags, the single-reader setting, the image write/read-back
+gate, and the four installed tools. `libgcc_s.so.1`, `liblzma.so`, and libc are
+declared runtime requirements; CBS does not copy libraries from absolute host
+paths into the package.
