@@ -1,0 +1,17 @@
+package "extract-test" {
+    version "1"
+    release 1
+    sources {
+        main "main" {
+            url "https://example.invalid/main.tar"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+        extra "support" {
+            url "https://example.invalid/support.tar"
+            sha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+    }
+    prepare {
+        extract $source.support into $src as "support"
+    }
+}

@@ -2,6 +2,7 @@
 
 #include "cbs.h"
 
+#include <dirent.h>
 #include <string.h>
 
 long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit)
@@ -238,6 +239,124 @@ static int execute_cd(const CbsNode *operation,
     return result;
 }
 
+static const char *extract_name(const CbsNode *operation)
+{
+    size_t index;
+
+    for (index = 0; index < operation->child_count; ++index)
+        if (operation->children[index]->kind == CBS_NODE_PROPERTY &&
+            operation->children[index]->name != NULL &&
+            strcmp(operation->children[index]->name, "as") == 0)
+            return operation->children[index]->value;
+    return NULL;
+}
+
+static int extract_error(const CbsNode *operation,
+                         const CbsExecutionContext *context,
+                         const char *message)
+{
+    cbs_diagnostic(context->recipe_path, context->recipe_source,
+                   operation->location, "error", "CPDL-E4006",
+                   CBS_DIAG_SOURCE, message);
+    return 0;
+}
+
+static int execute_extract(const CbsNode *operation,
+                           const CbsExecutionContext *context)
+{
+    char *archive = cbs_resolve_value(operation->value,
+                                      CBS_TOKEN_CBS_VALUE, context);
+    char *destination = cbs_resolve_confined_path(operation->second_value,
+                                                   context);
+    const char *name = extract_name(operation);
+    char temporary[4096];
+    char final_path[4096];
+    char selected[4096];
+    DIR *directory;
+    struct dirent *entry;
+    int found = 0;
+    int result;
+
+    if (archive == NULL || destination == NULL) {
+        free(archive);
+        free(destination);
+        return extract_error(operation, context,
+                             "extract path is outside the build workspace");
+    }
+    if (name == NULL) {
+        result = cbs_extract_archive(archive, destination, operation->value + 8,
+                                     context->recipe_path, context->recipe_source,
+                                     operation->location);
+        free(archive);
+        free(destination);
+        return result;
+    }
+    if (name[0] == '\0' || strchr(name, '/') != NULL ||
+        strcmp(name, ".") == 0 || strcmp(name, "..") == 0 ||
+        snprintf(temporary, sizeof(temporary), "%s/.cbs-extract-%ld",
+                 destination, (long)getpid()) >= (int)sizeof(temporary)) {
+        free(archive);
+        free(destination);
+        return extract_error(operation, context,
+                             "extract `as` name is not a safe directory name");
+    }
+    if (mkdir(temporary, 0700) != 0) {
+        free(archive);
+        free(destination);
+        return extract_error(operation, context,
+                             "cannot create temporary extraction directory");
+    }
+    result = cbs_extract_archive(archive, temporary, operation->value + 8,
+                                 context->recipe_path, context->recipe_source,
+                                 operation->location);
+    free(archive);
+    if (!result) {
+        rmdir(temporary);
+        free(destination);
+        return 0;
+    }
+
+    directory = opendir(temporary);
+    if (directory == NULL) {
+        free(destination);
+        return extract_error(operation, context,
+                             "cannot inspect extracted top-level directory");
+    }
+    while ((entry = readdir(directory)) != NULL) {
+        struct stat status;
+
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        if (found++ != 0 ||
+            snprintf(selected, sizeof(selected), "%s/%s", temporary,
+                     entry->d_name) >= (int)sizeof(selected) ||
+            lstat(selected, &status) != 0 || !S_ISDIR(status.st_mode) ||
+            S_ISLNK(status.st_mode)) {
+            closedir(directory);
+            free(destination);
+            return extract_error(operation, context,
+                                 "`as` requires one top-level directory");
+        }
+    }
+    closedir(directory);
+    if (found != 1 ||
+        snprintf(final_path, sizeof(final_path), "%s/%s", destination, name) >=
+            (int)sizeof(final_path) || lstat(final_path, &(struct stat){0}) == 0) {
+        free(destination);
+        return extract_error(operation, context,
+                             "extracted destination already exists or is missing");
+    }
+    /* selected is the only entry beneath the temporary directory. */
+    if (rename(selected, final_path) != 0 || rmdir(temporary) != 0) {
+        free(destination);
+        return extract_error(operation, context,
+                             "cannot rename extracted top-level directory");
+    }
+    free(destination);
+    return 1;
+}
+
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context)
 {
@@ -251,6 +370,8 @@ static int execute_operation(const CbsNode *operation,
         return cbs_execute_edit_assertion(operation, context);
     if (operation->kind == CBS_NODE_CD)
         return execute_cd(operation, context);
+    if (operation->kind == CBS_NODE_EXTRACT)
+        return execute_extract(operation, context);
     cbs_diagnostic(context->recipe_path, context->recipe_source,
                    operation->location, "error", "CPDL-E9001",
                    CBS_DIAG_INTERNAL, "operation has no runtime executor");

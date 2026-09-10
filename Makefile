@@ -50,18 +50,18 @@ test: $(TARGET)
 	./tests/exec-test tests/fixtures/execution/argv.cbs
 	rm -f tests/exec-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fs-test.c \
-		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -o tests/fs-test
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/runtime.o src/validate.o -larchive -o tests/fs-test
 	./tests/fs-test tests/fixtures/execution/filesystem.cbs
 	rm -f tests/fs-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/edit-assert-test.c \
-		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -o tests/edit-assert-test
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/runtime.o src/validate.o -larchive -o tests/edit-assert-test
 	./tests/edit-assert-test tests/fixtures/execution/edit-assert.cbs
 	rm -f tests/edit-assert-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/runtime-test.c \
-		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -o tests/runtime-test
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/runtime.o src/validate.o -larchive -o tests/runtime-test
 	./tests/runtime-test tests/fixtures/execution/failure.cbs
 	rm -f tests/runtime-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/identity-test.c \
@@ -83,11 +83,17 @@ test: $(TARGET)
 		-larchive -o tests/archive-test
 	./tests/archive-test
 	rm -f tests/archive-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/extract-test.c \
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o \
+		src/parser.o src/runtime.o src/validate.o -larchive -o tests/extract-test
+	./tests/extract-test tests/fixtures/execution/extract.cbs
+	rm -f tests/extract-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/jobs-test.c src/ast.o src/diag.o src/exec.o \
-		src/fs.o src/lexer.o src/parser.o src/runtime.o src/validate.o -o tests/jobs-test
+		src/archive.o src/fs.o src/lexer.o src/parser.o src/runtime.o src/validate.o \
+		-larchive -o tests/jobs-test
 	./tests/jobs-test
 	rm -f tests/jobs-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -o tests/stage-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/archive.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/stage-test
 	./tests/stage-test
 	rm -f tests/stage-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o src/source.o src/archive.o \
@@ -118,6 +124,7 @@ clean:
 	rm -f tests/source-test
 	rm -f tests/fetch-test
 	rm -f tests/archive-test
+	rm -f tests/extract-test
 	rm -f tests/jobs-test
 	rm -f tests/stage-test
 	rm -f tests/manifest-test

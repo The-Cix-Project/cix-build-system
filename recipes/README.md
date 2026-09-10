@@ -26,7 +26,10 @@ triplet. No host library is installed or modified by the recipe.
 
 ## GCC
 
-[`gcc.cbs`](gcc.cbs) is the next migration draft. It carries the GCC and GMP
-source pins documented in ADR-0001 and the TCC-rooted dependency model. It is
-validation-only until pinned MPFR/MPC sources and the complete GCC test and
-bootstrap gates are added.
+[`gcc.cbs`](gcc.cbs) is the next migration draft. It now carries the GCC,
+GMP, MPFR, and MPC source pins, executable prerequisite extraction, and the
+TCC-rooted dependency model. The current probe reaches the fetched GCC source
+tree but stops because this pinned archive has no top-level `configure` script;
+the recipe therefore does not yet claim a complete GCC build or bootstrap.
+That source-layout issue must be resolved from the declared source itself
+before porting the remaining GCC-specific gates and install policy.
