@@ -1,0 +1,87 @@
+# GCC migration draft from the repository's documented GCC stress case.
+#
+# This records the identity and source pins that are present in ADR-0001. The
+# complete legacy recipe also needs pinned MPFR and MPC sources; those pins are
+# not present in this repository yet, so this draft is validation-only until
+# they are added. No unverified checksum is permitted here.
+#
+package "gcc" {
+    version "16.2.0"
+    release 11
+
+    sources {
+        main "gcc" {
+            url "https://ftp.gnu.org/gnu/gcc/gcc-16.2.0/gcc-16.2.0.tar.xz"
+            sha256 "e6738e29597f733270731aa90600f37ffdc045079dfc27ec7e8192cc81085c3e"
+        }
+        extra "gmp" {
+            url "https://gcc.gnu.org/pub/gcc/infrastructure/gmp-6.3.0.tar.bz2"
+            sha256 "ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb"
+        }
+    }
+
+    requires {
+        build {
+            compiler "tcc"
+            tool "binutils"
+            tool "make"
+            tool "m4"
+            library "zlib"
+            headers "libc-dev"
+        }
+        test {
+            tool "dejagnu"
+        }
+        bootstrap {
+            compiler "tcc"
+        }
+    }
+
+    prepare {
+        require directory "${src}/gcc/gcc-16.2.0" {
+            exists
+        }
+        # MPFR/MPC pins, source extraction layout, and GCC-specific source
+        # edits must be completed before this draft can execute.
+    }
+
+    configure {
+        cd $build {
+            run "${src}/gcc/gcc-16.2.0/configure" {
+                "--prefix=/usr"
+                "--enable-languages=c"
+                "--disable-multilib"
+                env "CC" = "tcc"
+            }
+        }
+    }
+
+    build {
+        cd $build {
+            run "make" {
+                "-j${jobs}"
+                jobs $jobs
+            }
+        }
+    }
+
+    check {
+        require directory "${src}/gcc/gcc-16.2.0" {
+            exists
+        }
+        # The legacy DejaGNU and bootstrap reproducibility gates remain to be
+        # translated into explicit CBS assertions.
+    }
+
+    install {
+        cd $build {
+            run "make" {
+                "install"
+                "DESTDIR=${dest}"
+            }
+        }
+        require file "${dest}/usr/bin/gcc" {
+            exists
+        }
+    }
+}

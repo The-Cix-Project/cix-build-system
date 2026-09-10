@@ -16,3 +16,10 @@ recipe: that recipe also applies compatibility edits, runs compiler conformance
 gates, and performs a three-stage bootstrap. Those behaviors are called out in
 the CPDL file and must be translated into explicit operations and assertions
 before this recipe can replace the legacy build in production.
+
+## GCC
+
+[`gcc.cbs`](gcc.cbs) is the next migration draft. It carries the GCC and GMP
+source pins documented in ADR-0001 and the TCC-rooted dependency model. It is
+validation-only until pinned MPFR/MPC sources and the complete GCC test and
+bootstrap gates are added.
