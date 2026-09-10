@@ -64,6 +64,8 @@ Use `explain` to print the validated execution plan without executing it:
 
 ```text
 ./cbs explain path/to/package.cbs
+# Add --json for scriptable plan inspection.
+./cbs explain path/to/package.cbs --json
 ```
 
 The complete first-time-user workflow is documented in the

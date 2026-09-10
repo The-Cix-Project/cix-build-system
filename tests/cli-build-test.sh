@@ -16,6 +16,11 @@ test ! -s "$temporary_dir/check.err"
 test ! -s "$temporary_dir/explain.err"
 grep -q 'execution plan' "$temporary_dir/explain.out"
 grep -q 'build operations=' "$temporary_dir/explain.out"
+"$cbs" explain "$tests_dir/fixtures/standalone-smoke.cbs" --json \
+    >"$temporary_dir/explain.json" 2>"$temporary_dir/explain-json.err"
+test ! -s "$temporary_dir/explain-json.err"
+grep -q '"phases"' "$temporary_dir/explain.json"
+grep -q '"name":"build"' "$temporary_dir/explain.json"
 "$cbs" build "$tests_dir/fixtures/standalone-smoke.cbs" \
     --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --cache "$temporary_dir/cache" \

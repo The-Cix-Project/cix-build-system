@@ -80,7 +80,8 @@ line, column, diagnostic code, and category.
 
 `explain` performs the same validation and then prints the ordered phases and
 their operation counts. It is non-executing and useful for reviewing a recipe
-before allowing a build.
+before allowing a build. Add `--json` for a machine-readable object containing
+the ordered phase names and operation counts.
 
 ## 4. Build a package
 

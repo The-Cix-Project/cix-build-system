@@ -112,7 +112,7 @@ static void usage(FILE *stream)
           "commands:\n"
           "  cbs check RECIPE.cbs                 Validate without executing\n"
           "  cbs validate RECIPE.cbs              Alias for check\n"
-          "  cbs explain RECIPE.cbs               Show the execution plan\n"
+          "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
           "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR]\n"
           "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
@@ -132,7 +132,7 @@ static int verify_file(const char *path)
     return 0;
 }
 
-static int explain_file(const char *path)
+static int explain_file(const char *path, int json)
 {
     char *source;
     size_t length, index;
@@ -161,10 +161,19 @@ static int explain_file(const char *path)
         free(source);
         return 3;
     }
-    printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
-    for (index = 0; index < plan.count; ++index)
-        printf("%zu %s operations=%zu\n", index + 1,
-               plan.phases[index]->name, plan.phases[index]->child_count);
+    if (json) {
+        fputs("{\"phases\":[", stdout);
+        for (index = 0; index < plan.count; ++index)
+            printf("%s{\"name\":\"%s\",\"operations\":%zu}",
+                   index == 0 ? "" : ",", plan.phases[index]->name,
+                   plan.phases[index]->child_count);
+        puts("]}");
+    } else {
+        printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
+        for (index = 0; index < plan.count; ++index)
+            printf("%zu %s operations=%zu\n", index + 1,
+                   plan.phases[index]->name, plan.phases[index]->child_count);
+    }
     cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
     free(source);
@@ -225,7 +234,10 @@ int main(int argc, char **argv)
     if (argc == 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);
     if (argc == 3 && strcmp(argv[1], "explain") == 0)
-        return explain_file(argv[2]);
+        return explain_file(argv[2], 0);
+    if (argc == 4 && strcmp(argv[1], "explain") == 0 &&
+        strcmp(argv[3], "--json") == 0)
+        return explain_file(argv[2], 1);
     if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
         strcmp(argv[3], "--into") == 0) {
         if (!cbs_cixpkg_extract(argv[2], argv[4])) {
