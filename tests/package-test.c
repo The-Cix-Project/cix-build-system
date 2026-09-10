@@ -41,7 +41,9 @@ int main(void)
         !cbs_build_package("cbs.cbs", "tests/fixtures/execution",
                            "/tmp/cixpkg-build") ||
         !cbs_cixpkg_verify_tree("/tmp/cixpkg-build", identity,
-                                sizeof(identity))) return 1;
+                                sizeof(identity)) ||
+        !cbs_cixpkg_extract("/tmp/cixpkg-build", "/tmp/cixpkg-extracted") ||
+        access("/tmp/cixpkg-extracted/argv.cbs", F_OK) != 0) return 1;
     if (!flip_byte("/tmp/cixpkg-build", 32) ||
         cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0)) return 1;
     if (!flip_byte("/tmp/cixpkg-build", 32) ||
