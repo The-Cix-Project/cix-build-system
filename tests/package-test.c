@@ -2,6 +2,7 @@
 #include "cbs.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static int flip_byte(const char *path, long offset)
 {
@@ -14,6 +15,18 @@ static int flip_byte(const char *path, long offset)
         return 0;
     }
     return 1;
+}
+
+static int truncate_file(const char *path, off_t length)
+{
+    FILE *file = fopen(path, "r+b");
+    int descriptor;
+    int result;
+    if (file == NULL) return 0;
+    descriptor = fileno(file);
+    result = descriptor >= 0 && ftruncate(descriptor, length) == 0;
+    if (fclose(file) != 0) result = 0;
+    return result;
 }
 
 int main(void)
@@ -37,6 +50,8 @@ int main(void)
         cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0)) return 1;
     if (!flip_byte("/tmp/cixpkg-build", 32) ||
         !flip_byte("/tmp/cixpkg-build", 400) ||
+        cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0)) return 1;
+    if (!truncate_file("/tmp/cixpkg-build", 351) ||
         cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0)) return 1;
     puts("CIXPKG tests: PASS (writer, reader, pipeline, corruption gates)");
     return 0;
