@@ -31,36 +31,24 @@ Unblock action: choose one CIXPKG v1 wire layout, update the implementation,
 tests, and spec together, then remove or clearly mark the legacy API. This is
 an internal CBS decision; no external service is needed.
 
-### 2. Legacy recipe migration needs a deliberate compatibility policy
+### 2. The replacement recipe corpus is not yet in this repository
 
-The available corpus is `/home/osakka/new_project/recipes`: it contains 77
-package families, 1,217 versioned package `build.sh` files, image manifests,
-and deployment definitions. Package recipes declare fields such as
-`pkg_name`, `pkg_version`, `pkg_source`, `pkg_sha256`, and shell functions
-`pkg_build`/`pkg_install`.
+The legacy shell recipes are the system CBS is replacing; they are not a CBS
+dependency and must not be executed or treated as CPDL input. This repository
+contains CPDL examples and fixtures, but not yet an authoritative production
+set of `.cbs` recipes covering the packages CBS is expected to build.
 
-CBS recipes are CPDL `.cbs` documents with direct, non-shell execution and a
-different staged-tree model. Automatic translation is therefore possible only
-for a defined subset; blindly converting shell recipes would weaken CBS’s
-safety guarantees.
-
-Unblock action: confirm that this corpus is the migration source of truth and
-choose one policy:
-
-1. translate supported recipes to CPDL and report unsupported shell constructs;
-2. keep legacy recipes behind a separate compatibility runner; or
-3. make CPDL the new source of truth and migrate only a selected seed set.
-
-The first useful deliverable after that decision is a read-only inventory and
-translation report, not an automatic publish.
+Unblock action: define the first in-repository CPDL seed set and migrate each
+recipe deliberately, with validation and end-to-end build tests. The migration
+must preserve declared sources, checksums, dependencies, staged paths, and
+toolchain requirements without reintroducing shell execution through a side
+door.
 
 ### 3. cixd integration needs an adapter mapping
 
-The adjacent project provides an OpenAPI contract at
-`/home/osakka/new_project/docs/api/openapi.yaml`, including package recipe
-publication, recipe sync, package installation, artifact cache, and hostbuild
-operations. CBS already has callback boundaries for daemon requests, fetch,
-sandboxing, signatures, and transactions, but no HTTP/OpenAPI client adapter.
+CBS already has callback boundaries for daemon requests, fetch, sandboxing,
+signatures, and transactions, but no concrete cixd protocol contract or
+HTTP/OpenAPI client adapter in this repository.
 
 Unblock action: select the cixd API version and the initial operation set. The
 smallest useful slice is recipe upload/list, source/artifact fetch, and package
@@ -82,13 +70,11 @@ tests are the correct boundary and production claims should remain pending.
 
 The highest-value user inputs are:
 
-- confirm whether `/home/osakka/new_project/recipes` is the authoritative
-  corpus;
-- choose the migration policy in blocker 2;
+- provide or nominate the first CPDL recipe seed set for blocker 2;
+- choose the migration acceptance criteria in blocker 2;
 - approve the CIXPKG v1 wire-layout decision in blocker 1; and
 - identify a reachable cixd test endpoint or authorize a fixture-only adapter
   phase.
 
 Nothing is needed to use CBS standalone today. These inputs are only needed
 for compatibility and production integration.
-

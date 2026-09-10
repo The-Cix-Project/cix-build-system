@@ -47,11 +47,10 @@ cancellation and resource limits, clean-host CI, and reproducibility gates.
 
 Applicable issues: #35–#44 and #57–#85.
 
-The adjacent project now provides candidate external inputs: an OpenAPI cixd
-contract and a large legacy shell-recipe corpus. They still require an explicit
-compatibility policy and an adapter; they are not CPDL recipes and must not be
-executed as CPDL. Production sandbox, signing, cache, and clean-host CI
-ownership remain to be identified. See [the integration blocker register](integration-blockers.md).
+These require inputs not present in this repository: a versioned cixd protocol,
+production sandbox and repository services, and the first authoritative CPDL
+recipe corpus. Legacy shell recipes are the replacement target, not a CBS
+runtime dependency. See [the integration blocker register](integration-blockers.md).
 
 ## Recommended order
 
