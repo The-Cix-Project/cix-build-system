@@ -443,16 +443,20 @@ static int package_item_rank(CbsNodeKind kind, const char *name)
         return 4;
     case CBS_NODE_REQUIRES:
         return 5;
+    case CBS_NODE_BUILD_IMAGE:
+    case CBS_NODE_CAPABILITY:
+    case CBS_NODE_TOOLCHAIN:
+        return 6;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
-            return 6;
-        if (strcmp(name, "configure") == 0)
             return 7;
-        if (strcmp(name, "build") == 0)
+        if (strcmp(name, "configure") == 0)
             return 8;
-        if (strcmp(name, "check") == 0)
+        if (strcmp(name, "build") == 0)
             return 9;
-        return 10;
+        if (strcmp(name, "check") == 0)
+            return 10;
+        return 11;
     default:
         return 99;
     }
@@ -511,6 +515,21 @@ static int dependency_role_rank(const char *role)
     return 4;
 }
 
+static int has_toolchain_exception(const Validator *validator,
+                                   const char *compiler)
+{
+    size_t index;
+
+    if (strcmp(compiler, "gcc") != 0)
+        return 0;
+    for (index = 0; index < validator->package->child_count; ++index)
+        if (validator->package->children[index]->kind == CBS_NODE_TOOLCHAIN &&
+            validator->package->children[index]->value != NULL &&
+            strcmp(validator->package->children[index]->value, "gcc") == 0)
+            return 1;
+    return 0;
+}
+
 static void validate_requires(Validator *validator, const CbsNode *requires)
 {
     size_t index;
@@ -542,9 +561,10 @@ static void validate_requires(Validator *validator, const CbsNode *requires)
                 validation_error(validator, dependency, "CPDL-E3004",
                                  "invalid dependency name");
             if (strcmp(dependency->name, "compiler") == 0 &&
-                strcmp(dependency->value, "tcc") != 0)
+                strcmp(dependency->value, "tcc") != 0 &&
+                !has_toolchain_exception(validator, dependency->value))
                 validation_error(validator, dependency, "CPDL-E3004",
-                                 "TCC is the only permitted compiler dependency");
+                                 "compiler requires TCC or an explicit toolchain exception");
             for (earlier = 0; earlier < prior; ++earlier) {
                 const CbsNode *other = group->children[earlier];
                 if (strcmp(other->name, dependency->name) == 0 &&
@@ -578,6 +598,7 @@ static void validate_package(Validator *validator)
         for (prior = 0; prior < index; ++prior) {
             const CbsNode *other = package->children[prior];
             if (other->kind == item->kind &&
+                item->kind != CBS_NODE_CAPABILITY &&
                 (item->kind != CBS_NODE_PHASE ||
                  strcmp(other->name, item->name) == 0))
                 validation_error(validator, item, "CPDL-E3002",
@@ -607,6 +628,23 @@ static void validate_package(Validator *validator)
             break;
         case CBS_NODE_REQUIRES:
             validate_requires(validator, item);
+            break;
+        case CBS_NODE_BUILD_IMAGE:
+            if (item->value == NULL || item->value[0] == '\0')
+                validation_error(validator, item, "CPDL-E3004",
+                                 "build image name must not be empty");
+            break;
+        case CBS_NODE_CAPABILITY:
+            if (item->value == NULL || item->value[0] == '\0')
+                validation_error(validator, item, "CPDL-E3004",
+                                 "build capability must not be empty");
+            break;
+        case CBS_NODE_TOOLCHAIN:
+            if (item->value == NULL || strcmp(item->value, "gcc") != 0 ||
+                item->child_count != 1 || item->children[0]->value == NULL ||
+                item->children[0]->value[0] == '\0')
+                validation_error(validator, item, "CPDL-E3006",
+                                 "gcc toolchain use requires an explicit reason");
             break;
         case CBS_NODE_PHASE:
             validate_block(validator, item, 0);

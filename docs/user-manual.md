@@ -158,6 +158,16 @@ mkdir -p /var/cache/cbs/sources /tmp/cbs-example
     --cache /var/cache/cbs/sources
 ```
 
+For an internal HTTPS endpoint with a private CA, add that CA explicitly:
+
+```text
+./cbs build example.cbs --arch x86_64 --staged /tmp/cbs-example \
+    --output example-1-1-x86_64.cixpkg --ca-file /etc/cix/ca.pem
+```
+
+This preserves peer and hostname verification and does not replace CBS's
+source SHA-256 verification.
+
 Cache hits do not require network access. Source archives are extracted by
 CBS's libarchive boundary; archive paths and entry types are checked before
 files are exposed to the recipe.

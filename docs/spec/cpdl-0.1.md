@@ -86,7 +86,8 @@ The complete CPDL 0.1 keyword set is:
 ```text
 allow_failure  after      any           architecture  as          bootstrap
 build          cd         check         chmod       compiler       config
-configure      contains   copy          count       directory
+configure      contains   copy          count       directory      build_image
+capability     toolchain
 env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
 insert         into       jobs           library     main
@@ -217,6 +218,9 @@ package-item = version-declaration
              | release-declaration
              | sources-declaration
              | requires-declaration
+             | build-image-declaration
+             | capability-declaration
+             | toolchain-declaration
              | prepare-phase
              | configure-phase
              | build-phase
@@ -225,7 +229,16 @@ package-item = version-declaration
 
 version-declaration      = "version", string ;
 release-declaration      = "release", integer ;
+build-image-declaration  = "build_image", string ;
+capability-declaration   = "capability", string ;
+toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
 ```
+
+`build_image` and `capability` are execution metadata consumed by the build
+orchestrator; standalone CBS records and validates them but cannot create an
+image or grant a capability. A non-TCC compiler requires a matching
+`toolchain` declaration with a non-empty reason. GCC is currently the only
+permitted exception to the TCC compiler policy.
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.

@@ -72,7 +72,10 @@ typedef enum {
     CBS_NODE_INSERT,
     CBS_NODE_REQUIRE,
     CBS_NODE_ON_FAIL,
-    CBS_NODE_PROPERTY
+    CBS_NODE_PROPERTY,
+    CBS_NODE_BUILD_IMAGE,
+    CBS_NODE_CAPABILITY,
+    CBS_NODE_TOOLCHAIN
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;
@@ -151,6 +154,8 @@ typedef struct {
 
 int cbs_cli_fetch_service(CbsFetchService *service, char *error,
                           size_t error_size);
+int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
+                                  size_t error_size, const char *ca_file);
 
 typedef struct {
     const char *role;

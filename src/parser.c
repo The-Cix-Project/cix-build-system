@@ -625,6 +625,32 @@ static int phase_word(CbsParser *parser)
            is_word(parser, "install");
 }
 
+static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind)
+{
+    CbsToken *keyword = current(parser);
+    CbsToken *value;
+    CbsNode *node;
+
+    advance(parser);
+    value = consume_kind(parser, CBS_TOKEN_STRING, "metadata value");
+    node = cbs_node_create(kind, keyword->location);
+    if (value != NULL)
+        node->value = cbs_duplicate(value->text);
+    if (kind == CBS_NODE_TOOLCHAIN) {
+        consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+        consume_word(parser, "reason");
+        value = consume_kind(parser, CBS_TOKEN_STRING,
+                             "toolchain exception reason");
+        if (value != NULL) {
+            CbsNode *reason = node_from_token(CBS_NODE_PROPERTY, value);
+            reason->name = cbs_duplicate("reason");
+            cbs_node_add(node, reason);
+        }
+        consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    }
+    return node;
+}
+
 static CbsNode *parse_package_item(CbsParser *parser)
 {
     CbsToken *keyword = current(parser);
@@ -661,6 +687,12 @@ static CbsNode *parse_package_item(CbsParser *parser)
         return parse_sources(parser);
     if (is_word(parser, "requires"))
         return parse_requires(parser);
+    if (is_word(parser, "build_image"))
+        return parse_build_metadata(parser, CBS_NODE_BUILD_IMAGE);
+    if (is_word(parser, "capability"))
+        return parse_build_metadata(parser, CBS_NODE_CAPABILITY);
+    if (is_word(parser, "toolchain"))
+        return parse_build_metadata(parser, CBS_NODE_TOOLCHAIN);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);

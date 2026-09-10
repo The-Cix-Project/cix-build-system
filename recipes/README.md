@@ -41,3 +41,13 @@ build, selftest, #296 mutation gate, staged binaries, and web assets. CPDL 0.1
 does not yet have declarations for the legacy build-image or capability policy,
 so those two deployment controls remain explicitly documented as pending
 executor metadata rather than being silently discarded.
+
+## Kernel
+
+[`kernel.cbs`](kernel.cbs) is the non-building migration draft for the Linux
+kernel recipe. It preserves the pinned kernel and configuration sources,
+declares the kernel-builder image, capability, and explicit GCC exception,
+materializes the verified configuration, runs native kconfig operations, and
+checks the required built-in, modular, and firmware inputs. It remains
+non-building until the executor can provide the kernel-builder image's
+firmware root and the remaining kernel-specific helper operations.

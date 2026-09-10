@@ -1,0 +1,112 @@
+# Non-building CBS migration of the kernel recipe.
+package "kernel" {
+    version "7.2.3"
+    release 9
+    sources {
+        main "linux" {
+            url "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.3.tar.xz"
+            sha256 "8ba259e8e7b13ec6ef0941c8a39ad90b24bd4a4d6c0010ba6bafb794550ecd03"
+        }
+        extra "config" {
+            url "https://osakka:{{REPO_TOKEN}}@git.home.arpa/api/v1/repos/itdlabs/cix/raw/image/kernel/qemu-part1.config?ref=02dc4541c46c8c7896266d091fdac1bd70f61472"
+            sha256 "b0926ffaa200a1b0692f00fcabf936a388ce03792ec2ba36747d30d4bf95b4e6"
+        }
+    }
+    requires {
+        build {
+            compiler "gcc"
+            tool "bash"
+            tool "bc"
+            tool "binutils"
+            tool "bison"
+            tool "bzip2"
+            tool "coreutils"
+            tool "diffutils"
+            tool "elfutils"
+            tool "findutils"
+            tool "flex"
+            tool "gawk"
+            tool "glibc"
+            tool "grep"
+            tool "gzip"
+            tool "kmod"
+            tool "m4"
+            tool "make"
+            tool "openssl"
+            tool "sed"
+            tool "tar"
+            tool "xz"
+            tool "zlib"
+        }
+        bootstrap {
+            compiler "gcc"
+        }
+    }
+    build_image "kernel-builder"
+    capability "CAP_SYS_ADMIN"
+    toolchain "gcc" {
+        reason "Linux kbuild requires GCC internals and extensions throughout"
+    }
+    prepare {
+        require directory "${src}/linux-7.2.3" { exists }
+        materialize $source.config to "${build}/qemu-part1.config"
+        require file "${build}/qemu-part1.config" { exists }
+    }
+    build {
+        cd "${src}/linux-7.2.3" {
+            run "make" {
+                "ARCH=x86_64"
+                "SHELL=/usr/bin/bash"
+                "HOSTCC=/usr/bin/gcc"
+                "CC=/usr/bin/gcc"
+                "allnoconfig"
+                jobs $jobs
+            }
+            run "./scripts/kconfig/merge_config.sh" {
+                "-m"
+                ".config"
+                "${build}/qemu-part1.config"
+            }
+            run "make" {
+                "ARCH=x86_64"
+                "SHELL=/usr/bin/bash"
+                "HOSTCC=/usr/bin/gcc"
+                "CC=/usr/bin/gcc"
+                "olddefconfig"
+                jobs $jobs
+            }
+        }
+    }
+    check {
+        require config "${src}/linux-7.2.3/.config" {
+            CONFIG_MODULES = y
+            CONFIG_MODULE_UNLOAD = y
+            CONFIG_MODULE_FORCE_UNLOAD = absent
+            CONFIG_WIRELESS = y
+            CONFIG_CFG80211 = y
+            CONFIG_MAC80211 = y
+            CONFIG_WLAN = y
+            CONFIG_RTW88 = m
+            CONFIG_RTW88_CORE = m
+            CONFIG_RTW88_USB = m
+            CONFIG_RTW88_8822B = m
+            CONFIG_RTW88_8822BU = m
+            CONFIG_DRM_AMDGPU = m
+        }
+        require file "/lib/firmware/regulatory.db" { exists }
+        require file "/lib/firmware/regulatory.db.p7s" { exists }
+    }
+    install {
+        copy "${src}/linux-7.2.3/arch/x86/boot/bzImage" to "${dest}/bzImage"
+        run "make" {
+            "ARCH=x86_64"
+            "SHELL=/usr/bin/bash"
+            "HOSTCC=/usr/bin/gcc"
+            "CC=/usr/bin/gcc"
+            "INSTALL_MOD_PATH=${dest}"
+            "modules_install"
+            jobs $jobs
+        }
+        require file "${dest}/bzImage" { exists }
+    }
+}

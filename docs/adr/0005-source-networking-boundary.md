@@ -14,7 +14,9 @@ runtime for HTTP/HTTPS source acquisition. cixd may provide the same
 In standalone mode, libcurl owns TLS trust anchors, certificate validation,
 hostname verification, proxy policy, and HTTP redirects. CBS restricts the
 protocol set to HTTP/HTTPS, applies bounded connect/transfer timeouts and
-redirects, and reports transport errors. In cixd mode, cixd owns those policies
+redirects, and reports transport errors. The standalone CLI may add a private
+CA with `--ca-file`, but it must not disable peer or hostname verification. In
+cixd mode, cixd owns those policies
 and the base boundary returns a bounded byte stream or structured failure.
 
 CBS remains responsible for source identity and integrity: it selects declared

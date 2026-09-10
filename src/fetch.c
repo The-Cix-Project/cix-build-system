@@ -27,7 +27,8 @@ enum {
     CURLOPT_TIMEOUT_MS = 155,
     CURLOPT_USERAGENT = 10018,
     CURLOPT_PROTOCOLS = 181,
-    CURLOPT_REDIR_PROTOCOLS = 182
+    CURLOPT_REDIR_PROTOCOLS = 182,
+    CURLOPT_CAINFO = 10065
 };
 
 typedef struct {
@@ -36,6 +37,7 @@ typedef struct {
     CurlEasySetopt easy_setopt;
     CurlEasyPerform easy_perform;
     CurlEasyCleanup easy_cleanup;
+    const char *ca_file;
 } CurlApi;
 
 static size_t write_file(const void *data, size_t size, size_t count,
@@ -97,6 +99,8 @@ static int curl_fetch(const char *url, const char *destination, void *opaque,
     api->easy_setopt(handle, CURLOPT_FAILONERROR, 1L);
     api->easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 1L);
     api->easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 2L);
+    if (api->ca_file != NULL)
+        api->easy_setopt(handle, CURLOPT_CAINFO, api->ca_file);
     api->easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
     api->easy_setopt(handle, CURLOPT_TIMEOUT_MS, 120000L);
     api->easy_setopt(handle, CURLOPT_USERAGENT, "cbs/0.1");
@@ -117,12 +121,19 @@ static int curl_fetch(const char *url, const char *destination, void *opaque,
 int cbs_cli_fetch_service(CbsFetchService *service, char *error,
                           size_t error_size)
 {
+    return cbs_cli_fetch_service_with_ca(service, error, error_size, NULL);
+}
+
+int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
+                                  size_t error_size, const char *ca_file)
+{
     static CurlApi api;
 
     if (service == NULL || error == NULL || error_size == 0)
         return 0;
     if (!load_api(&api, error, error_size))
         return 0;
+    api.ca_file = ca_file;
     service->fetch = curl_fetch;
     service->user = &api;
     return 1;

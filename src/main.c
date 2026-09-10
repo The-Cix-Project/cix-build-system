@@ -114,7 +114,7 @@ static void usage(FILE *stream)
           "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
           "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
-          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR]\n"
+          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR] [--ca-file FILE]\n"
           "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
           "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
           "  cbs --help                           Show this help\n"
@@ -182,7 +182,7 @@ static int explain_file(const char *path, int json)
 
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output,
-                      const char *cache)
+                      const char *cache, const char *ca_file)
 {
     struct stat status;
     CbsFetchService service;
@@ -191,7 +191,12 @@ static int build_file(const char *recipe, const char *architecture,
         fprintf(stderr, "%s: cache directory is not accessible\n", cache);
         return 3;
     }
-    if (!cbs_cli_fetch_service(&service, fetch_error, sizeof(fetch_error))) {
+    if (ca_file != NULL && (stat(ca_file, &status) != 0 || !S_ISREG(status.st_mode))) {
+        fprintf(stderr, "%s: CA file is not accessible\n", ca_file);
+        return 3;
+    }
+    if (!cbs_cli_fetch_service_with_ca(&service, fetch_error, sizeof(fetch_error),
+                                       ca_file)) {
         fprintf(stderr, "source transport unavailable: %s\n", fetch_error);
         return 3;
     }
@@ -257,11 +262,20 @@ int main(int argc, char **argv)
     if (argc == 9 && strcmp(argv[1], "build") == 0 &&
         strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
         strcmp(argv[7], "--output") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], NULL);
+        return build_file(argv[2], argv[4], argv[6], argv[8], NULL, NULL);
     if (argc == 11 && strcmp(argv[1], "build") == 0 &&
         strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
         strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10]);
+        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10], NULL);
+    if (argc == 11 && strcmp(argv[1], "build") == 0 &&
+        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
+        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--ca-file") == 0)
+        return build_file(argv[2], argv[4], argv[6], argv[8], NULL, argv[10]);
+    if (argc == 13 && strcmp(argv[1], "build") == 0 &&
+        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
+        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0 &&
+        strcmp(argv[11], "--ca-file") == 0)
+        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10], argv[12]);
     if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
     if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
     if (argc != 3 || (strcmp(argv[1], "validate") != 0 &&
