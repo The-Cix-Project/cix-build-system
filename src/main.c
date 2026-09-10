@@ -112,6 +112,7 @@ static void usage(FILE *stream)
           "commands:\n"
           "  cbs check RECIPE.cbs                 Validate without executing\n"
           "  cbs validate RECIPE.cbs              Alias for check\n"
+          "  cbs explain RECIPE.cbs               Show the execution plan\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
           "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR]\n"
           "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
@@ -128,6 +129,45 @@ static int verify_file(const char *path)
         return 4;
     }
     printf("%s: verified CIXPKG (identity=%s)\n", path, identity);
+    return 0;
+}
+
+static int explain_file(const char *path)
+{
+    char *source;
+    size_t length, index;
+    CbsTokenList tokens = {0};
+    CbsNode *document;
+    CbsBuildPlan plan;
+
+    if (!has_cbs_extension(path)) {
+        fprintf(stderr,
+                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the .cbs extension\n",
+                path);
+        return 3;
+    }
+    source = read_file(path, &length);
+    if (source == NULL) return 3;
+    if (!cbs_lex(path, source, length, &tokens)) {
+        free(source);
+        cbs_token_list_destroy(&tokens);
+        return 3;
+    }
+    document = cbs_parse(path, source, length, &tokens);
+    if (document == NULL || !cbs_validate(document, path, source) ||
+        !cbs_build_plan(document, &plan)) {
+        cbs_node_destroy(document);
+        cbs_token_list_destroy(&tokens);
+        free(source);
+        return 3;
+    }
+    printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
+    for (index = 0; index < plan.count; ++index)
+        printf("%zu %s operations=%zu\n", index + 1,
+               plan.phases[index]->name, plan.phases[index]->child_count);
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(source);
     return 0;
 }
 
@@ -184,6 +224,8 @@ int main(int argc, char **argv)
     }
     if (argc == 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);
+    if (argc == 3 && strcmp(argv[1], "explain") == 0)
+        return explain_file(argv[2]);
     if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
         strcmp(argv[3], "--into") == 0) {
         if (!cbs_cixpkg_extract(argv[2], argv[4])) {

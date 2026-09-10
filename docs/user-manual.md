@@ -71,11 +71,16 @@ Use either `check` or `validate`:
 ```text
 ./cbs check hello.cbs
 ./cbs validate hello.cbs
+./cbs explain hello.cbs
 ```
 
 Validation is non-executing. It does not run commands, fetch sources, inspect
 the host filesystem, or resolve dependencies. Errors include the recipe path,
 line, column, diagnostic code, and category.
+
+`explain` performs the same validation and then prints the ordered phases and
+their operation counts. It is non-executing and useful for reviewing a recipe
+before allowing a build.
 
 ## 4. Build a package
 

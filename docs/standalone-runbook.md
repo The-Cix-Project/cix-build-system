@@ -1,11 +1,13 @@
 # Standalone CBS runbook
 
-Build CBS with `make`, validate a recipe with `./cbs check recipe.cbs`, create
-a package with `./cbs build`, and verify it with `./cbs verify`:
+Build CBS with `make`, validate and inspect a recipe with `./cbs check` and
+`./cbs explain`, create a package with `./cbs build`, and verify it with
+`./cbs verify`:
 
 ```text
 make
 ./cbs check recipe.cbs
+./cbs explain recipe.cbs
 mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
 ./cbs build recipe.cbs \
     --arch x86_64 \

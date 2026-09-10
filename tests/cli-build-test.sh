@@ -11,6 +11,11 @@ artifact=$temporary_dir/standalone-smoke-x86_64-1.cixpkg
 "$cbs" check "$tests_dir/fixtures/standalone-smoke.cbs" \
     >"$temporary_dir/check.out" 2>"$temporary_dir/check.err"
 test ! -s "$temporary_dir/check.err"
+"$cbs" explain "$tests_dir/fixtures/standalone-smoke.cbs" \
+    >"$temporary_dir/explain.out" 2>"$temporary_dir/explain.err"
+test ! -s "$temporary_dir/explain.err"
+grep -q 'execution plan' "$temporary_dir/explain.out"
+grep -q 'build operations=' "$temporary_dir/explain.out"
 "$cbs" build "$tests_dir/fixtures/standalone-smoke.cbs" \
     --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --cache "$temporary_dir/cache" \
