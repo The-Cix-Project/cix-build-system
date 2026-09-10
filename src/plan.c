@@ -9,9 +9,12 @@ int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan)
         return 0;
     memset(plan, 0, sizeof(*plan));
     package = document->children[0];
-    for (index = 0; index < package->child_count && plan->count < 5; ++index)
-        if (package->children[index]->kind == CBS_NODE_PHASE)
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_PHASE) {
+            if (plan->count >= CBS_MAX_PHASES)
+                return 0;
             plan->phases[plan->count++] = package->children[index];
+        }
     return plan->count > 0;
 }
 

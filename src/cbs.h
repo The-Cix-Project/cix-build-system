@@ -237,7 +237,8 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const char *architecture,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
-typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
+#define CBS_MAX_PHASES 5
+typedef struct { const CbsNode *phases[CBS_MAX_PHASES]; size_t count; } CbsBuildPlan;
 typedef struct {
     const char *build_image;
     const char *upstream;
@@ -272,12 +273,8 @@ int cbs_transaction(CbsSandboxHook prepare, CbsSandboxHook commit,
                     const char *root, void *user);
 int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
-int cbs_cixpkg_write(const char *payload, const char *package_path,
-                     const char *identity);
 int cbs_cixpkg_write_tree(const char *manifest, const char *root,
                           const char *package_path, const char *identity);
-int cbs_cixpkg_verify(const char *package_path, char *identity,
-                      size_t identity_size);
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size);
 int cbs_cixpkg_extract(const char *package_path, const char *destination);

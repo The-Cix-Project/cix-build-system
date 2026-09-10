@@ -115,6 +115,10 @@ test: $(TARGET)
 		src/validate.o -o tests/dependency-test
 	./tests/dependency-test tests/fixtures/valid/complete.cbs
 	rm -f tests/dependency-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/plan-test.c \
+		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/plan-test
+	./tests/plan-test
+	rm -f tests/plan-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
@@ -131,3 +135,4 @@ clean:
 	rm -f tests/package-test
 	rm -f tests/repro-test
 	rm -f tests/dependency-test
+	rm -f tests/plan-test
