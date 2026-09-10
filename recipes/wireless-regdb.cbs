@@ -1,0 +1,63 @@
+# CBS migration of wireless-regdb. The database is generated from the
+# checked-in text source; the detached upstream signature is shipped without
+# importing or creating a signing key.
+package "wireless-regdb" {
+    version "2026.09.03"
+    release 2
+    sources {
+        main "wireless-regdb" {
+            url "https://mirrors.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz"
+            sha256 "b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d"
+        }
+    }
+
+    requires {
+        build {
+            compiler "tcc"
+            tool "python"
+            tool "bash"
+            tool "coreutils"
+        }
+        runtime {
+            library "wireless-regdb"
+        }
+    }
+
+    build_image "cix-builder"
+
+    prepare {
+        require directory "${src}/wireless-regdb-2026.09.03" { exists }
+        require file "${src}/wireless-regdb-2026.09.03/db.txt" { exists }
+        require file "${src}/wireless-regdb-2026.09.03/db2fw.py" { exists }
+        move "${src}/wireless-regdb-2026.09.03/regulatory.db" to "${build}/upstream-regulatory.db"
+    }
+
+    build {
+        cd "${src}/wireless-regdb-2026.09.03" {
+            run "python" {
+                "./db2fw.py"
+                "${build}/regulatory.db"
+                "db.txt"
+                timeout 2m
+            }
+        }
+    }
+
+    check {
+        require file "${build}/regulatory.db" {
+            exists
+            contains "RGDB"
+        }
+        require file "${build}/upstream-regulatory.db" {
+            exists
+        }
+    }
+
+    install {
+        mkdir "${dest}/lib/firmware" chmod 0755
+        copy "${build}/regulatory.db" to "${dest}/lib/firmware/regulatory.db"
+        copy "${src}/wireless-regdb-2026.09.03/regulatory.db.p7s" to "${dest}/lib/firmware/regulatory.db.p7s"
+        require file "${dest}/lib/firmware/regulatory.db" { exists }
+        require file "${dest}/lib/firmware/regulatory.db.p7s" { exists }
+    }
+}

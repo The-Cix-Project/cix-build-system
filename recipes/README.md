@@ -59,3 +59,12 @@ TCC compatibility flags, the single-reader setting, the image write/read-back
 gate, and the four installed tools. `libgcc_s.so.1`, `liblzma.so`, and libc are
 declared runtime requirements; CBS does not copy libraries from absolute host
 paths into the package.
+
+## wireless-regdb
+
+[`wireless-regdb.cbs`](wireless-regdb.cbs) expresses the generated regulatory
+database as a verified-source build: Python runs the upstream `db2fw.py`
+generator, the output is checked for the RGDB magic, and the database plus
+detached signature are staged under `/lib/firmware`. CPDL 0.1 does not yet have
+an exact-file comparison assertion, so the legacy byte-for-byte reproduction
+gate remains an executor-level follow-up.
