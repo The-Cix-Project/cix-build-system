@@ -6,7 +6,8 @@
 #
 # Migration status:
 # - source identity and build dependencies: carried over;
-# - configure, build, install, and documentation pruning: represented below;
+# - configure, build, install, and documentation pruning: represented below
+#   and successfully built in the local CBS sandbox;
 # - compatibility edits, conformance gates, and three-stage bootstrap: pending;
 # - this recipe is therefore a validated migration draft, not yet a release
 #   replacement for the shell recipe.
@@ -40,7 +41,7 @@ package "tcc" {
     }
 
     prepare {
-        require directory "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
+        require directory "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             exists
         }
         # The legacy recipe patches include/tccdefs.h, lib/Makefile,
@@ -50,8 +51,8 @@ package "tcc" {
     }
 
     configure {
-        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
-            run "./configure" {
+        cd $build {
+            run "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/configure" {
                 "--prefix=/usr"
                 "--cc=tcc"
                 env "CC" = "tcc"
@@ -60,7 +61,7 @@ package "tcc" {
     }
 
     build {
-        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
+        cd $build {
             run "make" {
                 "-j${jobs}"
                 jobs $jobs
@@ -72,20 +73,19 @@ package "tcc" {
         # The legacy recipe's compiler gates are not yet represented. This
         # phase remains explicit so the migration cannot silently claim that
         # the source-level conformance checks were preserved.
-        require directory "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
+        require directory "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
             exists
         }
     }
 
     install {
-        cd "${src}/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9" {
+        cd $build {
             run "make" {
                 "install"
                 "DESTDIR=${dest}"
             }
         }
         remove tree "${dest}/usr/share/man"
-        remove tree "${dest}/usr/share/doc"
         require file "${dest}/usr/bin/tcc" {
             exists
         }

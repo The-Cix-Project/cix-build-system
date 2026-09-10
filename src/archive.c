@@ -27,6 +27,7 @@ static int safe_name(const char *name)
 static int supported_format(const char *name)
 {
     return name != NULL && (strstr(name, "tar") != NULL ||
+                            strstr(name, "pax") != NULL ||
                             strstr(name, "ZIP") != NULL);
 }
 
