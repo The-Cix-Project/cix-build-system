@@ -24,7 +24,9 @@ hide a changed decision; a later ADR supersedes it.
 - [CPDL 0.1 language specification](spec/cpdl-0.1.md)
 - [CBS user manual](user-manual.md)
 - [Standalone CBS runbook](standalone-runbook.md)
+- [CBS integration blocker register](integration-blockers.md)
 - [CIXPKG v1 binary specification](spec/cixpkg-1.0.md)
+- [CBS delivery roadmap](roadmap.md)
 
 ## Validation records
 

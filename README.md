@@ -63,6 +63,9 @@ requiring its recipe.
 The complete first-time-user workflow is documented in the
 [CBS user manual](docs/user-manual.md).
 
+The prioritized implementation plan is tracked in the
+[CBS delivery roadmap](docs/roadmap.md).
+
 ## Validate a package definition
 
 ```text

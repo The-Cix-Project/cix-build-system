@@ -205,15 +205,18 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     file = fmemopen(manifest, (size_t)manifest_size, "rb");
     if (file == NULL) { free(data); free(manifest); free(payload); return 0; }
     { char line[8192], type, mode[32], entry_digest[65], relative[4096];
-      unsigned long long entry_size; size_t offset = 0;
+      char previous[4096] = {0};
+      unsigned long long entry_size; size_t offset = 0; int have_previous = 0;
       while (fgets(line, sizeof(line), file) != NULL) {
           if (sscanf(line, "%c %31s %llu %64s %4095[^\n]", &type, mode,
                      &entry_size, entry_digest, relative) != 5 || type != 'f' ||
+              (have_previous && strcmp(previous, relative) >= 0) ||
               !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
               entry_size > (unsigned long long)payload_size ||
               entry_size > payload_size - offset ||
               !cbs_digest_text((char *)payload + offset, (size_t)entry_size, digest) ||
               strcmp(digest, entry_digest) != 0) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          strcpy(previous, relative); have_previous = 1;
           offset += (size_t)entry_size;
       }
       if (ferror(file) || offset != (size_t)payload_size) { fclose(file); free(data); free(manifest); free(payload); return 0; }
@@ -301,12 +304,14 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination)
         mkdir(temporary, 0700) != 0) goto cleanup;
     file = fmemopen(manifest, manifest_size, "rb");
     if (!file) goto cleanup;
+    { char previous[4096] = {0}; int have_previous = 0;
     while (fgets(line, sizeof(line), file) != NULL) {
         char path[4096], entry_digest[65];
         unsigned mode;
         int output;
         if (sscanf(line, "%c %31s %llu %64s %4095[^\n]", &type, mode_text,
                    &entry_size, entry_digest, relative) != 5 || type != 'f' ||
+            (have_previous && strcmp(previous, relative) >= 0) ||
             !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
             sscanf(mode_text, "%o", &mode) != 1 || entry_size > payload_size ||
             entry_size > payload_size - offset ||
@@ -315,6 +320,7 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination)
             snprintf(path, sizeof(path), "%s/%s", temporary, relative) >=
                 (int)sizeof(path) || !make_parent_dirs(temporary, relative))
             goto cleanup;
+        strcpy(previous, relative); have_previous = 1;
         output = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode & 07777);
         if (output < 0 || write(output, payload + offset, (size_t)entry_size) !=
                 (ssize_t)entry_size || fchmod(output, mode & 07777) != 0 ||
@@ -323,6 +329,7 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination)
             goto cleanup;
         }
         offset += (size_t)entry_size;
+    }
     }
     if (ferror(file) || offset != payload_size) goto cleanup;
     fclose(file); file = NULL;
