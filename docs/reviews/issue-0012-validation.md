@@ -2,12 +2,13 @@
 
 ## Decision
 
-CBS now exposes a small `CbsFetchService` callback boundary. The cixd
-transport implementation supplies this callback; CBS never performs network
-I/O itself. Each source is resolved cache-first using its SHA-256 digest as the
-cache key. A cache miss tries declared mirrors in order, writes to a temporary
-file, verifies the digest, and atomically renames the verified file into the
-cache. A cached build therefore does not require a fetch service.
+CBS exposes a small `CbsFetchService` callback boundary. The standalone CLI
+supplies a libcurl-backed callback by default; cixd may supply its own callback
+when centralized transport policy is required. Each source is resolved
+cache-first using its SHA-256 digest as the cache key. A cache miss tries
+declared mirrors in order, writes to a temporary file, verifies the digest, and
+atomically renames the verified file into the cache. A cached build therefore
+does not require a network transfer.
 
 ## Validation
 
@@ -21,6 +22,7 @@ cache. A cached build therefore does not require a fetch service.
 
 ## Operational contract
 
-The cache directory is provisioned by the caller (normally cixd). Fetch
-callbacks receive a temporary destination and must report a concise cause in
-the supplied error buffer when they cannot provide the requested bytes.
+The cache directory is provisioned by the caller (the CLI workspace or an
+explicit `--cache` directory). Fetch callbacks receive a temporary destination
+and must report a concise cause in the supplied error buffer when they cannot
+provide the requested bytes.

@@ -5,6 +5,7 @@ CPPFLAGS := -Isrc
 SOURCES := \
 	src/ast.c \
 	src/archive.c \
+	src/cixpkg.c \
 	src/api.c \
 	src/sandbox.c \
 	src/service.c \
@@ -14,6 +15,7 @@ SOURCES := \
 	src/diag.c \
 	src/dependency.c \
 	src/exec.c \
+	src/fetch.c \
 	src/fs.c \
 	src/identity.c \
 	src/lexer.c \
@@ -34,13 +36,14 @@ TARGET := cbs
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -larchive -lzstd -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) -larchive -lzstd -ldl -o $@
 
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 test: $(TARGET)
 	./tests/parser-validation.sh ./$(TARGET)
+	./tests/cli-build-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-o tests/exec-test
@@ -91,12 +94,12 @@ test: $(TARGET)
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/source.o src/manifest.o src/archive.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/source.o src/manifest.o src/archive.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/repro-test
 	./tests/repro-test

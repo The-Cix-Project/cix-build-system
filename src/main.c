@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static int has_cbs_extension(const char *path)
 {
@@ -112,8 +113,9 @@ static void usage(FILE *stream)
           "  cbs check RECIPE.cbs                 Validate without executing\n"
           "  cbs validate RECIPE.cbs              Alias for check\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
-          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE\n"
+          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR]\n"
           "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
+          "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
           "  cbs --help                           Show this help\n"
           "  cbs --version                        Show version\n", stream);
 }
@@ -121,7 +123,7 @@ static void usage(FILE *stream)
 static int verify_file(const char *path)
 {
     char identity[129];
-    if (!cbs_cixpkg_verify(path, identity, sizeof(identity))) {
+    if (!cbs_cixpkg_verify_tree(path, identity, sizeof(identity))) {
         fprintf(stderr, "%s: error[CIXPKG-E4001]: artifact verification failed\n", path);
         return 4;
     }
@@ -130,9 +132,22 @@ static int verify_file(const char *path)
 }
 
 static int build_file(const char *recipe, const char *architecture,
-                      const char *staged, const char *output)
+                      const char *staged, const char *output,
+                      const char *cache)
 {
-    if (!cbs_build_standalone(recipe, staged, output, architecture, NULL)) {
+    struct stat status;
+    CbsFetchService service;
+    char fetch_error[256];
+    if (cache != NULL && (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
+        fprintf(stderr, "%s: cache directory is not accessible\n", cache);
+        return 3;
+    }
+    if (!cbs_cli_fetch_service(&service, fetch_error, sizeof(fetch_error))) {
+        fprintf(stderr, "source transport unavailable: %s\n", fetch_error);
+        return 3;
+    }
+    if (!cbs_build_standalone_with_cache(recipe, staged, output, architecture,
+                                         &service, cache)) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output was rejected\n");
         return 3;
     }
@@ -169,10 +184,24 @@ int main(int argc, char **argv)
     }
     if (argc == 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);
+    if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
+        strcmp(argv[3], "--into") == 0) {
+        if (!cbs_cixpkg_extract(argv[2], argv[4])) {
+            fprintf(stderr, "%s: error[CIXPKG-E4001]: artifact extraction failed\n",
+                    argv[2]);
+            return 4;
+        }
+        printf("extracted %s\n", argv[4]);
+        return 0;
+    }
     if (argc == 9 && strcmp(argv[1], "build") == 0 &&
         strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
         strcmp(argv[7], "--output") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8]);
+        return build_file(argv[2], argv[4], argv[6], argv[8], NULL);
+    if (argc == 11 && strcmp(argv[1], "build") == 0 &&
+        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
+        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0)
+        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10]);
     if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
     if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
     if (argc != 3 || (strcmp(argv[1], "validate") != 0 &&

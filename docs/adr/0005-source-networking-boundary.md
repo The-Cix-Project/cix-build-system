@@ -1,39 +1,38 @@
 # ADR-0005: Source networking boundary
 
-- Status: Accepted
+- Status: Accepted (revised for standalone transport)
 - Date: 2026-08-28
 - Scope: CBS source and artifact byte acquisition
 
 ## Decision
 
-CBS consumes bytes from the lower Cix service (`cixd`) through the base
-boundary. CBS does not implement HTTP, TLS, redirects, proxy negotiation,
-certificate stores, or network retries, and it does not invoke `curl`, `wget`,
-or another network utility.
+CBS supports two transport modes. The standalone CLI uses the system libcurl
+runtime for HTTP/HTTPS source acquisition. cixd may provide the same
+`CbsFetchService` callback when it owns transport policy. CBS never invokes
+`curl`, `wget`, or another network utility as a subprocess.
 
-`cixd` owns transport policy, TLS trust anchors, certificate validation,
-hostname verification, proxy policy, redirect limits, retry/backoff policy, and
-network audit logs. The base boundary must return the requested URL, selected
-mirror, response metadata, and a bounded byte stream or a structured failure.
-The exact wire/IPC ABI belongs to the Cix base and must be version-pinned before
-CBS source fetching is enabled.
+In standalone mode, libcurl owns TLS trust anchors, certificate validation,
+hostname verification, proxy policy, and HTTP redirects. CBS restricts the
+protocol set to HTTP/HTTPS, applies bounded connect/transfer timeouts and
+redirects, and reports transport errors. In cixd mode, cixd owns those policies
+and the base boundary returns a bounded byte stream or structured failure.
 
 CBS remains responsible for source identity and integrity: it selects declared
 mirrors, asks `cixd` for bytes, computes the declared SHA-256 itself, rejects
 mismatches, and exposes no named source until the issue #8 all-sources gate
 passes. A transport success is never an integrity success.
 
-This is one implementation path. CBS has no fallback to host `curl` or another
-library when the Cix service rejects or cannot fetch a URL. The failure is
-reported with the source name, URL/mirror, and service error.
+Transport is still subordinate to CBS source identity and integrity: every
+download is written to a temporary file, hashed by CBS, and atomically moved
+into the digest-keyed cache only after verification. A transport success is
+never an integrity success.
 
 ## Rationale
 
-Putting TLS in CBS would enlarge the TCC-rooted trusted base with protocol,
-certificate, redirect, and retry code. Keeping it in `cixd` centralizes the
-already-required control-plane policy and makes the observed curl redirect
-failure diagnosable in one service. The split also keeps the package engine
-light while retaining independent CBS checksum verification.
+Standalone builds need a usable source path without requiring a daemon. Using
+libcurl avoids shell or utility execution while reusing a maintained TLS/HTTP
+implementation. cixd remains available when centralized policy and audit
+logging are required.
 
 Approved base libraries may be used inside `cixd` under ADR-0002; that choice
 does not create a second CBS networking implementation or permit an ambient
@@ -41,8 +40,9 @@ fallback.
 
 ## Consequences
 
-- CBS source acquisition cannot operate before the pinned Cix fetch boundary is
-  available.
-- `cixd` becomes responsible for TLS updates and network observability.
-- CBS tests use a deterministic fetch-service fixture, not live network calls.
+- Standalone CBS has a runtime dependency on libcurl for cache misses.
+- `cixd` remains responsible for centralized transport policy and observability
+  when its callback is supplied.
+- CBS tests use a local HTTP fixture and deterministic fetch-service fixtures;
+  no public network is required.
 - A service outage is a source-preparation failure, never silently bypassed.

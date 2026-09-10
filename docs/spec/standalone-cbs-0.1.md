@@ -10,8 +10,9 @@ and `install`. Filesystem effects are confined to CBS-owned `src`, `build`,
 and `dest` roots. `run` executes a declared executable directly; shell
 interpretation, ambient compiler discovery, undeclared dependencies, and
 network access from phases are forbidden. Source transport, caching, package
-creation, inspection, and verification work without cixd. cixd integration is
-an optional adapter for external sandboxing and image transactions.
+creation, inspection, verification, and HTTP/HTTPS fetching work without cixd.
+cixd integration is an optional adapter for centralized transport policy,
+external sandboxing, and image transactions.
 
 Validation failures are deterministic, located, and non-executing. Runtime
 failures preserve the primary cause and phase. A successful build emits a

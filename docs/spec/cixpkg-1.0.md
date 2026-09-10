@@ -11,6 +11,8 @@ The payload concatenates regular-file bytes in manifest order.
 Readers must validate magic/version, bounds, all three section digests, sorted
 unique paths, and each file digest before exposing an entry. A short read,
 overflow, digest mismatch, unsafe path, or unknown required type is corruption
-and reports `CIXPKG-E4001`; no partial extraction is retained. Compression is
-fixed zstd level 19 with checksum enabled; a future format version is required
-to change parameters.
+and reports `CIXPKG-E4001`; no partial extraction is retained. The standalone
+`extract` operation verifies the complete artifact before writing into a
+temporary directory, preserves regular-file modes, and publishes the directory
+atomically. Compression is fixed zstd level 19 with checksum enabled; a future
+format version is required to change parameters.

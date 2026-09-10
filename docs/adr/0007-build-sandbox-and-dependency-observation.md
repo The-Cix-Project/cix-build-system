@@ -8,7 +8,8 @@
 Every build executes in a private staged tree with declared source, build, and
 destination roots. Filesystem operations are confined to those roots; writes to
 the host root and undeclared paths fail. Network access is denied to build
-phases and is owned by cixd's source-fetch boundary. Process creation is
+phases. Source acquisition occurs before phases through either standalone
+libcurl transport or the cixd fetch-service boundary. Process creation is
 limited to declared `run` operations, with `$jobs` and timeout limits enforced.
 
 CBS records the phase exit status, files, modes, ownership, symlinks, and

@@ -1,0 +1,13 @@
+package "standalone-smoke" {
+    version "1"
+    release 1
+
+    build {
+        mkdir "${dest}/usr/bin"
+        write "${dest}/usr/bin/hello" "hello from CBS\n" chmod 0755
+        require file "${dest}/usr/bin/hello" {
+            exists
+            contains "hello from CBS"
+        }
+    }
+}

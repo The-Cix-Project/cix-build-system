@@ -10,5 +10,5 @@ compiled by the same TCC policy. Runtime/link dependencies remain governed by
 ADR-0002; vendoring is not a waiver for unreviewed code.
 
 Updates require a reviewed commit, refreshed checksum/license record, and
-regression plus bounds tests. Network clients and package policy remain cixd
-responsibilities.
+regression plus bounds tests. The approved libcurl runtime is the standalone
+network client; cixd may still own transport policy when integrated.

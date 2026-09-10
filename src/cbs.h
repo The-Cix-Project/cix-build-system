@@ -148,6 +148,9 @@ typedef struct {
     void *user;
 } CbsFetchService;
 
+int cbs_cli_fetch_service(CbsFetchService *service, char *error,
+                          size_t error_size);
+
 typedef struct {
     const char *role;
     const char *kind;
@@ -220,6 +223,11 @@ int cbs_build_package(const char *recipe, const char *staged_root,
 int cbs_build_standalone(const char *recipe, const char *workspace,
                          const char *package_path, const char *architecture,
                          const CbsFetchService *fetch_service);
+int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
+                                    const char *package_path,
+                                    const char *architecture,
+                                    const CbsFetchService *fetch_service,
+                                    const char *cache_directory);
 typedef struct { const CbsNode *phases[5]; size_t count; } CbsBuildPlan;
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
 int cbs_execute_plan(const CbsBuildPlan *plan, const CbsExecutionContext *context);
@@ -248,8 +256,13 @@ int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write(const char *payload, const char *package_path,
                      const char *identity);
+int cbs_cixpkg_write_tree(const char *manifest, const char *root,
+                          const char *package_path, const char *identity);
 int cbs_cixpkg_verify(const char *package_path, char *identity,
                       size_t identity_size);
+int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
+                           size_t identity_size);
+int cbs_cixpkg_extract(const char *package_path, const char *destination);
 int cbs_install_atomic(const char *staged, const char *destination, unsigned mode);
 int cbs_compare_files(const char *left, const char *right);
 int cbs_identity_from_document(const CbsNode *document,

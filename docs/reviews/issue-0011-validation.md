@@ -5,21 +5,21 @@
 - Result: Pass
 - Decision: [ADR-0005](../adr/0005-source-networking-boundary.md)
 
-ADR-0005 assigns network transport to `cixd`, the lower Cix control-plane
-service. `cixd` owns TLS trust anchors, certificate validation, hostname and
-proxy policy, redirects, retries, and network audit logs. CBS consumes a pinned,
-versioned byte-stream boundary and independently verifies every source against
-its declared SHA-256 before publishing `$source.NAME`.
+The original ADR-0005 decision assigned network transport exclusively to
+`cixd`. That decision was revised to permit the standalone CLI's libcurl
+transport while retaining the same `CbsFetchService` boundary. cixd remains
+the preferred owner of centralized TLS, proxy, redirect, retry, and audit
+policy when it supplies the callback. CBS independently verifies every source
+against its declared SHA-256 before publishing `$source.NAME`.
 
-CBS has no HTTP/TLS implementation, no network utility invocation, and no
-`curl`/library fallback. Service or transport failure remains a named source
-preparation failure. The boundary returns selected mirror and response metadata
-so source failures remain observable without moving TLS policy into CBS.
+CBS uses libcurl through an in-process runtime adapter and never invokes
+`curl`/`wget` as a subprocess. Service or transport failure remains a named
+source preparation failure, and source failures remain observable without
+weakening the independent integrity check.
 
-The ADR explicitly records the observed curl redirect failure as a reason to
-centralize diagnosis in `cixd`, while retaining CBS's independent integrity
-check. It also records the prerequisite of a pinned Cix ABI and deterministic
-fetch-service fixtures before source fetching is enabled.
+The revised ADR records standalone libcurl as the transport for daemon-free
+builds while retaining cixd for centralized policy. Tests use a local HTTP
+fixture and deterministic fetch-service fixtures; no public network is needed.
 
 The complete warning-clean TCC regression gate passes unchanged; this ticket
-introduces no code or parallel network path.
+adds the standalone transport without invoking a host network utility.

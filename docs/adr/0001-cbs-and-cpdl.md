@@ -95,10 +95,11 @@ Filesystem globs are evaluated by CBS only where CPDL explicitly permits a
 
 ### A strict bootstrap boundary
 
-CBS may rely only on the Cix/Linux kernel ABI and the C runtime included in the
-Cix base. Core CBS behavior must not require external commands or libraries such
-as a shell, `curl`, `tar`, compression tools, checksum tools, or filesystem
-utilities.
+CBS may rely on the Cix/Linux kernel ABI, the C runtime, and explicitly
+admitted libraries included in the Cix base. Core CBS behavior must not require
+external commands or utility subprocesses such as a shell, `curl`, `tar`,
+compression tools, checksum tools, or filesystem utilities. Standalone source
+transport is provided by the admitted libcurl runtime library.
 
 CBS therefore owns, in C, the functionality needed for its job, including:
 
@@ -376,7 +377,8 @@ Exact command behavior and repository operations will be specified separately.
 
 ### Costs and risks
 
-- CBS must own non-trivial archive, compression, networking, and filesystem code.
+- CBS must own non-trivial archive, compression, source-integrity, and filesystem
+  code; approved libraries may provide transport and format primitives.
 - Supporting common upstream compression formats without external tools is
   substantial work, especially XZ/LZMA.
 - A custom package container requires careful versioning, corruption handling,
@@ -429,8 +431,9 @@ The following are intentionally not fixed by this ADR:
 2. Which compression algorithm and exact binary layout will CIXPKG v1 use?
 3. Which upstream source formats must CBS v1 extract (`tar`, gzip, bzip2, XZ,
    and others), and will support be staged?
-4. Does CBS perform networking itself, or consume bytes from a lower Cix service
-   whose interface is part of the base boundary?
+4. Resolved by ADR-0005: standalone CBS may use the admitted libcurl runtime;
+   cixd may provide the same fetch-service boundary when centralized transport
+   policy is required.
 5. What sandboxing and dependency-observation guarantees are mandatory in v1?
 6. What is the exact CPDL v0.1 grammar and diagnostic contract?
 7. How are repository metadata, artifact signatures, upgrades, conflicts, and

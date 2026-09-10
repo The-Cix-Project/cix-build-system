@@ -15,5 +15,7 @@ definition or execute recipe phases. `install` prefers a verified artifact; a
 build fallback is permitted only when the caller's explicit policy allows it.
 CBS does not choose host policy.
 
-The CLI remains a thin adapter because cixd owns sandbox creation, transport,
-and image transactions. No second REST or daemon implementation is introduced.
+The CLI remains a thin adapter because cixd owns optional sandbox creation and
+image transactions. Standalone CBS owns its approved libcurl source transport;
+when cixd is present, it may supply the fetch-service callback instead. No REST
+or daemon implementation is introduced in CBS.

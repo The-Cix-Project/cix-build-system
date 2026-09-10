@@ -158,7 +158,9 @@ The public workflow remains:
 user or Cix tooling -> cbs -> approved library mechanism
 ```
 
-Libraries never become competing package orchestration interfaces.
+Libraries never become competing package orchestration interfaces. The approved
+libcurl transport is used only for source acquisition and remains subject to
+CBS's temporary-file, SHA-256, mirror, and cache gates.
 
 ## Consequences
 
@@ -228,4 +230,3 @@ This ADR can become Accepted when:
 - the bootstrap has no CBS/library dependency cycle;
 - the TCC-only compiler lineage is preserved; and
 - the stage comparison and failure policy are specified.
-
