@@ -78,6 +78,13 @@ Validation is non-executing. It does not run commands, fetch sources, inspect
 the host filesystem, or resolve dependencies. Errors include the recipe path,
 line, column, diagnostic code, and category.
 
+Add `--json` to `check` or `validate` to emit one JSON diagnostic object per
+error on standard error, suitable for editor and CI integration:
+
+```sh
+./cbs check hello.cbs --json
+```
+
 `explain` performs the same validation and then prints the ordered phases and
 their operation counts. It is non-executing and useful for reviewing a recipe
 before allowing a build. Add `--json` for a machine-readable object containing
