@@ -1,7 +1,5 @@
 # Standalone CBS runbook
 
-# Standalone CBS runbook
-
 Build CBS with `make`, validate a recipe with `./cbs check recipe.cbs`, create
 a package with `./cbs build`, and verify it with `./cbs verify`:
 

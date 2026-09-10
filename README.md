@@ -60,6 +60,9 @@ alias for `validate`; `build` executes a recipe and emits a CIXPKG; `inspect`
 reports recipe/source/artifact digests; and `verify` validates a CIXPKG without
 requiring its recipe.
 
+The complete first-time-user workflow is documented in the
+[CBS user manual](docs/user-manual.md).
+
 ## Validate a package definition
 
 ```text
