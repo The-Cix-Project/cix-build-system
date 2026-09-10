@@ -33,3 +33,11 @@ tree but stops because this pinned archive has no top-level `configure` script;
 the recipe therefore does not yet claim a complete GCC build or bootstrap.
 That source-layout issue must be resolved from the declared source itself
 before porting the remaining GCC-specific gates and install policy.
+
+## Cix builder
+
+[`cix.cbs`](cix.cbs) translates the Cix builder's source identity, TCC-rooted
+build, selftest, #296 mutation gate, staged binaries, and web assets. CPDL 0.1
+does not yet have declarations for the legacy build-image or capability policy,
+so those two deployment controls remain explicitly documented as pending
+executor metadata rather than being silently discarded.
