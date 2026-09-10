@@ -3,11 +3,12 @@
 ## Decision
 
 The CIXPKG manifest remains the canonical ordering of package entries. The
-payload section concatenates regular-file bytes in that order. Each regular
-file record carries an unsigned offset and length into the payload plus the
-file digest already recorded by the manifest. Directories have no payload
-range. Readers must prove that ranges are within the payload, non-overlapping,
-and reproduce the recorded digest before exposing or installing a file.
+payload section concatenates regular-file bytes in that order. In v1, each
+regular-file record carries its length and digest; its offset is implicit from
+the sum of preceding record lengths. Directories have no payload range.
+Readers must prove that the derived ranges are within the payload,
+non-overlapping, and reproduce the recorded digest before exposing or
+installing a file.
 
 The writer will derive both the index and payload from the same manifest walk;
 there is no second filesystem traversal with independent ordering rules. The
