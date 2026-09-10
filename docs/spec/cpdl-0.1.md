@@ -173,7 +173,7 @@ Quoted strings, but not block strings, support explicit CBS interpolation:
 
 ```text
 ${name}       ${version}    ${release}    ${arch}
-${src}        ${build}      ${dest}       ${jobs}
+${src}        ${build}      ${dest}       ${jobs}       ${triplet}
 ${source.gmp}
 ```
 
@@ -188,7 +188,7 @@ result contains spaces.
 ### 2.7 CBS values
 
 ```ebnf
-cbs-value = "$name" | "$version" | "$release" | "$arch"
+cbs-value = "$name" | "$version" | "$release" | "$arch" | "$triplet"
           | "$src" | "$build" | "$dest" | "$jobs"
           | "$source.", identifier ;
 value     = string | block-string | cbs-value | integer ;
@@ -197,8 +197,10 @@ path-value = string | cbs-value ;
 ```
 
 A bare CBS value is a typed value, not shell syntax. `$release` and `$jobs` are
-integers; the other supplied values are strings. `$source.NAME` is valid only
-when `NAME` names a source declared in the same package.
+integers; the other supplied values are strings. `$triplet` is a target value
+derived from `$arch` using CBS's platform mapping; it is empty when the target
+architecture has no registered libc mapping. `$source.NAME` is valid only when
+`NAME` names a source declared in the same package.
 
 ## 3. Document grammar
 

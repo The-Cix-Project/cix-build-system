@@ -90,6 +90,15 @@ static const char *context_value(const CbsExecutionContext *context,
     }
     if (length == 4 && strncmp(name, "arch", length) == 0)
         return context->arch;
+    if (length == 7 && strncmp(name, "triplet", length) == 0) {
+        if (strcmp(context->arch, "x86_64") == 0)
+            return "x86_64-linux-gnu";
+        if (strcmp(context->arch, "aarch64") == 0)
+            return "aarch64-linux-gnu";
+        if (strcmp(context->arch, "riscv64") == 0)
+            return "riscv64-linux-gnu";
+        return NULL;
+    }
     if (length == 3 && strncmp(name, "src", length) == 0)
         return context->src;
     if (length == 5 && strncmp(name, "build", length) == 0)

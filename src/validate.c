@@ -85,7 +85,7 @@ static int known_value_name(Validator *validator, const char *name,
                             size_t length)
 {
     static const char *const values[] = {
-        "name", "version", "release", "arch", "src", "build", "dest", "jobs"
+        "name", "version", "release", "arch", "triplet", "src", "build", "dest", "jobs"
     };
     size_t index;
 

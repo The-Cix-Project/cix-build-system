@@ -14,11 +14,9 @@ the legacy recipe.
 The draft now builds successfully in CBS's local sandbox and emits a verified
 `tcc-0.9.28rc-29-x86_64.cixpkg`. The recipe now performs the compatibility
 edits, executable gates, and three-stage self-bootstrap with a byte-identity
-gate. One portability difference remains: the legacy recipe derives the libc
-triplet at build time, while this CPDL recipe pins the x86-64 Linux triplet;
-and the recipe now rejects other architectures explicitly rather than
-silently using the wrong library path. Dynamic triplet discovery can be added
-when CPDL gains a computed-value operation.
+gate. The libc triplet is computed from the target architecture by CBS and is
+used in every bootstrap configure pass. Architectures without a registered
+mapping resolve empty and remain unsupported until their mapping is added.
 
 ## GCC
 

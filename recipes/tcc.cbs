@@ -9,9 +9,8 @@
 # - configure, build, install, and documentation pruning: represented below
 #   and successfully built in the local CBS sandbox;
 # - compatibility edits and executable gates: represented below for the
-#   pinned x86-64 source;
-# - the x86-64 library path is pinned explicitly; dynamic triplet discovery
-#   remains pending because this CPDL version has no computed-value operation;
+#   pinned source;
+# - the libc triplet is computed from the target architecture by CBS;
 # - the three-stage bootstrap is represented with isolated compiler/runtime
 #   snapshots and a byte-identity comparison;
 # - this recipe is therefore a validated migration draft, not yet a release
@@ -251,19 +250,10 @@ package "tcc" {
 
     configure {
         cd $build {
-            # CPDL 0.1 has no computed-value operation for discovering the
-            # libc triplet. This recipe is therefore deliberately scoped to
-            # the measured x86-64 Linux layout instead of guessing on other
-            # targets.
-            run "test" {
-                "${arch}"
-                "="
-                "x86_64"
-            }
             run "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/configure" {
                 "--prefix=/usr"
                 "--cc=tcc"
-                "--libpaths={B}:/usr/lib:/usr/lib/x86_64-linux-gnu:/lib:/lib/x86_64-linux-gnu"
+                "--libpaths={B}:/usr/lib:/usr/lib/${triplet}:/lib:/lib/${triplet}"
                 env "CC" = "tcc"
             }
         }
@@ -293,7 +283,7 @@ package "tcc" {
             run "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/configure" {
                 "--prefix=/usr"
                 "--cc=${build}/cix-stage1/tcc -B${build}/cix-stage1"
-                "--libpaths={B}:/usr/lib:/usr/lib/x86_64-linux-gnu:/lib:/lib/x86_64-linux-gnu"
+                "--libpaths={B}:/usr/lib:/usr/lib/${triplet}:/lib:/lib/${triplet}"
                 env "CC" = "${build}/cix-stage1/tcc -B${build}/cix-stage1"
             }
             run "make" {
@@ -315,7 +305,7 @@ package "tcc" {
             run "${src}/tcc/tinycc-2ba12e83b3599ca8f5d50c179fe5138fe956f0c9/configure" {
                 "--prefix=/usr"
                 "--cc=${build}/cix-stage2/tcc -B${build}/cix-stage2"
-                "--libpaths={B}:/usr/lib:/usr/lib/x86_64-linux-gnu:/lib:/lib/x86_64-linux-gnu"
+                "--libpaths={B}:/usr/lib:/usr/lib/${triplet}:/lib:/lib/${triplet}"
                 env "CC" = "${build}/cix-stage2/tcc -B${build}/cix-stage2"
             }
             run "make" {
