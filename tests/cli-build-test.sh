@@ -21,6 +21,13 @@ grep -q 'build operations=' "$temporary_dir/explain.out"
 test ! -s "$temporary_dir/explain-json.err"
 grep -q '"phases"' "$temporary_dir/explain.json"
 grep -q '"name":"build"' "$temporary_dir/explain.json"
+printf '%s\n' 'package "broken" {' '}' >"$temporary_dir/broken.cbs"
+if "$cbs" check "$temporary_dir/broken.cbs" --json \
+    >"$temporary_dir/broken.out" 2>"$temporary_dir/broken.json"; then
+    echo 'broken recipe unexpectedly passed' >&2
+    exit 1
+fi
+grep -q '"code":"CPDL-E3001"' "$temporary_dir/broken.json"
 "$cbs" build "$tests_dir/fixtures/standalone-smoke.cbs" \
     --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --cache "$temporary_dir/cache" \

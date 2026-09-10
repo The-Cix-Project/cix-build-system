@@ -3,6 +3,27 @@
 #include <stdio.h>
 #include <string.h>
 
+static int json_diagnostics;
+
+static void json_string(const char *text)
+{
+    const unsigned char *cursor = (const unsigned char *)text;
+    while (*cursor != '\0') {
+        if (*cursor == '"' || *cursor == '\\')
+            fputc('\\', stderr);
+        if (*cursor == '\n') fputs("\\n", stderr);
+        else if (*cursor == '\r') fputs("\\r", stderr);
+        else if (*cursor == '\t') fputs("\\t", stderr);
+        else if (*cursor >= 0x20) fputc(*cursor, stderr);
+        cursor++;
+    }
+}
+
+void cbs_diagnostic_set_json(int enabled)
+{
+    json_diagnostics = enabled != 0;
+}
+
 static const char *category_name(CbsDiagCategory category)
 {
     switch (category) {
@@ -31,6 +52,19 @@ void cbs_diagnostic(const char *path, const char *source,
     const char *line_end;
     size_t line_length;
     size_t prefix;
+
+    if (json_diagnostics) {
+        fputs("{\"path\":\"", stderr); json_string(path);
+        fprintf(stderr, "\",\"line\":%lu,\"column\":%lu,\"severity\":\"",
+                (unsigned long)location.line, (unsigned long)location.column);
+        json_string(severity);
+        fputs("\",\"code\":\"", stderr); json_string(code);
+        fputs("\",\"category\":\"", stderr);
+        json_string(category_name(category));
+        fputs("\",\"message\":\"", stderr); json_string(message);
+        fputs("\"}\n", stderr);
+        return;
+    }
 
     fprintf(stderr, "%s:%lu:%lu: %s[%s]: %s: %s\n",
             path, (unsigned long)location.line, (unsigned long)location.column,

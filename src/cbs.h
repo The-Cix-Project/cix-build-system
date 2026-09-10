@@ -304,6 +304,7 @@ void cbs_diagnostic(const char *path, const char *source,
                     CbsLocation location, const char *severity,
                     const char *code, CbsDiagCategory category,
                     const char *message);
+void cbs_diagnostic_set_json(int enabled);
 void cbs_diagnostic_expected(const char *path, const char *source,
                              CbsLocation location, const char *expected,
                              const char *found);

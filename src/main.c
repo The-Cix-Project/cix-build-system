@@ -111,7 +111,7 @@ static void usage(FILE *stream)
           "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
           "commands:\n"
           "  cbs check RECIPE.cbs                 Validate without executing\n"
-          "  cbs validate RECIPE.cbs              Alias for check\n"
+          "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
           "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
           "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
           "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR]\n"
@@ -238,6 +238,12 @@ int main(int argc, char **argv)
     if (argc == 4 && strcmp(argv[1], "explain") == 0 &&
         strcmp(argv[3], "--json") == 0)
         return explain_file(argv[2], 1);
+    if (argc == 4 && (strcmp(argv[1], "check") == 0 ||
+                      strcmp(argv[1], "validate") == 0) &&
+        strcmp(argv[3], "--json") == 0) {
+        cbs_diagnostic_set_json(1);
+        return validate_file(argv[2]);
+    }
     if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
         strcmp(argv[3], "--into") == 0) {
         if (!cbs_cixpkg_extract(argv[2], argv[4])) {
