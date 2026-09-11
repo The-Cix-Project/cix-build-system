@@ -652,8 +652,9 @@ or a generated script. CBS rejects command interpreters as recipe executables.
 ### 16.1 Current CIXPKG limitations
 
 CIXPKG v2 intentionally has no extended-attribute, device-node, FIFO, socket,
-hardlink, signature, or v1-reader compatibility. Package signatures and
-repository trust remain orchestrator responsibilities. A package needing one
+hardlink, embedded signature, or v1-reader compatibility. Its digests protect
+integrity; detached signatures, key revocation, and repository trust remain
+orchestrator responsibilities. A package needing one
 of the rejected filesystem types must use a platform-specific installation
 mechanism rather than smuggling it through the artifact.
 

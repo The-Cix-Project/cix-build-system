@@ -3,6 +3,13 @@
 CIXPKG v2 is the only format implemented by CBS. Readers must not accept the
 old v1 magic (`CIXPKG\0\1`); there are no v1 artifacts in the supported cache.
 
+CIXPKG carries integrity digests, not authenticity signatures. Signing keys,
+revocation, and approval records belong to the repository/orchestrator trust
+boundary; standalone CBS has no key store and must not invent one. A signed
+publication therefore signs the complete CIXPKG bytes (or its repository
+metadata) externally, and the orchestrator verifies that detached signature
+before installation. The format deliberately has no signature field.
+
 All integers are unsigned little-endian. The v2 header is 352 bytes and begins
 with eight bytes `CIXPKG\0\2`, followed by `u64 header_size`, `u64
 manifest_size`, and `u64 payload_size`. Bytes 32–95 contain the lowercase

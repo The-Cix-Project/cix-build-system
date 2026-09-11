@@ -62,6 +62,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #122: ELF runtime dependency observation](reviews/issue-0122-validation.md)
 - [Issue #121: hostile-input corpus](reviews/issue-0121-validation.md)
 - [Issue #120: transaction boundary](reviews/issue-0120-validation.md)
+- [Issue #119: CIXPKG authenticity boundary](reviews/issue-0119-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
