@@ -44,7 +44,7 @@ LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
 PREFIX ?= /usr/local
 INSTALL ?= install
 
-.PHONY: all clean test install upstream-test
+.PHONY: all clean test install upstream-test qualification-test
 
 all: $(TARGET) $(LIBRARY)
 
@@ -165,6 +165,8 @@ test: $(TARGET)
 
 upstream-test: $(TARGET)
 	./tests/upstream-smoke-test.sh ./$(TARGET)
+
+qualification-test: test upstream-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) $(LIBRARY) tests/exec-test tests/fs-test \

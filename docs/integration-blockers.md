@@ -15,7 +15,11 @@ The standalone path is operational:
 ```
 
 `make test` passes, including the end-to-end HTTP fetch, cache, package
-verification, extraction, and mode-preservation tests.
+verification, extraction, and mode-preservation tests. It is the deterministic
+offline gate for the repository. The real-package smoke test is available as
+`make upstream-test`; it downloads upstream sources and therefore is not part
+of the default gate. Run `make qualification-test` in a network-capable clean
+build environment to run both gates.
 
 ## Blockers and unblock actions
 

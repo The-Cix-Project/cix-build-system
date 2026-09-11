@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -eu
 recipe=${1:?recipe path required}
 line=$(grep 'sha256 ' "$recipe")
