@@ -6,7 +6,9 @@ tests_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 temporary_dir=${TMPDIR:-/tmp}/cbs-cli-build-tests.$$
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 mkdir -p -- "$temporary_dir/workspace" "$temporary_dir/cache"
-test "$("$cbs" --version)" = 'cbs 0.1.23'
+version_output=$("$cbs" --version)
+test "$version_output" != 'cbs unknown'
+printf '%s\n' "$version_output" | grep -Eq '^cbs [0-9][0-9A-Za-z._-]*$'
 
 artifact=$temporary_dir/standalone-smoke-x86_64-1.cixpkg
 "$cbs" check "$tests_dir/fixtures/standalone-smoke.cbs" \

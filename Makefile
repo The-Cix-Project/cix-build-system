@@ -1,7 +1,15 @@
 CC := tcc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -pedantic
 CPPFLAGS := -Isrc
-CBS_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null | sed 's/^v//' || printf '0.1.23')
+CBS_VERSION ?= $(shell \
+	version=$$(git describe --tags --exact-match 2>/dev/null | sed 's/^v//'); \
+	if [ -n "$$version" ]; then \
+		printf '%s' "$$version"; \
+	elif [ -f cbs.cbs ]; then \
+		sed -n 's/^[[:space:]]*version[[:space:]]*"\([^"]*\)".*/\1/p' cbs.cbs | sed -n '1p'; \
+	else \
+		printf '%s' 'unknown'; \
+	fi)
 CPPFLAGS += -DCBS_VERSION=\"$(CBS_VERSION)\"
 
 SOURCES := \
