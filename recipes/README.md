@@ -4,6 +4,11 @@ This directory contains CPDL recipes being migrated into CBS. It is separate
 from the historical shell recipe corpus: `.cbs` files are the replacement
 source of truth and must not invoke a shell interpreter.
 
+The seed set currently contains recipes for CBS itself, TCC, GCC, the Cix
+builder, the kernel migration draft, squashfs-tools, wireless-regdb, zstd, and
+libarchive. It is a deliberately growing migration set, not a claim that the
+external shell corpus has already been fully converted.
+
 ## TCC
 
 [`tcc.cbs`](tcc.cbs) is the first migration draft. It carries the exact pinned

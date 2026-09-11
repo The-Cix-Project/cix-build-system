@@ -67,6 +67,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #118: embedding seams](reviews/issue-0118-validation.md)
 - [Issue #117: repository scope reconciliation](reviews/issue-0117-validation.md)
 - [Issue #116: staged payload sections](reviews/issue-0116-validation.md)
+- [Issue #125: canonical CBS source](reviews/issue-0125-validation.md)
 - [Issue #124: CBS host libraries](reviews/issue-0124-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)

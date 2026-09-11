@@ -3,8 +3,8 @@ package "cbs" {
     release 1
     sources {
         main "cbs" {
-            url "https://git.home.arpa/itdlabs/cix-build-system/archive/main.tar.gz"
-            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            url "https://git.home.arpa/itdlabs/cix-build-system/archive/v0.1.21.tar.gz"
+            sha256 "852bbedfe83dc5f3a154e54216874138e6ccc88889e8ce3d80477a6750b6ea6c"
         }
     }
     requires {

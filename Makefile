@@ -42,6 +42,7 @@ src/%.o: src/%.c src/cbs.h
 
 test: $(TARGET)
 	./tests/parser-validation.sh ./$(TARGET)
+	./tests/recipe-metadata-test.sh cbs.cbs
 	./tests/cli-build-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
