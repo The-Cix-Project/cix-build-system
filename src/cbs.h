@@ -185,6 +185,13 @@ typedef struct {
     size_t source_count;
     const CbsEnvironmentBinding *environment;
     size_t environment_count;
+    struct {
+        long address_space_mb;
+        long file_size_mb;
+        long cpu_seconds;
+        long open_files;
+        long processes;
+    } limits;
 } CbsExecutionContext;
 
 void *cbs_allocate(size_t size);

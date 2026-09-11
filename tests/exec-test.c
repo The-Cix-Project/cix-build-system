@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <unistd.h>
 
 static char *read_file(const char *path, size_t *length)
@@ -137,7 +138,7 @@ static int run_parent(const char *recipe_path, const char *executable_path)
     if (!cbs_validate(document, recipe_path, source))
         goto cleanup_document;
     phase = find_phase(document, "build");
-    if (phase == NULL || phase->child_count != 5)
+    if (phase == NULL || phase->child_count != 6)
         goto cleanup_document;
     if (getcwd(current_directory, sizeof(current_directory)) == NULL)
         goto cleanup_document;
@@ -172,6 +173,11 @@ static int run_parent(const char *recipe_path, const char *executable_path)
     context.dest = "/tmp";
     context.jobs = 3;
     context.working_directory = current_directory;
+    context.limits.address_space_mb = 256;
+    context.limits.file_size_mb = 1;
+    context.limits.cpu_seconds = 2;
+    context.limits.open_files = 64;
+    context.limits.processes = 64;
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
     for (index = 0; index < 2; ++index) {
@@ -181,7 +187,8 @@ static int run_parent(const char *recipe_path, const char *executable_path)
     }
     if (!expected_runtime_failure(phase->children[2], &context, "CPDL-E4001") ||
         !expected_runtime_failure(phase->children[3], &context, "CPDL-E4003") ||
-        !expected_runtime_failure(phase->children[4], &context, "CPDL-E4002"))
+        !expected_runtime_failure(phase->children[4], &context, "CPDL-E4002") ||
+        !cbs_execute_run(phase->children[5], &context))
         goto cleanup_document;
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
@@ -210,6 +217,15 @@ int main(int argc, char **argv)
     }
     if (argc >= 2 && strcmp(argv[1], "--probe-signal") == 0) {
         raise(SIGTERM);
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--probe-limit") == 0) {
+        struct rlimit limit;
+        if (getrlimit(RLIMIT_AS, &limit) != 0 || limit.rlim_cur > 256UL * 1024UL * 1024UL) return 1;
+        if (getrlimit(RLIMIT_FSIZE, &limit) != 0 || limit.rlim_cur > 1024UL * 1024UL) return 2;
+        if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur > 64) return 3;
+        if (getrlimit(RLIMIT_NPROC, &limit) != 0 || limit.rlim_cur > 64) return 4;
+        if (getrlimit(RLIMIT_CPU, &limit) != 0 || limit.rlim_cur > 2) return 5;
         return 0;
     }
     if (argc != 2) {

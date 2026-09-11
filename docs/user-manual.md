@@ -694,6 +694,13 @@ does not reinterpret a nonzero status as success.
 group. Reduce jobs, inspect for a deadlock, or set a justified larger timeout;
 never hide it with `allow_failure` in the main phase.
 
+CBS also applies child resource limits before execution. Standalone defaults
+cover address space, individual file size, CPU time, open descriptors, and
+process count; an embedder can lower them through its execution context. These
+limits do not provide an aggregate disk quota, so hosted builds must enforce
+workspace storage through their container or cgroup policy. Ctrl-C is forwarded
+to the active command group and cleaned up through the same reaping path.
+
 ### Sources and workspace
 
 A checksum mismatch means the bytes are not the declared source, even when the

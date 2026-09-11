@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -18,6 +19,42 @@ typedef struct {
     size_t count;
     size_t capacity;
 } StringList;
+
+static volatile sig_atomic_t active_child;
+static volatile sig_atomic_t interrupted;
+
+static void forward_interrupt(int signal_number)
+{
+    (void)signal_number;
+    interrupted = 1;
+    if (active_child > 0)
+        kill(-active_child, SIGTERM);
+}
+
+static int apply_limit(int resource, long value, long default_value,
+                       unsigned long multiplier)
+{
+    struct rlimit limit;
+    unsigned long long selected = value > 0 ? (unsigned long long)value :
+                                   (unsigned long long)default_value;
+    if (selected > (unsigned long long)RLIM_INFINITY / multiplier)
+        return 0;
+    limit.rlim_cur = limit.rlim_max = (rlim_t)(selected * multiplier);
+    return setrlimit(resource, &limit) == 0;
+}
+
+static int apply_child_limits(const CbsExecutionContext *context,
+                              long timeout_ms)
+{
+    long cpu = context->limits.cpu_seconds;
+    if (cpu <= 0)
+        cpu = timeout_ms > 0 ? (timeout_ms + 999) / 1000 + 1 : 86400;
+    return apply_limit(RLIMIT_AS, context->limits.address_space_mb, 8192, 1024UL * 1024UL) &&
+           apply_limit(RLIMIT_FSIZE, context->limits.file_size_mb, 16384, 1024UL * 1024UL) &&
+           apply_limit(RLIMIT_CPU, cpu, cpu, 1) &&
+           apply_limit(RLIMIT_NOFILE, context->limits.open_files, 4096, 1) &&
+           apply_limit(RLIMIT_NPROC, context->limits.processes, 4096, 1);
+}
 
 int cbs_is_forbidden_executable(const char *value)
 {
@@ -305,8 +342,18 @@ static int wait_for_child(pid_t child, long timeout_ms, int *status)
     struct timespec pause_time;
     pid_t result;
 
-    if (timeout_ms <= 0)
-        return waitpid(child, status, 0) == child ? 1 : -1;
+    if (timeout_ms <= 0) {
+        while (waitpid(child, status, 0) < 0) {
+            if (errno != EINTR) return -1;
+            if (interrupted) break;
+        }
+        if (interrupted) {
+            kill(-child, SIGKILL);
+            while (waitpid(child, status, 0) < 0 && errno == EINTR) ;
+            return 0;
+        }
+        return 1;
+    }
     clock_gettime(CLOCK_MONOTONIC, &start);
     pause_time.tv_sec = 0;
     pause_time.tv_nsec = 10000000;
@@ -314,6 +361,7 @@ static int wait_for_child(pid_t child, long timeout_ms, int *status)
         result = waitpid(child, status, WNOHANG);
         if (result == child)
             return 1;
+        if (interrupted) break;
         if (result < 0)
             return -1;
         clock_gettime(CLOCK_MONOTONIC, &now);
@@ -414,8 +462,17 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context)
         string_list_destroy(&environment);
         return 0;
     }
+    interrupted = 0;
+    active_child = child;
+    {
+        struct sigaction action, old_action;
+        memset(&action, 0, sizeof(action));
+        action.sa_handler = forward_interrupt;
+        sigemptyset(&action.sa_mask);
+        sigaction(SIGINT, &action, &old_action);
     if (child == 0) {
         setpgid(0, 0);
+        if (!apply_child_limits(context, timeout_ms)) _exit(125);
         if (chdir(context->working_directory) != 0)
             _exit(126);
         execve(executable, arguments.items, environment.items);
@@ -423,6 +480,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context)
     }
     setpgid(child, child);
     wait_result = wait_for_child(child, timeout_ms, &status);
+        sigaction(SIGINT, &old_action, NULL);
+    }
+    active_child = 0;
     free(executable);
     free(program);
     string_list_destroy(&arguments);

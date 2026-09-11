@@ -30,5 +30,8 @@ package "argv-test" {
         run "${build}/exec-test" {
             "--probe-signal"
         }
+        run "${build}/exec-test" {
+            "--probe-limit"
+        }
     }
 }

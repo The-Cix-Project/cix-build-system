@@ -459,6 +459,21 @@ A timeout terminates the complete CBS-created process group, waits for it to be
 reaped, and fails the operation. The grace period and signal sequence are CBS
 policy and must appear in the diagnostic.
 
+Every directly executed child also receives resource ceilings before `execve`:
+address space, individual file size, CPU time, open file descriptors, and
+process count. Standalone defaults are 8192 MiB, 16384 MiB, 24 hours, 4096
+descriptors, and 4096 processes respectively. An embedder may provide lower
+ceilings through the execution context. A command timeout also supplies a
+matching CPU-time ceiling when no explicit CPU limit is provided. CBS reports
+the command failure if a limit is exceeded. These are per-process limits, not a
+filesystem quota; hosted builds must use their container/cgroup disk and
+memory budgets for aggregate workspace enforcement.
+
+If the CBS runner receives SIGINT while a command is active, it forwards the
+interrupt to the complete CBS-created process group, escalates to SIGKILL if
+necessary, reaps the child, and fails the operation. No child is left behind
+by timeout or interactive interruption.
+
 ### 4.3 Environment and directory scope
 
 ```ebnf
