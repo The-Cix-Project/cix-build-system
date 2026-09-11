@@ -268,6 +268,7 @@ cleanup:
     return result;
 }
 
+/* Exercise every supported confined filesystem operation. */
 int main(int argc, char **argv) {
     if (argc != 2) {
         fputs("usage: fs-test RECIPE.cbs\n", stderr);

@@ -38,6 +38,7 @@ static int observe(const char *name, void *user) {
     return 1;
 }
 
+/* Verify each public embedding seam with a deterministic callback. */
 int main(void) {
     FILE *file = fopen("/tmp/cbs-signature-seam", "wb");
     char response[16];

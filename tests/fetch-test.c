@@ -33,6 +33,7 @@ static int fetch_mock(const char *url, const char *destination, void *opaque,
     return 1;
 }
 
+/* Exercise cache verification and source transport failure reporting. */
 int main(int argc, char **argv) {
     char directory_template[] = "/tmp/cbs-fetch-test-XXXXXX";
     char *directory;

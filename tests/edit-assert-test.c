@@ -209,6 +209,7 @@ cleanup:
     return result;
 }
 
+/* Exercise source-edit cardinality, atomicity, and assertion failures. */
 int main(int argc, char **argv) {
     if (argc != 2) {
         fputs("usage: edit-assert-test RECIPE.cbs\n", stderr);

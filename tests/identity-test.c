@@ -24,6 +24,7 @@ static char *read_source(const char *path, size_t *length) {
     return source;
 }
 
+/* Verify canonical identity and artifact filename generation. */
 int main(int argc, char **argv) {
     static const char expected[] = "gcc-16.2.0-11-x86_64";
     static const char expected_metadata[] = "identity=gcc-16.2.0-11-x86_64\n";

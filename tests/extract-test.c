@@ -68,6 +68,7 @@ done:
     return ok;
 }
 
+/* Exercise named-source extraction and destination confinement. */
 int main(int argc, char **argv) {
     char root[] = "/tmp/cbs-extract-XXXXXX";
     char archive_path[512], config_path[512], src[512], build[512], dest[512],

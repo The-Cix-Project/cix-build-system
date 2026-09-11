@@ -30,6 +30,7 @@ static int truncate_file(const char *path, off_t length) {
     return result;
 }
 
+/* Verify package creation, round trips, and corruption gates. */
 int main(void) {
     char in[] = "/tmp/cixpkg-in", out[] = "/tmp/cixpkg-out";
     char round[] = "/tmp/cixpkg-round";

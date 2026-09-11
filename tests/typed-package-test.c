@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Verify typed entries, modes, links, empty directories, and setuid rejection.
+ */
 int main(void) {
     char root[128];
     char manifest[256], package[256], extracted[256], path[256], target[64];

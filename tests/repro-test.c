@@ -1,6 +1,7 @@
 /* Regression tests for reproducible artifact comparison. */
 #include "cbs.h"
 #include <stdio.h>
+/* Verify an artifact mismatch is detected by reproducibility checks. */
 int main(void) {
     FILE *a = fopen("/tmp/repro-a", "wb"), *b = fopen("/tmp/repro-b", "wb");
     if (!a || !b)

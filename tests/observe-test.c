@@ -9,6 +9,7 @@ static int collect(const char *name, void *user) {
         saw_libc = 1;
     return 1;
 }
+/* Verify ELF dependency discovery and invalid-input rejection. */
 int main(void) {
     if (!cbs_observe_dependencies(collect, "/bin/ls", NULL) || !saw_libc ||
         cbs_observe_dependencies(collect, "/etc/hosts", NULL))

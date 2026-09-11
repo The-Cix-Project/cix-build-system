@@ -202,6 +202,7 @@ cleanup:
     return result;
 }
 
+/* Verify primary runtime failures and subordinate diagnostic notes. */
 int main(int argc, char **argv) {
     int probe_result = probe(argc, argv);
     if (probe_result >= 0)

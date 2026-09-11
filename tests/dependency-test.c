@@ -22,6 +22,7 @@ static char *read_all(const char *path, size_t *length) {
     *length = (size_t)n;
     return p;
 }
+/* Verify dependency roles are selected correctly for each phase. */
 int main(int argc, char **argv) {
     char *source;
     size_t length;

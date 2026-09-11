@@ -20,6 +20,7 @@ static int finalized(const char *root, void *user) {
     return fclose(file) == 0;
 }
 
+/* Verify finalization runs before manifest generation and is recorded. */
 int main(void) {
     char workspace_template[] = "/tmp/cbs-policy-XXXXXX";
     char artifact[4096];

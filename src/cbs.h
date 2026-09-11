@@ -149,19 +149,27 @@ typedef enum {
 } CbsDiagCategory;
 
 typedef struct {
+    /* Human-readable source name used in diagnostics and interpolation. */
     const char *name;
+    /* Source path or URL recorded for this named source. */
     const char *path;
 } CbsNamedSource;
 
 typedef struct {
+    /* Environment variable name visible to a phase. */
     const char *name;
+    /* Environment value supplied by the recipe or embedder. */
     const char *value;
 } CbsEnvironmentBinding;
 
 typedef struct {
+    /* Package name declared by the recipe. */
     const char *name;
+    /* Package version declared by the recipe. */
     const char *version;
+    /* Numeric release revision used for package identity. */
     long release;
+    /* Target architecture declared by the recipe. */
     const char *architecture;
 } CbsPackageIdentity;
 
@@ -312,19 +320,30 @@ int cbs_execute_block(const CbsNode *block, const CbsExecutionContext *context);
 long cbs_effective_jobs(long requested, long cpu_budget,
                         long administrator_limit);
 typedef struct {
+    /* Whether absolute paths are rejected by stage validation. */
     int reject_absolute;
+    /* Whether parent-directory traversal is rejected. */
     int reject_parent;
+    /* Whether an empty path is rejected. */
     int reject_empty;
 } CbsStagePolicy;
 int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct {
+    /* Canonical path relative to the staged package root. */
     const char *path;
+    /* Entry kind, such as a regular file, directory, or symlink. */
     char type;
+    /* Permission bits preserved in the package manifest. */
     unsigned mode;
+    /* Original owner user ID observed during staging. */
     unsigned uid;
+    /* Original owner group ID observed during staging. */
     unsigned gid;
+    /* Regular-file length in bytes. */
     unsigned long long size;
+    /* SHA-256 digest for a regular file, when applicable. */
     const char *digest;
+    /* Symlink destination, when this entry is a symbolic link. */
     const char *target;
 } CbsManifestEntry;
 /* Compare manifest entries by their canonical path. */
@@ -357,15 +376,23 @@ int cbs_build_standalone_with_cache_policy(
     const char *cache_directory, CbsFinalizePolicy finalize, void *user);
 #define CBS_MAX_PHASES 5
 typedef struct {
+    /* AST nodes for phases in their declared execution order. */
     const CbsNode *phases[CBS_MAX_PHASES];
+    /* Number of initialized phase pointers. */
     size_t count;
 } CbsBuildPlan;
 typedef struct {
+    /* Build image selected for the recipe, if one was declared. */
     const char *build_image;
+    /* Upstream discovery source selected by the recipe. */
     const char *upstream;
+    /* Toolchain policy selected by the recipe. */
     const char *toolchain;
+    /* Human-readable reason for the selected toolchain policy. */
     const char *toolchain_reason;
+    /* Capability names declared by the recipe. */
     const char **capabilities;
+    /* Number of initialized capability names. */
     size_t capability_count;
 } CbsBuildMetadata;
 /* Convert a validated package AST into its ordered phase plan. */

@@ -43,6 +43,7 @@ done:
     return ok;
 }
 
+/* Exercise safe archive extraction and hostile-entry rejection. */
 int main(void) {
     char root[] = "/tmp/cbs-archive-XXXXXX";
     char destination[256], unsafe[256];

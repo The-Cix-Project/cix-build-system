@@ -2,6 +2,7 @@
 #include "cbs.h"
 #include <stdio.h>
 #include <stdlib.h>
+/* Verify manifest ordering and staged-entry metadata. */
 int main(void) {
     CbsManifestEntry e[2] = {{.path = "z", .type = 'f'},
                              {.path = "a", .type = 'f'}};

@@ -197,6 +197,7 @@ cleanup_source:
     return result;
 }
 
+/* Exercise child execution, limits, timeout, and interrupt behavior. */
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--probe-with-env") == 0)
         return probe_with_environment(argc, argv);

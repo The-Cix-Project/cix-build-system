@@ -23,6 +23,7 @@ static int phase_event(const char *event, const char *phase, int status,
     return 0;
 }
 
+/* Verify phase capacity, overflow rejection, and event ordering. */
 int main(void) {
     CbsLocation location = {"plan-test", 1, 1, 0};
     CbsNode *document = cbs_node_create(CBS_NODE_DOCUMENT, location);

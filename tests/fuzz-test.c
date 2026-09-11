@@ -29,6 +29,7 @@ static int copy_file(const char *from, const char *to) {
     return 1;
 }
 
+/* Mutate valid package bytes and require safe rejection. */
 int main(void) {
     char root[128], source[160], manifest[160], good[160], bad[160],
         extracted[160];

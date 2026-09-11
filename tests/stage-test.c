@@ -1,6 +1,7 @@
 /* Regression tests for stage-path policy validation. */
 #include "cbs.h"
 #include <stdio.h>
+/* Verify the data-driven stage path policy. */
 int main(void) {
     CbsStagePolicy p = {1, 1, 1};
     if (!cbs_validate_stage_path("usr/bin/cbs", &p) ||

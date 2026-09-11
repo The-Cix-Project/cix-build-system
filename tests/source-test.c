@@ -30,6 +30,7 @@ static int write_value(const char *path, const char *value) {
     return f && fwrite(value, 1, n, f) == n && fclose(f) == 0;
 }
 
+/* Verify named sources, mirrors, digests, and execution bindings. */
 int main(int argc, char **argv) {
     char template[] = "/tmp/cbs-source-test-XXXXXX", good[512], empty[512],
          bad[512];
