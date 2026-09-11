@@ -21,9 +21,8 @@ verification, extraction, and mode-preservation tests.
 
 ### 1. CIXPKG contract: production format complete
 
-The tree writer/verifier is used by real builds and matches the normative v1
-specification. The old manifest-only API remains only for compatibility tests
-and is not used by the standalone production path.
+The tree writer/verifier is used by real builds and matches the normative CIXPKG
+v2 specification. The old manifest-only API and v1 reader are retired.
 
 Unblock action: keep the tree format as the sole production format, mark the
 legacy API deprecated, and retire it with its compatibility tests.
@@ -32,9 +31,9 @@ legacy API deprecated, and retire it with its compatibility tests.
 
 The legacy shell recipes are the system CBS is replacing; they are not a CBS
 dependency and must not be executed or treated as CPDL input. This repository
-contains six migrated recipes (`tcc`, `gcc`, `cix`, `kernel`,
-`squashfs-tools`, and `wireless-regdb`). They validate as CPDL, but GCC and
-kernel remain explicitly non-building migrations.
+contains a staged seed set of migrated recipes, including `tcc`, `gcc`, `cix`,
+`kernel`, `squashfs-tools`, `wireless-regdb`, `zstd`, and `libarchive`. They
+validate as CPDL, but GCC and kernel remain explicitly non-building migrations.
 
 Unblock action: define the first in-repository CPDL seed set and migrate each
 recipe deliberately, with validation and end-to-end build tests. The migration
@@ -42,16 +41,17 @@ must preserve declared sources, checksums, dependencies, staged paths, and
 toolchain requirements without reintroducing shell execution through a side
 door.
 
-### 3. cixd integration needs an adapter mapping
+### 3. cixd integration contract defined
 
-CBS already has callback boundaries for daemon requests, fetch, sandboxing,
-signatures, and transactions, but no concrete cixd protocol contract or
-HTTP/OpenAPI client adapter in this repository.
+CBS and cixd now have a concrete first-slice contract. cixd owns discovery,
+dependency/image composition, cache population, container creation, signing,
+publication, and transactions. CBS owns CPDL validation, phase execution,
+manifest/CIXPKG creation, verification, and the finalization and phase-event
+callbacks.
 
-Unblock action: select the cixd API version and the initial operation set. The
-smallest useful slice is recipe upload/list, source/artifact fetch, and package
-artifact publish/verify. Then implement a bounded HTTP adapter against the
-OpenAPI contract and test it with a local fixture server.
+The contract is documented in [CBS and cixd integration contract](integration-contract.md).
+An HTTP/OpenAPI adapter is intentionally deferred: the first useful path is a
+parent process invoking CBS inside its already-created build container.
 
 ### 4. Production qualification requires environment ownership
 
