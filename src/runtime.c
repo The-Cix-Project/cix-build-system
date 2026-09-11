@@ -1,3 +1,4 @@
+/* Runtime orchestration for phase operations and failure handling. */
 #define _POSIX_C_SOURCE 200809L
 
 #include "cbs.h"
@@ -5,22 +6,33 @@
 #include <dirent.h>
 #include <string.h>
 
-long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit)
-{
+long cbs_effective_jobs(long requested, long cpu_budget,
+                        long administrator_limit) {
     long result = requested > 0 ? requested : 1;
-    if (cpu_budget > 0 && result > cpu_budget) result = cpu_budget;
-    if (administrator_limit > 0 && result > administrator_limit) result = administrator_limit;
+    if (cpu_budget > 0 && result > cpu_budget)
+        result = cpu_budget;
+    if (administrator_limit > 0 && result > administrator_limit)
+        result = administrator_limit;
     return result > 0 ? result : 1;
 }
 
-int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy)
-{
+int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy) {
     const char *part;
-    if (path == NULL || policy == NULL || (policy->reject_empty && path[0] == '\0')) return 0;
-    if (policy->reject_absolute && path[0] == '/') return 0;
-    if (!policy->reject_parent) return 1;
+    if (path == NULL || policy == NULL ||
+        (policy->reject_empty && path[0] == '\0'))
+        return 0;
+    if (policy->reject_absolute && path[0] == '/')
+        return 0;
+    if (!policy->reject_parent)
+        return 1;
     part = path;
-    while (*part) { const char *end = strchr(part, '/'); size_t n = end ? (size_t)(end-part) : strlen(part); if (n == 2 && strncmp(part, "..", 2) == 0) return 0; part = end ? end+1 : part+n; }
+    while (*part) {
+        const char *end = strchr(part, '/');
+        size_t n = end ? (size_t)(end - part) : strlen(part);
+        if (n == 2 && strncmp(part, "..", 2) == 0)
+            return 0;
+        part = end ? end + 1 : part + n;
+    }
     return 1;
 }
 
@@ -40,13 +52,11 @@ typedef struct {
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context);
 
-static int is_filesystem(CbsNodeKind kind)
-{
+static int is_filesystem(CbsNodeKind kind) {
     return kind >= CBS_NODE_MKDIR && kind <= CBS_NODE_CHMOD;
 }
 
-static int run_allows_failure(const CbsNode *run)
-{
+static int run_allows_failure(const CbsNode *run) {
     size_t index;
     for (index = 0; index < run->child_count; ++index)
         if (run->children[index]->kind == CBS_NODE_ALLOW_FAILURE)
@@ -54,8 +64,7 @@ static int run_allows_failure(const CbsNode *run)
     return 0;
 }
 
-static char *capture_stream(FILE *stream)
-{
+static char *capture_stream(FILE *stream) {
     long size;
     char *content;
 
@@ -74,8 +83,7 @@ static char *capture_stream(FILE *stream)
 
 static int execute_captured(const CbsNode *operation,
                             const CbsExecutionContext *context,
-                            char **diagnostic)
-{
+                            char **diagnostic) {
     FILE *capture = tmpfile();
     int saved;
     int result;
@@ -102,34 +110,33 @@ static int execute_captured(const CbsNode *operation,
 
 static void subordinate_note(const CbsNode *operation,
                              const CbsExecutionContext *context,
-                             const char *diagnostic, int allowed)
-{
+                             const char *diagnostic, int allowed) {
     char first_line[768];
     const char *newline = strchr(diagnostic, '\n');
-    size_t length = newline == NULL ? strlen(diagnostic) :
-                    (size_t)(newline - diagnostic);
+    size_t length =
+        newline == NULL ? strlen(diagnostic) : (size_t)(newline - diagnostic);
     char message[1024];
 
     if (length >= sizeof(first_line))
         length = sizeof(first_line) - 1;
     memcpy(first_line, diagnostic, length);
     first_line[length] = '\0';
-    snprintf(message, sizeof(message),
-             "on_fail diagnostic failed%s; original failure remains primary; %s",
-             allowed ? " with allow_failure" : "", first_line);
+    snprintf(
+        message, sizeof(message),
+        "on_fail diagnostic failed%s; original failure remains primary; %s",
+        allowed ? " with allow_failure" : "", first_line);
     cbs_diagnostic(context->recipe_path, context->recipe_source,
-                   operation->location, "note", "CPDL-N4001",
-                   CBS_DIAG_RUNTIME, message);
+                   operation->location, "note", "CPDL-N4001", CBS_DIAG_RUNTIME,
+                   message);
 }
 
 static void environment_add(EnvironmentList *list, const char *name,
-                            char *value)
-{
+                            char *value) {
     size_t capacity;
     if (list->count == list->capacity) {
         capacity = list->capacity == 0 ? 8 : list->capacity * 2;
-        list->items = cbs_reallocate(list->items,
-                                     capacity * sizeof(*list->items));
+        list->items =
+            cbs_reallocate(list->items, capacity * sizeof(*list->items));
         list->capacity = capacity;
     }
     list->items[list->count].name = name;
@@ -137,8 +144,7 @@ static void environment_add(EnvironmentList *list, const char *name,
     ++list->count;
 }
 
-static void environment_destroy(EnvironmentList *list)
-{
+static void environment_destroy(EnvironmentList *list) {
     size_t index;
     for (index = list->inherited_count; index < list->count; ++index)
         free((char *)list->items[index].value);
@@ -146,14 +152,13 @@ static void environment_destroy(EnvironmentList *list)
 }
 
 static int execute_diagnostics(const CbsNode *on_fail,
-                               const CbsExecutionContext *context)
-{
+                               const CbsExecutionContext *context) {
     size_t index;
     for (index = 0; index < on_fail->child_count; ++index) {
         const CbsNode *operation = on_fail->children[index];
         char *diagnostic = NULL;
-        int allowed = operation->kind == CBS_NODE_RUN &&
-                      run_allows_failure(operation);
+        int allowed =
+            operation->kind == CBS_NODE_RUN && run_allows_failure(operation);
         if (!execute_captured(operation, context, &diagnostic)) {
             subordinate_note(operation, context,
                              diagnostic == NULL ? "no diagnostic" : diagnostic,
@@ -167,8 +172,7 @@ static int execute_diagnostics(const CbsNode *on_fail,
 }
 
 static int execute_block_internal(const CbsNode *block,
-                                  const CbsExecutionContext *context)
-{
+                                  const CbsExecutionContext *context) {
     CbsExecutionContext local = *context;
     EnvironmentList environment;
     const CbsNode *on_fail = NULL;
@@ -193,8 +197,8 @@ static int execute_block_internal(const CbsNode *block,
             break;
         }
         if (operation->kind == CBS_NODE_ENV) {
-            char *value = cbs_resolve_value(operation->value, operation->flag,
-                                            &local);
+            char *value =
+                cbs_resolve_value(operation->value, operation->flag, &local);
             environment_add(&environment, operation->name, value);
             local.environment = environment.items;
             local.environment_count = environment.count;
@@ -215,18 +219,18 @@ static int execute_block_internal(const CbsNode *block,
 }
 
 static int execute_cd(const CbsNode *operation,
-                      const CbsExecutionContext *context)
-{
+                      const CbsExecutionContext *context) {
     CbsExecutionContext nested = *context;
     struct stat status;
     char *path = cbs_resolve_confined_path(operation->value, context);
     int result;
 
-    if (path == NULL || lstat(path, &status) != 0 ||
-        !S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode)) {
+    if (path == NULL || lstat(path, &status) != 0 || !S_ISDIR(status.st_mode) ||
+        S_ISLNK(status.st_mode)) {
         char message[512];
-        snprintf(message, sizeof(message), "cannot enter directory `%s`; errno=%d",
-                 operation->value, errno);
+        snprintf(message, sizeof(message),
+                 "cannot enter directory `%s`; errno=%d", operation->value,
+                 errno);
         cbs_diagnostic(context->recipe_path, context->recipe_source,
                        operation->location, "error", "CPDL-E4004",
                        CBS_DIAG_RUNTIME, message);
@@ -239,8 +243,7 @@ static int execute_cd(const CbsNode *operation,
     return result;
 }
 
-static const char *extract_name(const CbsNode *operation)
-{
+static const char *extract_name(const CbsNode *operation) {
     size_t index;
 
     for (index = 0; index < operation->child_count; ++index)
@@ -253,21 +256,19 @@ static const char *extract_name(const CbsNode *operation)
 
 static int extract_error(const CbsNode *operation,
                          const CbsExecutionContext *context,
-                         const char *message)
-{
+                         const char *message) {
     cbs_diagnostic(context->recipe_path, context->recipe_source,
-                   operation->location, "error", "CPDL-E4006",
-                   CBS_DIAG_SOURCE, message);
+                   operation->location, "error", "CPDL-E4006", CBS_DIAG_SOURCE,
+                   message);
     return 0;
 }
 
 static int execute_extract(const CbsNode *operation,
-                           const CbsExecutionContext *context)
-{
-    char *archive = cbs_resolve_value(operation->value,
-                                      CBS_TOKEN_CBS_VALUE, context);
-    char *destination = cbs_resolve_confined_path(operation->second_value,
-                                                   context);
+                           const CbsExecutionContext *context) {
+    char *archive =
+        cbs_resolve_value(operation->value, CBS_TOKEN_CBS_VALUE, context);
+    char *destination =
+        cbs_resolve_confined_path(operation->second_value, context);
     const char *name = extract_name(operation);
     char temporary[4096];
     char final_path[4096];
@@ -284,9 +285,9 @@ static int execute_extract(const CbsNode *operation,
                              "extract path is outside the build workspace");
     }
     if (name == NULL) {
-        result = cbs_extract_archive(archive, destination, operation->value + 8,
-                                     context->recipe_path, context->recipe_source,
-                                     operation->location);
+        result = cbs_extract_archive(
+            archive, destination, operation->value + 8, context->recipe_path,
+            context->recipe_source, operation->location);
         free(archive);
         free(destination);
         return result;
@@ -325,8 +326,7 @@ static int execute_extract(const CbsNode *operation,
     while ((entry = readdir(directory)) != NULL) {
         struct stat status;
 
-        if (strcmp(entry->d_name, ".") == 0 ||
-            strcmp(entry->d_name, "..") == 0)
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
         if (found++ != 0 ||
             snprintf(selected, sizeof(selected), "%s/%s", temporary,
@@ -342,10 +342,12 @@ static int execute_extract(const CbsNode *operation,
     closedir(directory);
     if (found != 1 ||
         snprintf(final_path, sizeof(final_path), "%s/%s", destination, name) >=
-            (int)sizeof(final_path) || lstat(final_path, &(struct stat){0}) == 0) {
+            (int)sizeof(final_path) ||
+        lstat(final_path, &(struct stat){0}) == 0) {
         free(destination);
-        return extract_error(operation, context,
-                             "extracted destination already exists or is missing");
+        return extract_error(
+            operation, context,
+            "extracted destination already exists or is missing");
     }
     /* selected is the only entry beneath the temporary directory. */
     if (rename(selected, final_path) != 0 || rmdir(temporary) != 0) {
@@ -358,8 +360,7 @@ static int execute_extract(const CbsNode *operation,
 }
 
 static int execute_operation(const CbsNode *operation,
-                             const CbsExecutionContext *context)
-{
+                             const CbsExecutionContext *context) {
     if (operation->kind == CBS_NODE_RUN)
         return cbs_execute_run(operation, context);
     if (is_filesystem(operation->kind))
@@ -381,7 +382,6 @@ static int execute_operation(const CbsNode *operation,
 }
 
 int cbs_execute_block(const CbsNode *block,
-                      const CbsExecutionContext *context)
-{
+                      const CbsExecutionContext *context) {
     return execute_block_internal(block, context);
 }

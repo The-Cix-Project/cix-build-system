@@ -1,30 +1,27 @@
+/* Recursive-descent parser that turns CPDL tokens into an AST. */
 #include "cbs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static CbsToken *current(CbsParser *parser)
-{
+static CbsToken *current(CbsParser *parser) {
     return &parser->tokens.items[parser->cursor];
 }
 
-static int is_word(CbsParser *parser, const char *word)
-{
+static int is_word(CbsParser *parser, const char *word) {
     CbsToken *token = current(parser);
     return token->kind == CBS_TOKEN_WORD && strcmp(token->text, word) == 0;
 }
 
-static CbsToken *advance(CbsParser *parser)
-{
+static CbsToken *advance(CbsParser *parser) {
     CbsToken *token = current(parser);
     if (token->kind != CBS_TOKEN_EOF)
         ++parser->cursor;
     return token;
 }
 
-static const char *token_description(const CbsToken *token)
-{
+static const char *token_description(const CbsToken *token) {
     switch (token->kind) {
     case CBS_TOKEN_EOF:
         return "end of file";
@@ -39,8 +36,7 @@ static const char *token_description(const CbsToken *token)
     }
 }
 
-static void expected(CbsParser *parser, const char *description)
-{
+static void expected(CbsParser *parser, const char *description) {
     CbsToken *token = current(parser);
     if (!parser->failed)
         cbs_diagnostic_expected(parser->path, parser->source, token->location,
@@ -49,8 +45,7 @@ static void expected(CbsParser *parser, const char *description)
 }
 
 static CbsToken *consume_kind(CbsParser *parser, CbsTokenKind kind,
-                              const char *description)
-{
+                              const char *description) {
     if (current(parser)->kind != kind) {
         expected(parser, description);
         return NULL;
@@ -58,8 +53,7 @@ static CbsToken *consume_kind(CbsParser *parser, CbsTokenKind kind,
     return advance(parser);
 }
 
-static CbsToken *consume_word(CbsParser *parser, const char *word)
-{
+static CbsToken *consume_word(CbsParser *parser, const char *word) {
     if (!is_word(parser, word)) {
         expected(parser, word);
         return NULL;
@@ -67,15 +61,14 @@ static CbsToken *consume_word(CbsParser *parser, const char *word)
     return advance(parser);
 }
 
-static int is_text_value(const CbsToken *token)
-{
+static int is_text_value(const CbsToken *token) {
     return token->kind == CBS_TOKEN_STRING ||
            token->kind == CBS_TOKEN_BLOCK_STRING ||
            token->kind == CBS_TOKEN_CBS_VALUE;
 }
 
-static CbsToken *consume_text_value(CbsParser *parser, const char *description)
-{
+static CbsToken *consume_text_value(CbsParser *parser,
+                                    const char *description) {
     if (!is_text_value(current(parser))) {
         expected(parser, description);
         return NULL;
@@ -83,8 +76,7 @@ static CbsToken *consume_text_value(CbsParser *parser, const char *description)
     return advance(parser);
 }
 
-static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token)
-{
+static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token) {
     CbsNode *node = cbs_node_create(kind, token->location);
     node->value = cbs_duplicate(token->text);
     node->flag = token->kind;
@@ -94,8 +86,7 @@ static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token)
 static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
                                       int diagnostic_only);
 
-static CbsNode *parse_run(CbsParser *parser, int diagnostic_only)
-{
+static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = consume_word(parser, "run");
     CbsToken *program;
     CbsNode *node;
@@ -124,7 +115,8 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only)
             CbsToken *value;
             advance(parser);
             item = cbs_node_create(CBS_NODE_RUN_ENV, token->location);
-            name = consume_kind(parser, CBS_TOKEN_STRING, "environment name string");
+            name = consume_kind(parser, CBS_TOKEN_STRING,
+                                "environment name string");
             if (consume_kind(parser, CBS_TOKEN_EQUAL, "=") == NULL)
                 break;
             value = consume_text_value(parser, "environment value");
@@ -173,8 +165,7 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only)
     return node;
 }
 
-static CbsNode *parse_env(CbsParser *parser)
-{
+static CbsNode *parse_env(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "env");
     CbsToken *name;
     CbsToken *value;
@@ -192,8 +183,7 @@ static CbsNode *parse_env(CbsParser *parser)
     return node;
 }
 
-static CbsToken *consume_path(CbsParser *parser)
-{
+static CbsToken *consume_path(CbsParser *parser) {
     CbsToken *token = current(parser);
     if (token->kind != CBS_TOKEN_STRING && token->kind != CBS_TOKEN_CBS_VALUE) {
         expected(parser, "path value");
@@ -203,8 +193,7 @@ static CbsToken *consume_path(CbsParser *parser)
 }
 
 static CbsNode *parse_selector(CbsParser *parser, CbsNodeKind kind,
-                               CbsLocation operation_location)
-{
+                               CbsLocation operation_location) {
     CbsNode *node = cbs_node_create(kind, operation_location);
     CbsToken *value;
 
@@ -220,8 +209,7 @@ static CbsNode *parse_selector(CbsParser *parser, CbsNodeKind kind,
     return node;
 }
 
-static void parse_optional_mode(CbsParser *parser, CbsNode *node)
-{
+static void parse_optional_mode(CbsParser *parser, CbsNode *node) {
     int standalone_chmod = 0;
 
     if (is_word(parser, "chmod") && parser->cursor + 2 < parser->tokens.count) {
@@ -247,8 +235,7 @@ static void parse_optional_mode(CbsParser *parser, CbsNode *node)
     }
 }
 
-static CbsNode *parse_filesystem(CbsParser *parser)
-{
+static CbsNode *parse_filesystem(CbsParser *parser) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
     CbsNode *node;
@@ -262,11 +249,12 @@ static CbsNode *parse_filesystem(CbsParser *parser)
         parse_optional_mode(parser, node);
         return node;
     }
-    if (strcmp(keyword->text, "copy") == 0 || strcmp(keyword->text, "move") == 0) {
-        node = parse_selector(parser,
-                              strcmp(keyword->text, "copy") == 0 ?
-                              CBS_NODE_COPY : CBS_NODE_MOVE,
-                              keyword->location);
+    if (strcmp(keyword->text, "copy") == 0 ||
+        strcmp(keyword->text, "move") == 0) {
+        node = parse_selector(
+            parser,
+            strcmp(keyword->text, "copy") == 0 ? CBS_NODE_COPY : CBS_NODE_MOVE,
+            keyword->location);
         consume_word(parser, "to");
         value = consume_path(parser);
         if (value != NULL)
@@ -323,8 +311,7 @@ static CbsNode *parse_filesystem(CbsParser *parser)
     return node;
 }
 
-static CbsNode *parse_extract(CbsParser *parser)
-{
+static CbsNode *parse_extract(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "extract");
     CbsToken *source;
     CbsToken *destination;
@@ -340,7 +327,8 @@ static CbsNode *parse_extract(CbsParser *parser)
     if (is_word(parser, "as")) {
         CbsToken *name;
         advance(parser);
-        name = consume_kind(parser, CBS_TOKEN_STRING, "extracted directory name");
+        name =
+            consume_kind(parser, CBS_TOKEN_STRING, "extracted directory name");
         if (name != NULL) {
             CbsNode *property = node_from_token(CBS_NODE_PROPERTY, name);
             property->name = cbs_duplicate("as");
@@ -350,11 +338,10 @@ static CbsNode *parse_extract(CbsParser *parser)
     return node;
 }
 
-static CbsNode *parse_materialize(CbsParser *parser)
-{
+static CbsNode *parse_materialize(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "materialize");
-    CbsToken *source = consume_kind(parser, CBS_TOKEN_CBS_VALUE,
-                                    "named source value");
+    CbsToken *source =
+        consume_kind(parser, CBS_TOKEN_CBS_VALUE, "named source value");
     CbsNode *node = cbs_node_create(CBS_NODE_MATERIALIZE, keyword->location);
     consume_word(parser, "to");
     {
@@ -367,8 +354,7 @@ static CbsNode *parse_materialize(CbsParser *parser)
     return node;
 }
 
-static CbsNode *parse_edit(CbsParser *parser, int insert)
-{
+static CbsNode *parse_edit(CbsParser *parser, int insert) {
     CbsToken *keyword = advance(parser);
     CbsToken *path;
     CbsToken *first;
@@ -401,8 +387,7 @@ static CbsNode *parse_edit(CbsParser *parser, int insert)
     return node;
 }
 
-static CbsNode *parse_require(CbsParser *parser)
-{
+static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
     CbsToken *kind;
     CbsToken *target;
@@ -421,13 +406,12 @@ static CbsNode *parse_require(CbsParser *parser)
     if (kind != NULL && strcmp(kind->text, "config") == 0) {
         while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
                current(parser)->kind != CBS_TOKEN_EOF) {
-            CbsToken *symbol = consume_kind(parser, CBS_TOKEN_WORD,
-                                            "configuration symbol");
+            CbsToken *symbol =
+                consume_kind(parser, CBS_TOKEN_WORD, "configuration symbol");
             CbsNode *property;
             CbsToken *state;
             consume_kind(parser, CBS_TOKEN_EQUAL, "=");
-            state = consume_kind(parser, CBS_TOKEN_WORD,
-                                 "configuration state");
+            state = consume_kind(parser, CBS_TOKEN_WORD, "configuration state");
             if (symbol == NULL || state == NULL)
                 continue;
             property = cbs_node_create(CBS_NODE_PROPERTY, symbol->location);
@@ -449,8 +433,8 @@ static CbsNode *parse_require(CbsParser *parser)
             CbsNode *property;
             int same_as = is_word(parser, "same_as");
             advance(parser);
-            text = same_as ? consume_path(parser) :
-                            consume_text_value(parser, "contained value");
+            text = same_as ? consume_path(parser)
+                           : consume_text_value(parser, "contained value");
             if (text == NULL)
                 break;
             property = node_from_token(CBS_NODE_PROPERTY, text);
@@ -462,8 +446,7 @@ static CbsNode *parse_require(CbsParser *parser)
     return node;
 }
 
-static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only)
-{
+static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = current(parser);
     CbsNode *node;
     CbsToken *path;
@@ -504,8 +487,7 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only)
 }
 
 static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
-                                      int diagnostic_only)
-{
+                                      int diagnostic_only) {
     if (consume_kind(parser, CBS_TOKEN_LBRACE, "{") == NULL)
         return owner;
     while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
@@ -514,7 +496,8 @@ static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
 
         if (!diagnostic_only && is_word(parser, "on_fail")) {
             CbsToken *keyword = advance(parser);
-            CbsNode *on_fail = cbs_node_create(CBS_NODE_ON_FAIL, keyword->location);
+            CbsNode *on_fail =
+                cbs_node_create(CBS_NODE_ON_FAIL, keyword->location);
             parse_operation_block(parser, on_fail, 1);
             cbs_node_add(owner, on_fail);
             if (current(parser)->kind != CBS_TOKEN_RBRACE)
@@ -529,8 +512,7 @@ static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
     return owner;
 }
 
-static CbsNode *parse_sources(CbsParser *parser)
-{
+static CbsNode *parse_sources(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "sources");
     CbsNode *node = cbs_node_create(CBS_NODE_SOURCES, keyword->location);
 
@@ -573,8 +555,7 @@ static CbsNode *parse_sources(CbsParser *parser)
     return node;
 }
 
-static CbsNode *parse_requires(CbsParser *parser)
-{
+static CbsNode *parse_requires(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "requires");
     CbsNode *node = cbs_node_create(CBS_NODE_REQUIRES, keyword->location);
 
@@ -620,15 +601,13 @@ static CbsNode *parse_requires(CbsParser *parser)
     return node;
 }
 
-static int phase_word(CbsParser *parser)
-{
+static int phase_word(CbsParser *parser) {
     return is_word(parser, "prepare") || is_word(parser, "configure") ||
            is_word(parser, "build") || is_word(parser, "check") ||
            is_word(parser, "install");
 }
 
-static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind)
-{
+static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
     CbsNode *node;
@@ -653,8 +632,7 @@ static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind)
     return node;
 }
 
-static CbsNode *parse_package_item(CbsParser *parser)
-{
+static CbsNode *parse_package_item(CbsParser *parser) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
     CbsNode *node;
@@ -680,7 +658,8 @@ static CbsNode *parse_package_item(CbsParser *parser)
         if (is_word(parser, "any"))
             value = advance(parser);
         else
-            value = consume_kind(parser, CBS_TOKEN_STRING, "architecture or any");
+            value =
+                consume_kind(parser, CBS_TOKEN_STRING, "architecture or any");
         if (value != NULL)
             node->value = cbs_duplicate(value->text);
         return node;
@@ -707,8 +686,7 @@ static CbsNode *parse_package_item(CbsParser *parser)
     return NULL;
 }
 
-static CbsNode *parse_document(CbsParser *parser)
-{
+static CbsNode *parse_document(CbsParser *parser) {
     CbsToken *package_keyword;
     CbsToken *name;
     CbsNode *document;
@@ -737,8 +715,7 @@ static CbsNode *parse_document(CbsParser *parser)
 }
 
 CbsNode *cbs_parse(const char *path, const char *source, size_t length,
-                   CbsTokenList *tokens)
-{
+                   CbsTokenList *tokens) {
     CbsParser parser;
     CbsNode *document;
 

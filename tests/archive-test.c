@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+/* Regression tests for archive format, traversal, and link rejection. */
 #include "cbs.h"
 #include <archive.h>
 #include <archive_entry.h>
@@ -7,13 +8,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static int make_unsafe_archive(const char *path, int symlink)
-{
+static int make_unsafe_archive(const char *path, int symlink) {
     struct archive *archive = archive_write_new();
     struct archive_entry *entry;
     int ok = 0;
 
-    if (archive == NULL || archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
+    if (archive == NULL ||
+        archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
         archive_write_open_filename(archive, path) != ARCHIVE_OK)
         goto done;
     entry = archive_entry_new();
@@ -42,12 +43,12 @@ done:
     return ok;
 }
 
-int main(void)
-{
+int main(void) {
     char root[] = "/tmp/cbs-archive-XXXXXX";
     char destination[256], unsafe[256];
     CbsLocation location = {"archive-test", 1, 1, 0};
-    if (mkdtemp(root) == NULL) return 1;
+    if (mkdtemp(root) == NULL)
+        return 1;
     snprintf(destination, sizeof(destination), "%s/out", root);
     snprintf(unsafe, sizeof(unsafe), "%s/unsafe.tar", root);
     mkdir(destination, 0700);
@@ -57,8 +58,10 @@ int main(void)
         cbs_extract_archive(unsafe, destination, "traversal", location.path,
                             NULL, location) ||
         !make_unsafe_archive(unsafe, 1) ||
-        cbs_extract_archive(unsafe, destination, "symlink", location.path,
-                            NULL, location)) return 1;
-    puts("archive extraction tests: PASS (unsupported, traversal, and symlink input rejected safely)");
+        cbs_extract_archive(unsafe, destination, "symlink", location.path, NULL,
+                            location))
+        return 1;
+    puts("archive extraction tests: PASS (unsupported, traversal, and symlink "
+         "input rejected safely)");
     return 0;
 }

@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+/* Regression tests for named-source extraction and path confinement. */
 #include "cbs.h"
 
 #include <archive.h>
@@ -10,8 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char *read_all(const char *path, size_t *length)
-{
+static char *read_all(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *text;
@@ -31,14 +31,14 @@ static char *read_all(const char *path, size_t *length)
     return text;
 }
 
-static int make_archive(const char *path)
-{
+static int make_archive(const char *path) {
     struct archive *archive = archive_write_new();
     struct archive_entry *entry;
     const char content[] = "support data\n";
     int ok = 0;
 
-    if (archive == NULL || archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
+    if (archive == NULL ||
+        archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
         archive_write_open_filename(archive, path) != ARCHIVE_OK)
         goto done;
     entry = archive_entry_new();
@@ -68,10 +68,10 @@ done:
     return ok;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     char root[] = "/tmp/cbs-extract-XXXXXX";
-    char archive_path[512], config_path[512], src[512], build[512], dest[512], result[512];
+    char archive_path[512], config_path[512], src[512], build[512], dest[512],
+        result[512];
     char *source, *data;
     size_t length;
     CbsTokenList tokens = {0};
@@ -87,7 +87,8 @@ int main(int argc, char **argv)
         snprintf(archive_path, sizeof(archive_path), "%s/support.tar", root) >=
             (int)sizeof(archive_path) ||
         snprintf(src, sizeof(src), "%s/src", root) >= (int)sizeof(src) ||
-        snprintf(build, sizeof(build), "%s/build", root) >= (int)sizeof(build) ||
+        snprintf(build, sizeof(build), "%s/build", root) >=
+            (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", root) >= (int)sizeof(dest) ||
         mkdir(src, 0700) != 0 || mkdir(build, 0700) != 0 ||
         mkdir(dest, 0700) != 0 || !make_archive(archive_path) ||
@@ -96,13 +97,16 @@ int main(int argc, char **argv)
         return 1;
     {
         FILE *config = fopen(config_path, "wb");
-        if (config == NULL || fputs("CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n", config) < 0 ||
+        if (config == NULL ||
+            fputs("CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n", config) <
+                0 ||
             fclose(config) != 0)
             return 1;
     }
     source = read_all(argv[1], &length);
-    document = source == NULL || !cbs_lex(argv[1], source, length, &tokens) ?
-               NULL : cbs_parse(argv[1], source, length, &tokens);
+    document = source == NULL || !cbs_lex(argv[1], source, length, &tokens)
+                   ? NULL
+                   : cbs_parse(argv[1], source, length, &tokens);
     if (document == NULL || !cbs_validate(document, argv[1], source))
         goto done;
     for (index = 0; index < document->children[0]->child_count; ++index) {
@@ -137,7 +141,8 @@ int main(int argc, char **argv)
     free(data);
     snprintf(result, sizeof(result), "%s/.config", build);
     data = read_all(result, &length);
-    if (data == NULL || strcmp(data, "CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n") != 0)
+    if (data == NULL ||
+        strcmp(data, "CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n") != 0)
         goto done;
     free(data);
     if (lstat("/dev/null", &status) != 0)
@@ -152,6 +157,7 @@ done:
         fputs("extract execution test: FAIL\n", stderr);
         return 1;
     }
-    puts("extract execution test: PASS (named source, confinement, and rename)");
+    puts(
+        "extract execution test: PASS (named source, confinement, and rename)");
     return 0;
 }

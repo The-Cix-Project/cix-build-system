@@ -1,3 +1,4 @@
+/* Confined filesystem operations exposed by CPDL. */
 #define _POSIX_C_SOURCE 200809L
 
 #include "cbs.h"
@@ -22,30 +23,28 @@ static int safe_parents(const char *path, const char *root);
 
 static void fs_error(const CbsNode *operation,
                      const CbsExecutionContext *context,
-                     const char *logical_path, const char *detail)
-{
+                     const char *logical_path, const char *detail) {
     char message[1024];
 
     snprintf(message, sizeof(message), "%s: `%s`; errno=%d (%s)", detail,
              logical_path == NULL ? "" : logical_path, errno, strerror(errno));
     cbs_diagnostic(context->recipe_path, context->recipe_source,
-                   operation->location, "error", "CPDL-E4004",
-                   CBS_DIAG_RUNTIME, message);
+                   operation->location, "error", "CPDL-E4004", CBS_DIAG_RUNTIME,
+                   message);
 }
 
-static int inferred_kind(const char *value)
-{
-    return value != NULL && value[0] == '$' && value[1] != '{' ?
-           CBS_TOKEN_CBS_VALUE : CBS_TOKEN_STRING;
+static int inferred_kind(const char *value) {
+    return value != NULL && value[0] == '$' && value[1] != '{'
+               ? CBS_TOKEN_CBS_VALUE
+               : CBS_TOKEN_STRING;
 }
 
-static char *join_path(const char *left, const char *right)
-{
+static char *join_path(const char *left, const char *right) {
     size_t left_length = strlen(left);
     size_t right_length = strlen(right);
     int separator = left_length > 0 && left[left_length - 1] != '/';
-    char *result = cbs_allocate(left_length + (size_t)separator +
-                                right_length + 1);
+    char *result =
+        cbs_allocate(left_length + (size_t)separator + right_length + 1);
 
     memcpy(result, left, left_length);
     if (separator)
@@ -54,8 +53,7 @@ static char *join_path(const char *left, const char *right)
     return result;
 }
 
-static char *normalize_absolute(const char *path)
-{
+static char *normalize_absolute(const char *path) {
     char *copy;
     char *cursor;
     char **parts;
@@ -111,8 +109,7 @@ static char *normalize_absolute(const char *path)
     return result;
 }
 
-static int beneath(const char *path, const char *root)
-{
+static int beneath(const char *path, const char *root) {
     size_t length = strlen(root);
 
     if (strcmp(root, "/") == 0)
@@ -122,8 +119,7 @@ static int beneath(const char *path, const char *root)
 }
 
 static const char *containing_root(const char *path,
-                                   const CbsExecutionContext *context)
-{
+                                   const CbsExecutionContext *context) {
     const char *roots[3];
     const char *best = NULL;
     size_t index;
@@ -139,8 +135,7 @@ static const char *containing_root(const char *path,
     return best;
 }
 
-static int safe_root(const char *root)
-{
+static int safe_root(const char *root) {
     char *normalized;
     struct stat status;
     int result;
@@ -159,12 +154,14 @@ static int safe_root(const char *root)
     return result;
 }
 
-static char *resolve_path(const char *logical, const CbsExecutionContext *context,
-                          const char **root_out)
-{
-    char *expanded = cbs_resolve_value(logical, inferred_kind(logical), context);
-    char *joined = expanded[0] == '/' ? cbs_duplicate(expanded) :
-                   join_path(context->working_directory, expanded);
+static char *resolve_path(const char *logical,
+                          const CbsExecutionContext *context,
+                          const char **root_out) {
+    char *expanded =
+        cbs_resolve_value(logical, inferred_kind(logical), context);
+    char *joined = expanded[0] == '/'
+                       ? cbs_duplicate(expanded)
+                       : join_path(context->working_directory, expanded);
     char *normalized = normalize_absolute(joined);
     const char *root;
 
@@ -184,8 +181,7 @@ static char *resolve_path(const char *logical, const CbsExecutionContext *contex
 }
 
 char *cbs_resolve_confined_path(const char *logical,
-                                const CbsExecutionContext *context)
-{
+                                const CbsExecutionContext *context) {
     const char *root;
     char *path = resolve_path(logical, context, &root);
 
@@ -198,8 +194,7 @@ char *cbs_resolve_confined_path(const char *logical,
     return path;
 }
 
-static int safe_parents(const char *path, const char *root)
-{
+static int safe_parents(const char *path, const char *root) {
     char *copy = cbs_duplicate(path);
     char *cursor = copy + strlen(root);
     struct stat status;
@@ -231,8 +226,7 @@ static int safe_parents(const char *path, const char *root)
     return 1;
 }
 
-static mode_t parse_mode(const char *text, mode_t fallback)
-{
+static mode_t parse_mode(const char *text, mode_t fallback) {
     char *end;
     unsigned long value;
 
@@ -242,8 +236,7 @@ static mode_t parse_mode(const char *text, mode_t fallback)
     return *end == '\0' ? (mode_t)value : fallback;
 }
 
-static int ensure_directories(const char *path, const char *root, mode_t mode)
-{
+static int ensure_directories(const char *path, const char *root, mode_t mode) {
     char *copy = cbs_duplicate(path);
     char *cursor = copy + strlen(root);
     struct stat status;
@@ -277,14 +270,12 @@ static int ensure_directories(const char *path, const char *root, mode_t mode)
     return chmod(path, mode) == 0;
 }
 
-static const char *base_name(const char *path)
-{
+static const char *base_name(const char *path) {
     const char *slash = strrchr(path, '/');
     return slash == NULL ? path : slash + 1;
 }
 
-static char *destination_path(const char *source, const char *destination)
-{
+static char *destination_path(const char *source, const char *destination) {
     struct stat status;
 
     if (lstat(destination, &status) == 0 && S_ISDIR(status.st_mode))
@@ -292,8 +283,7 @@ static char *destination_path(const char *source, const char *destination)
     return cbs_duplicate(destination);
 }
 
-static int copy_bytes(int input, int output)
-{
+static int copy_bytes(int input, int output) {
     char buffer[32768];
     ssize_t received;
 
@@ -305,8 +295,8 @@ static int copy_bytes(int input, int output)
             break;
         ssize_t offset = 0;
         while (offset < received) {
-            ssize_t written = write(output, buffer + offset,
-                                    (size_t)(received - offset));
+            ssize_t written =
+                write(output, buffer + offset, (size_t)(received - offset));
             if (written < 0 && errno == EINTR)
                 continue;
             if (written < 0)
@@ -317,8 +307,7 @@ static int copy_bytes(int input, int output)
     return received == 0;
 }
 
-static int copy_one(const char *source, const char *destination)
-{
+static int copy_one(const char *source, const char *destination) {
     struct stat source_status;
     struct stat destination_status;
     char *actual = destination_path(source, destination);
@@ -331,8 +320,9 @@ static int copy_one(const char *source, const char *destination)
         goto done;
     }
     if (S_ISLNK(source_status.st_mode)) {
-        size_t capacity = source_status.st_size > 0 ?
-                          (size_t)source_status.st_size + 1 : 4096;
+        size_t capacity = source_status.st_size > 0
+                              ? (size_t)source_status.st_size + 1
+                              : 4096;
         char *target = cbs_allocate(capacity + 1);
         ssize_t length = readlink(source, target, capacity);
         if (length < 0) {
@@ -340,8 +330,7 @@ static int copy_one(const char *source, const char *destination)
             goto done;
         }
         target[length] = '\0';
-        if (lstat(actual, &destination_status) == 0 &&
-            unlink(actual) != 0) {
+        if (lstat(actual, &destination_status) == 0 && unlink(actual) != 0) {
             free(target);
             goto done;
         }
@@ -382,10 +371,9 @@ done:
 }
 
 int cbs_execute_materialize(const CbsNode *operation,
-                            const CbsExecutionContext *context)
-{
-    char *source = cbs_resolve_value(operation->value,
-                                     CBS_TOKEN_CBS_VALUE, context);
+                            const CbsExecutionContext *context) {
+    char *source =
+        cbs_resolve_value(operation->value, CBS_TOKEN_CBS_VALUE, context);
     char *destination;
     const char *root;
     size_t index;
@@ -424,8 +412,7 @@ failure:
     return 0;
 }
 
-static int remove_tree(const char *path)
-{
+static int remove_tree(const char *path) {
     struct stat status;
     DIR *directory;
     struct dirent *entry;
@@ -439,8 +426,7 @@ static int remove_tree(const char *path)
         return 0;
     while ((entry = readdir(directory)) != NULL) {
         char *child;
-        if (strcmp(entry->d_name, ".") == 0 ||
-            strcmp(entry->d_name, "..") == 0)
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
         child = join_path(path, entry->d_name);
         if (!remove_tree(child)) {
@@ -455,8 +441,7 @@ static int remove_tree(const char *path)
     return rmdir(path) == 0;
 }
 
-static int class_match(const char **pattern, unsigned char byte)
-{
+static int class_match(const char **pattern, unsigned char byte) {
     const char *cursor = *pattern + 1;
     int negate = *cursor == '!';
     int matched = 0;
@@ -485,8 +470,7 @@ static int class_match(const char **pattern, unsigned char byte)
     return negate ? !matched : matched;
 }
 
-static int glob_match(const char *pattern, const char *text)
-{
+static int glob_match(const char *pattern, const char *text) {
     if (*pattern == '\0')
         return *text == '\0';
     if (pattern[0] == '*' && pattern[1] == '*' &&
@@ -527,21 +511,19 @@ static int glob_match(const char *pattern, const char *text)
     return *pattern == *text && glob_match(pattern + 1, text + 1);
 }
 
-static void path_list_add(PathList *list, const char *path)
-{
+static void path_list_add(PathList *list, const char *path) {
     size_t capacity;
     if (list->count == list->capacity) {
         capacity = list->capacity == 0 ? 16 : list->capacity * 2;
-        list->items = cbs_reallocate(list->items,
-                                     capacity * sizeof(*list->items));
+        list->items =
+            cbs_reallocate(list->items, capacity * sizeof(*list->items));
         list->capacity = capacity;
     }
     list->items[list->count++] = cbs_duplicate(path);
 }
 
 static void collect_matches(const char *directory, const char *pattern,
-                            PathList *matches)
-{
+                            PathList *matches) {
     DIR *stream = opendir(directory);
     struct dirent *entry;
 
@@ -550,8 +532,7 @@ static void collect_matches(const char *directory, const char *pattern,
     while ((entry = readdir(stream)) != NULL) {
         char *path;
         struct stat status;
-        if (strcmp(entry->d_name, ".") == 0 ||
-            strcmp(entry->d_name, "..") == 0)
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
         path = join_path(directory, entry->d_name);
         if (lstat(path, &status) == 0) {
@@ -565,15 +546,13 @@ static void collect_matches(const char *directory, const char *pattern,
     closedir(stream);
 }
 
-static int compare_paths(const void *left, const void *right)
-{
+static int compare_paths(const void *left, const void *right) {
     const char *const *a = left;
     const char *const *b = right;
     return strcmp(*a, *b);
 }
 
-static void path_list_destroy(PathList *list)
-{
+static void path_list_destroy(PathList *list) {
     size_t index;
     for (index = 0; index < list->count; ++index)
         free(list->items[index]);
@@ -581,8 +560,7 @@ static void path_list_destroy(PathList *list)
 }
 
 static int select_paths(const CbsNode *operation,
-                        const CbsExecutionContext *context, PathList *paths)
-{
+                        const CbsExecutionContext *context, PathList *paths) {
     const char *root;
     char *resolved = resolve_path(operation->value, context, &root);
 
@@ -604,8 +582,7 @@ static int select_paths(const CbsNode *operation,
 }
 
 static int atomic_write_bytes(const char *path, const unsigned char *content,
-                              size_t length, mode_t mode)
-{
+                              size_t length, mode_t mode) {
     static const char suffix[] = "/.cbs-write-XXXXXX";
     char *template;
     const char *slash = strrchr(path, '/');
@@ -625,7 +602,8 @@ static int atomic_write_bytes(const char *path, const unsigned char *content,
         size_t offset = 0;
         result = 1;
         while (offset < length) {
-            ssize_t written = write(descriptor, content + offset, length - offset);
+            ssize_t written =
+                write(descriptor, content + offset, length - offset);
             if (written < 0 && errno == EINTR)
                 continue;
             if (written < 0) {
@@ -648,8 +626,7 @@ static int atomic_write_bytes(const char *path, const unsigned char *content,
 }
 
 int cbs_execute_filesystem(const CbsNode *operation,
-                           const CbsExecutionContext *context)
-{
+                           const CbsExecutionContext *context) {
     char *first = NULL;
     char *second = NULL;
     const char *root = NULL;
@@ -658,7 +635,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
     int result = 0;
 
     memset(&paths, 0, sizeof(paths));
-    if (operation->kind == CBS_NODE_MKDIR || operation->kind == CBS_NODE_WRITE) {
+    if (operation->kind == CBS_NODE_MKDIR ||
+        operation->kind == CBS_NODE_WRITE) {
         first = resolve_path(operation->value, context, &root);
         if (first == NULL || !safe_parents(first, root))
             goto failure;
@@ -667,13 +645,13 @@ int cbs_execute_filesystem(const CbsNode *operation,
         result = ensure_directories(first, root,
                                     parse_mode(operation->second_value, 0755));
     } else if (operation->kind == CBS_NODE_WRITE) {
-        const char *mode_text = operation->child_count == 0 ? NULL :
-                                operation->children[0]->value;
+        const char *mode_text =
+            operation->child_count == 0 ? NULL : operation->children[0]->value;
         second = cbs_resolve_value(operation->second_value, operation->flag,
                                    context);
-        result = atomic_write_bytes(first, (const unsigned char *)second,
-                                    strlen(second),
-                                    parse_mode(mode_text, 0644));
+        result =
+            atomic_write_bytes(first, (const unsigned char *)second,
+                               strlen(second), parse_mode(mode_text, 0644));
     } else if (operation->kind == CBS_NODE_SYMLINK) {
         first = resolve_path(operation->second_value, context, &root);
         second = cbs_resolve_value(operation->value,
@@ -684,7 +662,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
     } else {
         if (!select_paths(operation, context, &paths))
             goto failure;
-        if (operation->kind == CBS_NODE_COPY || operation->kind == CBS_NODE_MOVE) {
+        if (operation->kind == CBS_NODE_COPY ||
+            operation->kind == CBS_NODE_MOVE) {
             second = resolve_path(operation->second_value, context, &root);
             if (second == NULL || !safe_parents(second, root))
                 goto failure;
@@ -698,8 +677,10 @@ int cbs_execute_filesystem(const CbsNode *operation,
         }
         result = 1;
         for (index = 0; index < paths.count && result; ++index) {
-            const char *path_root = containing_root(paths.items[index], context);
-            if (path_root == NULL || !safe_parents(paths.items[index], path_root)) {
+            const char *path_root =
+                containing_root(paths.items[index], context);
+            if (path_root == NULL ||
+                !safe_parents(paths.items[index], path_root)) {
                 result = 0;
             } else if (operation->kind == CBS_NODE_COPY) {
                 result = copy_one(paths.items[index], second);
@@ -712,8 +693,9 @@ int cbs_execute_filesystem(const CbsNode *operation,
                 if (lstat(paths.items[index], &status) != 0)
                     result = 0;
                 else if (S_ISDIR(status.st_mode) && !S_ISLNK(status.st_mode))
-                    result = operation->number == 1 ? remove_tree(paths.items[index]) :
-                             rmdir(paths.items[index]) == 0;
+                    result = operation->number == 1
+                                 ? remove_tree(paths.items[index])
+                                 : rmdir(paths.items[index]) == 0;
                 else
                     result = unlink(paths.items[index]) == 0;
             } else if (operation->kind == CBS_NODE_CHMOD) {
@@ -738,7 +720,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
     return 1;
 
 failure:
-    fs_error(operation, context, operation->value, "filesystem operation failed");
+    fs_error(operation, context, operation->value,
+             "filesystem operation failed");
     free(first);
     free(second);
     path_list_destroy(&paths);
@@ -747,16 +730,14 @@ failure:
 
 static void assertion_error(const CbsNode *operation,
                             const CbsExecutionContext *context,
-                            const char *message)
-{
+                            const char *message) {
     cbs_diagnostic(context->recipe_path, context->recipe_source,
-                   operation->location, "error", "CPDL-E4005",
-                   CBS_DIAG_RUNTIME, message);
+                   operation->location, "error", "CPDL-E4005", CBS_DIAG_RUNTIME,
+                   message);
 }
 
 static unsigned char *read_regular(const char *path, size_t *length,
-                                   mode_t *mode)
-{
+                                   mode_t *mode) {
     struct stat status;
     unsigned char *content;
     size_t offset = 0;
@@ -768,7 +749,7 @@ static unsigned char *read_regular(const char *path, size_t *length,
         return NULL;
     }
     if (status.st_size < 0 || (unsigned long long)status.st_size >
-        (unsigned long long)((size_t)-1) - 1) {
+                                  (unsigned long long)((size_t)-1) - 1) {
         errno = EFBIG;
         return NULL;
     }
@@ -799,8 +780,7 @@ static unsigned char *read_regular(const char *path, size_t *length,
 }
 
 static size_t count_bytes(const unsigned char *content, size_t content_length,
-                          const unsigned char *needle, size_t needle_length)
-{
+                          const unsigned char *needle, size_t needle_length) {
     size_t count = 0;
     size_t offset = 0;
 
@@ -818,22 +798,17 @@ static size_t count_bytes(const unsigned char *content, size_t content_length,
 }
 
 static int contains_bytes(const unsigned char *content, size_t content_length,
-                          const unsigned char *needle, size_t needle_length)
-{
+                          const unsigned char *needle, size_t needle_length) {
     if (needle_length == 0)
         return 1;
     return count_bytes(content, content_length, needle, needle_length) > 0;
 }
 
-static unsigned char *edited_content(const unsigned char *content,
-                                     size_t content_length,
-                                     const unsigned char *needle,
-                                     size_t needle_length,
-                                     const unsigned char *replacement,
-                                     size_t replacement_length,
-                                     size_t matches, int insert,
-                                     size_t *result_length)
-{
+static unsigned char *
+edited_content(const unsigned char *content, size_t content_length,
+               const unsigned char *needle, size_t needle_length,
+               const unsigned char *replacement, size_t replacement_length,
+               size_t matches, int insert, size_t *result_length) {
     size_t addition = replacement_length + (insert ? needle_length : 0);
     size_t removal = insert ? needle_length : needle_length;
     size_t final_length;
@@ -872,11 +847,11 @@ static unsigned char *edited_content(const unsigned char *content,
 }
 
 static int execute_edit(const CbsNode *operation,
-                        const CbsExecutionContext *context)
-{
+                        const CbsExecutionContext *context) {
     const char *root;
     char *path = resolve_path(operation->name, context, &root);
-    char *needle = cbs_resolve_value(operation->value, operation->flag, context);
+    char *needle =
+        cbs_resolve_value(operation->value, operation->flag, context);
     char *replacement = cbs_resolve_value(operation->second_value,
                                           operation->second_flag, context);
     unsigned char *content = NULL;
@@ -902,11 +877,10 @@ static int execute_edit(const CbsNode *operation,
         assertion_error(operation, context, message);
         goto done;
     }
-    result = edited_content(content, content_length,
-                            (const unsigned char *)needle, strlen(needle),
-                            (const unsigned char *)replacement,
-                            strlen(replacement), matches,
-                            operation->kind == CBS_NODE_INSERT, &result_length);
+    result = edited_content(
+        content, content_length, (const unsigned char *)needle, strlen(needle),
+        (const unsigned char *)replacement, strlen(replacement), matches,
+        operation->kind == CBS_NODE_INSERT, &result_length);
     if (result == NULL)
         goto filesystem_failure;
     if (!atomic_write_bytes(path, result, result_length, mode))
@@ -926,8 +900,7 @@ done:
 }
 
 static int require_glob(const CbsNode *operation,
-                        const CbsExecutionContext *context)
-{
+                        const CbsExecutionContext *context) {
     const char *root;
     char *pattern = resolve_path(operation->value, context, &root);
     PathList matches;
@@ -955,8 +928,7 @@ static int require_glob(const CbsNode *operation,
 }
 
 static int require_path(const CbsNode *operation,
-                        const CbsExecutionContext *context)
-{
+                        const CbsExecutionContext *context) {
     const char *root;
     char *path = resolve_path(operation->value, context, &root);
     struct stat status;
@@ -983,7 +955,8 @@ static int require_path(const CbsNode *operation,
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
         if (strcmp(property->name, "same_as") == 0) {
-            char *other_path = cbs_resolve_confined_path(property->value, context);
+            char *other_path =
+                cbs_resolve_confined_path(property->value, context);
             unsigned char *other = NULL;
             size_t other_length = 0;
             mode_t other_mode;
@@ -1001,10 +974,11 @@ static int require_path(const CbsNode *operation,
             }
             continue;
         }
-        char *needle = cbs_resolve_value(property->value, property->flag, context);
-        int present = contains_bytes(content, content_length,
-                                     (const unsigned char *)needle,
-                                     strlen(needle));
+        char *needle =
+            cbs_resolve_value(property->value, property->flag, context);
+        int present =
+            contains_bytes(content, content_length,
+                           (const unsigned char *)needle, strlen(needle));
         free(needle);
         if (!present) {
             snprintf(message, sizeof(message),
@@ -1028,8 +1002,7 @@ done:
 }
 
 static int config_state(const unsigned char *content, size_t length,
-                        const char *symbol, const char *wanted)
-{
+                        const char *symbol, const char *wanted) {
     size_t offset = 0;
     size_t symbol_length = strlen(symbol);
     int active = 0;
@@ -1053,8 +1026,8 @@ static int config_state(const unsigned char *content, size_t length,
             if (end - offset == disabled_length &&
                 memcmp(content + offset, marker, sizeof(marker) - 1) == 0 &&
                 memcmp(content + offset + 2, symbol, symbol_length) == 0 &&
-                memcmp(content + offset + 2 + symbol_length,
-                       " is not set", 11) == 0)
+                memcmp(content + offset + 2 + symbol_length, " is not set",
+                       11) == 0)
                 disabled = 1;
         }
         offset = end < length ? end + 1 : end;
@@ -1067,8 +1040,7 @@ static int config_state(const unsigned char *content, size_t length,
 }
 
 static int require_config(const CbsNode *operation,
-                          const CbsExecutionContext *context)
-{
+                          const CbsExecutionContext *context) {
     const char *root;
     char *path = resolve_path(operation->value, context, &root);
     unsigned char *content = NULL;
@@ -1079,15 +1051,17 @@ static int require_config(const CbsNode *operation,
 
     if (path == NULL || !safe_parents(path, root) ||
         (content = read_regular(path, &length, &mode)) == NULL) {
-        assertion_error(operation, context, "required config file does not exist");
+        assertion_error(operation, context,
+                        "required config file does not exist");
         free(path);
         return 0;
     }
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
         if (!config_state(content, length, property->name, property->value)) {
-            snprintf(message, sizeof(message), "config assertion failed: %s = %s",
-                     property->name, property->value);
+            snprintf(message, sizeof(message),
+                     "config assertion failed: %s = %s", property->name,
+                     property->value);
             assertion_error(operation, context, message);
             free(content);
             free(path);
@@ -1100,8 +1074,7 @@ static int require_config(const CbsNode *operation,
 }
 
 int cbs_execute_edit_assertion(const CbsNode *operation,
-                               const CbsExecutionContext *context)
-{
+                               const CbsExecutionContext *context) {
     if (operation->kind == CBS_NODE_REPLACE ||
         operation->kind == CBS_NODE_INSERT)
         return execute_edit(operation, context);

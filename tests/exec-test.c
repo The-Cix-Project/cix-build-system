@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+/* Regression tests for argv fidelity, limits, signals, and timeouts. */
 #include "cbs.h"
 
 #include <signal.h>
@@ -9,8 +10,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-static char *read_file(const char *path, size_t *length)
-{
+static char *read_file(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *source;
@@ -33,8 +33,7 @@ static char *read_file(const char *path, size_t *length)
     return source;
 }
 
-static CbsNode *find_phase(CbsNode *document, const char *name)
-{
+static CbsNode *find_phase(CbsNode *document, const char *name) {
     CbsNode *package = document->children[0];
     size_t index;
 
@@ -46,20 +45,17 @@ static CbsNode *find_phase(CbsNode *document, const char *name)
     return NULL;
 }
 
-static int probe_with_environment(int argc, char **argv)
-{
-    static const char *const expected[] = {
-        "--probe-with-env",
-        "space value",
-        "\"double quotes\"",
-        "$",
-        "*",
-        ";",
-        "'single quotes'",
-        "back\\slash",
-        "",
-        "jobs=3"
-    };
+static int probe_with_environment(int argc, char **argv) {
+    static const char *const expected[] = {"--probe-with-env",
+                                           "space value",
+                                           "\"double quotes\"",
+                                           "$",
+                                           "*",
+                                           ";",
+                                           "'single quotes'",
+                                           "back\\slash",
+                                           "",
+                                           "jobs=3"};
     const char *environment = getenv("CBS_TEST_ENV");
     size_t index;
 
@@ -74,8 +70,7 @@ static int probe_with_environment(int argc, char **argv)
     return 23;
 }
 
-static int probe_without_environment(int argc, char **argv)
-{
+static int probe_without_environment(int argc, char **argv) {
     if (argc != 2 || strcmp(argv[1], "--probe-without-env") != 0)
         return 120;
     if (getenv("CBS_TEST_ENV") != NULL)
@@ -85,8 +80,7 @@ static int probe_without_environment(int argc, char **argv)
 
 static int expected_runtime_failure(const CbsNode *run,
                                     const CbsExecutionContext *context,
-                                    const char *code)
-{
+                                    const char *code) {
     FILE *capture = tmpfile();
     int saved_stderr;
     int executed;
@@ -113,8 +107,7 @@ static int expected_runtime_failure(const CbsNode *run,
     return !executed && strstr(output, code) != NULL;
 }
 
-static int run_parent(const char *recipe_path, const char *executable_path)
-{
+static int run_parent(const char *recipe_path, const char *executable_path) {
     char *source;
     size_t source_length;
     CbsTokenList tokens;
@@ -149,7 +142,8 @@ static int run_parent(const char *recipe_path, const char *executable_path)
                          current_directory) >= (int)sizeof(build_directory))
                 goto cleanup_document;
         } else if (executable_path[0] == '/') {
-            if ((size_t)(separator - executable_path) >= sizeof(build_directory))
+            if ((size_t)(separator - executable_path) >=
+                sizeof(build_directory))
                 goto cleanup_document;
             memcpy(build_directory, executable_path,
                    (size_t)(separator - executable_path));
@@ -203,8 +197,7 @@ cleanup_source:
     return result;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--probe-with-env") == 0)
         return probe_with_environment(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--probe-without-env") == 0)
@@ -221,11 +214,18 @@ int main(int argc, char **argv)
     }
     if (argc >= 2 && strcmp(argv[1], "--probe-limit") == 0) {
         struct rlimit limit;
-        if (getrlimit(RLIMIT_AS, &limit) != 0 || limit.rlim_cur > 256UL * 1024UL * 1024UL) return 1;
-        if (getrlimit(RLIMIT_FSIZE, &limit) != 0 || limit.rlim_cur > 1024UL * 1024UL) return 2;
-        if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur > 64) return 3;
-        if (getrlimit(RLIMIT_NPROC, &limit) != 0 || limit.rlim_cur > 64) return 4;
-        if (getrlimit(RLIMIT_CPU, &limit) != 0 || limit.rlim_cur > 2) return 5;
+        if (getrlimit(RLIMIT_AS, &limit) != 0 ||
+            limit.rlim_cur > 256UL * 1024UL * 1024UL)
+            return 1;
+        if (getrlimit(RLIMIT_FSIZE, &limit) != 0 ||
+            limit.rlim_cur > 1024UL * 1024UL)
+            return 2;
+        if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur > 64)
+            return 3;
+        if (getrlimit(RLIMIT_NPROC, &limit) != 0 || limit.rlim_cur > 64)
+            return 4;
+        if (getrlimit(RLIMIT_CPU, &limit) != 0 || limit.rlim_cur > 2)
+            return 5;
         return 0;
     }
     if (argc != 2) {

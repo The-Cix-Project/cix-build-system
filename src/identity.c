@@ -1,3 +1,4 @@
+/* Canonical package identity and identity-derived metadata helpers. */
 #include "cbs.h"
 
 #include <ctype.h>
@@ -5,8 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int valid_architecture(const char *architecture)
-{
+static int valid_architecture(const char *architecture) {
     const unsigned char *cursor = (const unsigned char *)architecture;
 
     if (architecture == NULL || *cursor == '\0' ||
@@ -22,8 +22,7 @@ static int valid_architecture(const char *architecture)
 
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,
-                               CbsPackageIdentity *identity)
-{
+                               CbsPackageIdentity *identity) {
     const CbsNode *package;
     size_t index;
 
@@ -50,11 +49,10 @@ int cbs_identity_from_document(const CbsNode *document,
            identity->release > 0;
 }
 
-char *cbs_identity_string(const CbsPackageIdentity *identity)
-{
-    int length = snprintf(NULL, 0, "%s-%s-%ld-%s", identity->name,
-                          identity->version, identity->release,
-                          identity->architecture);
+char *cbs_identity_string(const CbsPackageIdentity *identity) {
+    int length =
+        snprintf(NULL, 0, "%s-%s-%ld-%s", identity->name, identity->version,
+                 identity->release, identity->architecture);
     char *result;
 
     if (length < 0)
@@ -65,8 +63,7 @@ char *cbs_identity_string(const CbsPackageIdentity *identity)
     return result;
 }
 
-char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity)
-{
+char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity) {
     char *canonical = cbs_identity_string(identity);
     size_t length;
     char *filename;
@@ -82,8 +79,7 @@ char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity)
 }
 
 char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
-                                   size_t *length)
-{
+                                   size_t *length) {
     static const char prefix[] = "identity=";
     char *canonical = cbs_identity_string(identity);
     size_t canonical_length;
@@ -105,8 +101,7 @@ char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
 }
 
 void cbs_identity_apply_execution_context(const CbsPackageIdentity *identity,
-                                          CbsExecutionContext *context)
-{
+                                          CbsExecutionContext *context) {
     context->name = identity->name;
     context->version = identity->version;
     context->release = identity->release;

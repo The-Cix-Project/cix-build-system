@@ -1,8 +1,8 @@
+/* Build-plan construction, metadata extraction, and phase event dispatch. */
 #include "cbs.h"
 #include <string.h>
 
-int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan)
-{
+int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan) {
     const CbsNode *package;
     size_t index;
     if (document == NULL || plan == NULL || document->child_count != 1)
@@ -18,8 +18,7 @@ int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan)
     return plan->count > 0;
 }
 
-int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata)
-{
+int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
     const CbsNode *package;
     size_t index;
     if (document == NULL || metadata == NULL || document->child_count != 1)
@@ -44,25 +43,24 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata)
 }
 
 int cbs_execute_plan(const CbsBuildPlan *plan,
-                     const CbsExecutionContext *context)
-{
+                     const CbsExecutionContext *context) {
     size_t index;
     if (plan == NULL || context == NULL)
         return 0;
     for (index = 0; index < plan->count; ++index) {
         if (context->phase_event != NULL &&
-            !context->phase_event("phase-begin", plan->phases[index]->name,
-                                  0, context->phase_event_user))
+            !context->phase_event("phase-begin", plan->phases[index]->name, 0,
+                                  context->phase_event_user))
             return 0;
         if (!cbs_execute_block(plan->phases[index], context)) {
             if (context->phase_event != NULL)
-                context->phase_event("phase-end", plan->phases[index]->name,
-                                     1, context->phase_event_user);
+                context->phase_event("phase-end", plan->phases[index]->name, 1,
+                                     context->phase_event_user);
             return 0;
         }
         if (context->phase_event != NULL &&
-            !context->phase_event("phase-end", plan->phases[index]->name,
-                                  0, context->phase_event_user))
+            !context->phase_event("phase-end", plan->phases[index]->name, 0,
+                                  context->phase_event_user))
             return 0;
     }
     return 1;

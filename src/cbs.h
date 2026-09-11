@@ -1,12 +1,24 @@
 #ifndef CBS_H
 #define CBS_H
 
+/*
+ * Public interface for the Cix Build System.
+ *
+ * The declarations are grouped by responsibility: CPDL representation and
+ * execution, source preparation, manifests and packages, then embedding
+ * seams.  The implementation never treats recipe text as shell input.
+ */
+
 #include <stddef.h>
 
 typedef struct {
+    /* Source filename or logical diagnostic origin. */
     const char *path;
+    /* One-based source line. */
     size_t line;
+    /* One-based source column. */
     size_t column;
+    /* Zero-based byte offset in the source. */
     size_t offset;
 } CbsLocation;
 
@@ -25,14 +37,20 @@ typedef enum {
 } CbsTokenKind;
 
 typedef struct {
+    /* Token category assigned by the lexer. */
     CbsTokenKind kind;
+    /* Token text owned by the token list. */
     char *text;
+    /* Location where the token starts. */
     CbsLocation location;
 } CbsToken;
 
 typedef struct {
+    /* Allocated token storage. */
     CbsToken *items;
+    /* Number of initialized tokens. */
     size_t count;
+    /* Allocated token capacity. */
     size_t capacity;
 } CbsTokenList;
 
@@ -82,25 +100,42 @@ typedef enum {
 typedef struct CbsNode CbsNode;
 
 struct CbsNode {
+    /* AST node category. */
     CbsNodeKind kind;
+    /* Location of the syntax that created this node. */
     CbsLocation location;
+    /* Identifier or keyword associated with the node. */
     char *name;
+    /* Primary string value associated with the node. */
     char *value;
+    /* Secondary string value used by selected operations. */
     char *second_value;
+    /* Integer or mode value parsed from the source. */
     long number;
+    /* Primary boolean option. */
     int flag;
+    /* Secondary boolean option. */
     int second_flag;
+    /* Child nodes in source order. */
     CbsNode **children;
+    /* Number of initialized child pointers. */
     size_t child_count;
+    /* Allocated child-pointer capacity. */
     size_t child_capacity;
 };
 
 typedef struct {
+    /* Recipe path used in diagnostics. */
     const char *path;
+    /* Complete normalized recipe source. */
     const char *source;
+    /* Source length in bytes. */
     size_t source_length;
+    /* Tokens being consumed by the parser. */
     CbsTokenList tokens;
+    /* Index of the next token to consume. */
     size_t cursor;
+    /* Set when parsing has emitted a fatal diagnostic. */
     int failed;
 } CbsParser;
 
@@ -169,8 +204,8 @@ typedef struct {
     size_t count;
 } CbsDependencySet;
 
-typedef int (*CbsPhaseEvent)(const char *event, const char *phase,
-                            int status, void *user);
+typedef int (*CbsPhaseEvent)(const char *event, const char *phase, int status,
+                             void *user);
 
 typedef struct {
     const char *recipe_path;
@@ -199,39 +234,61 @@ typedef struct {
     } limits;
 } CbsExecutionContext;
 
+/* Allocate memory or terminate the process if the request cannot succeed. */
 void *cbs_allocate(size_t size);
+/* Resize an allocation while preserving its existing bytes. */
 void *cbs_reallocate(void *pointer, size_t size);
+/* Copy a NUL-terminated string into CBS-owned memory. */
 char *cbs_duplicate(const char *text);
+/* Copy a bounded character range and append a NUL terminator. */
 char *cbs_duplicate_range(const char *start, size_t length);
 
+/* Create, attach, and destroy nodes in the CPDL abstract syntax tree. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location);
 void cbs_node_add(CbsNode *parent, CbsNode *child);
 void cbs_node_destroy(CbsNode *node);
 
+/* Release a token list after lexing and parsing are complete. */
 void cbs_token_list_destroy(CbsTokenList *tokens);
+/* Convert source text into validated lexical tokens. */
 int cbs_lex(const char *path, const char *source, size_t length,
             CbsTokenList *tokens);
+/* Convert tokens into a CPDL abstract syntax tree. */
 CbsNode *cbs_parse(const char *path, const char *source, size_t length,
                    CbsTokenList *tokens);
-int cbs_validate(const CbsNode *document, const char *path,
-                 const char *source);
+/* Check the AST against CPDL language and policy rules. */
+int cbs_validate(const CbsNode *document, const char *path, const char *source);
+/* Reject commands CBS must never execute from a recipe. */
 int cbs_is_forbidden_executable(const char *value);
+/* Reject compilers that violate the default toolchain policy. */
 int cbs_is_forbidden_compiler(const char *value);
+/* Resolve a CPDL interpolation against the execution context. */
 char *cbs_resolve_value(const char *value, int token_kind,
                         const CbsExecutionContext *context);
+/* Execute one process operation. */
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context);
+/* Execute one confined filesystem operation. */
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context);
+/* Copy one named source into the build workspace. */
 int cbs_execute_materialize(const CbsNode *operation,
                             const CbsExecutionContext *context);
+/* Apply a source edit and assert its expected match cardinality. */
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
+/* Resolve and validate a path beneath an execution root. */
 char *cbs_resolve_confined_path(const char *logical,
                                 const CbsExecutionContext *context);
-int cbs_execute_block(const CbsNode *block,
-                      const CbsExecutionContext *context);
-long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit);
-typedef struct { int reject_absolute; int reject_parent; int reject_empty; } CbsStagePolicy;
+/* Execute every operation in one phase block. */
+int cbs_execute_block(const CbsNode *block, const CbsExecutionContext *context);
+/* Apply the shared job ceiling to a requested parallelism value. */
+long cbs_effective_jobs(long requested, long cpu_budget,
+                        long administrator_limit);
+typedef struct {
+    int reject_absolute;
+    int reject_parent;
+    int reject_empty;
+} CbsStagePolicy;
 int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct {
     const char *path;
@@ -243,28 +300,39 @@ typedef struct {
     const char *digest;
     const char *target;
 } CbsManifestEntry;
+/* Compare manifest entries by their canonical path. */
 int cbs_manifest_compare(const void *left, const void *right);
+/* Collect and sort every supported entry beneath a staged root. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count);
+/* Release a manifest-entry array and its owned strings. */
 void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count);
+/* Write a deterministic typed manifest for a staged root. */
 int cbs_manifest_write(const char *root, const char *output);
+/* Build a package from an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
+/* Build a standalone package using the default source cache behavior. */
 int cbs_build_standalone(const char *recipe, const char *workspace,
                          const char *package_path, const char *architecture,
                          const CbsFetchService *fetch_service);
+/* Build a standalone package while using an explicit source cache. */
 int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const char *package_path,
                                     const char *architecture,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
 typedef int (*CbsFinalizePolicy)(const char *staged_root, void *user);
+/* Build a package and run an embedder policy before manifest generation. */
 int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user);
 #define CBS_MAX_PHASES 5
-typedef struct { const CbsNode *phases[CBS_MAX_PHASES]; size_t count; } CbsBuildPlan;
+typedef struct {
+    const CbsNode *phases[CBS_MAX_PHASES];
+    size_t count;
+} CbsBuildPlan;
 typedef struct {
     const char *build_image;
     const char *upstream;
@@ -273,81 +341,118 @@ typedef struct {
     const char **capabilities;
     size_t capability_count;
 } CbsBuildMetadata;
+/* Convert a validated package AST into its ordered phase plan. */
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
+/* Extract build-image, toolchain, and capability metadata. */
 int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata);
-int cbs_execute_plan(const CbsBuildPlan *plan, const CbsExecutionContext *context);
+/* Execute an ordered phase plan and report phase events. */
+int cbs_execute_plan(const CbsBuildPlan *plan,
+                     const CbsExecutionContext *context);
+/* Create the source, build, destination, cache, and temporary directories. */
 int cbs_workspace_prepare(const char *root);
 typedef int (*CbsDaemonRequest)(const char *operation, const char *payload,
                                 char *response, size_t response_size,
                                 void *user);
+/* Forward one request through an embedder-provided daemon adapter. */
 int cbs_daemon_request(CbsDaemonRequest request, void *user,
                        const char *operation, const char *payload,
                        char *response, size_t response_size);
 typedef int (*CbsSandboxHook)(const char *root, void *user);
+/* Enter, run in, and leave an embedder-provided sandbox. */
 int cbs_sandbox_run(CbsSandboxHook enter, CbsSandboxHook leave,
                     const char *root, void *user);
 typedef int (*CbsHealthCheck)(void *user);
+/* Ask an embedder-provided service health check whether it is ready. */
 int cbs_service_health(CbsHealthCheck check, void *user);
 typedef int (*CbsDependencyObserver)(const char *path, void *user);
+/* Inspect an ELF file and report its declared shared-library dependencies. */
 int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
                              void *user);
 typedef int (*CbsSignatureVerifier)(const unsigned char *data, size_t length,
                                     void *user);
+/* Verify a file through an embedder-provided detached-signature adapter. */
 int cbs_verify_signature(CbsSignatureVerifier verifier, const char *path,
                          void *user);
+/* Compress a standalone blob with the CIXPKG zstd policy. */
 int cbs_cixpkg_compress(const char *input, const char *output);
+/* Decompress a CIXPKG blob after validating its bounded frame size. */
 int cbs_cixpkg_decompress(const char *input, const char *output);
+/* Write one typed CIXPKG v2 artifact from a manifest and staged root. */
 int cbs_cixpkg_write_tree(const char *manifest, const char *root,
                           const char *package_path, const char *identity);
 #define CBS_CIXPKG_FLAG_FINALIZED 1U
+/* Write a CIXPKG v2 artifact and set approved metadata flags. */
 int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
                                      const char *package_path,
                                      const char *identity, unsigned flags);
+/* Verify headers, digests, paths, metadata, and payload contents. */
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size);
+/* Verify and atomically extract a CIXPKG artifact into a new directory. */
 int cbs_cixpkg_extract(const char *package_path, const char *destination);
-int cbs_install_atomic(const char *staged, const char *destination, unsigned mode);
+/* Atomically rename a staged file after applying its final mode. */
+int cbs_install_atomic(const char *staged, const char *destination,
+                       unsigned mode);
+/* Compare two files byte-for-byte. */
 int cbs_compare_files(const char *left, const char *right);
+/* Read the canonical package identity from a validated document. */
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,
                                CbsPackageIdentity *identity);
+/* Format an identity as name-version-release-architecture. */
 char *cbs_identity_string(const CbsPackageIdentity *identity);
+/* Format the canonical artifact filename for an identity. */
 char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity);
+/* Build the stable metadata bytes used as an identity digest input. */
 char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
                                    size_t *length);
+/* Copy identity fields into an execution context. */
 void cbs_identity_apply_execution_context(const CbsPackageIdentity *identity,
                                           CbsExecutionContext *context);
+/* Read named source declarations from the package AST. */
 int cbs_sources_from_document(const CbsNode *document, CbsSourceSet *sources);
+/* Release source declarations and their cache bindings. */
 void cbs_source_set_destroy(CbsSourceSet *sources);
+/* Verify one source file against its declared digest. */
 int cbs_source_verify(CbsSource *source, const char *path,
                       const char *recipe_path, const char *recipe_source,
                       CbsLocation location);
+/* Bind verified source paths to interpolation names in an execution context. */
 int cbs_sources_apply_execution_context(CbsSourceSet *sources,
                                         CbsExecutionContext *context);
+/* Fetch or load all declared sources using the cache-first policy. */
 int cbs_sources_fetch(CbsSourceSet *sources, const char *cache_directory,
-                      const CbsFetchService *service,
-                      const char *recipe_path, const char *recipe_source,
-                      CbsLocation location);
+                      const CbsFetchService *service, const char *recipe_path,
+                      const char *recipe_source, CbsLocation location);
+/* Extract one verified archive while rejecting unsafe entries. */
 int cbs_extract_archive(const char *archive_path, const char *destination,
                         const char *source_name, const char *recipe_path,
-                      const char *recipe_source, CbsLocation location);
+                        const char *recipe_source, CbsLocation location);
+/* Fetch and extract all sources into the build source directory. */
 int cbs_prepare_sources(CbsSourceSet *sources, const char *cache_directory,
                         const char *source_root, const CbsFetchService *service,
                         const char *recipe_path, const char *recipe_source,
                         CbsLocation location);
+/* Compute a lowercase SHA-256 digest for a file. */
 int cbs_digest_file(const char *path, char output[65]);
+/* Compute a lowercase SHA-256 digest for a byte string. */
 int cbs_digest_text(const char *text, size_t length, char output[65]);
+/* Collect dependencies selected by one named phase. */
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);
+/* Release a dependency set returned by the phase selector. */
 void cbs_dependency_set_destroy(CbsDependencySet *dependencies);
+/* Test whether a dependency kind/name pair is present. */
 int cbs_dependency_set_contains(const CbsDependencySet *dependencies,
                                 const char *kind, const char *name);
 
-void cbs_diagnostic(const char *path, const char *source,
-                    CbsLocation location, const char *severity,
-                    const char *code, CbsDiagCategory category,
-                    const char *message);
+/* Emit one located human-readable or JSON diagnostic. */
+void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
+                    const char *severity, const char *code,
+                    CbsDiagCategory category, const char *message);
+/* Select JSON diagnostics when enabled is nonzero. */
 void cbs_diagnostic_set_json(int enabled);
+/* Emit the expected-value detail associated with a failed assertion. */
 void cbs_diagnostic_expected(const char *path, const char *source,
                              CbsLocation location, const char *expected,
                              const char *found);

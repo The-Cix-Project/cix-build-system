@@ -1,3 +1,4 @@
+/* Semantic validation of the parsed CPDL document. */
 #include "cbs.h"
 
 #include <ctype.h>
@@ -13,19 +14,16 @@ typedef struct {
 } Validator;
 
 static void validation_error(Validator *validator, const CbsNode *node,
-                             const char *code, const char *message)
-{
+                             const char *code, const char *message) {
     cbs_diagnostic(validator->path, validator->source, node->location, "error",
                    code, CBS_DIAG_VALIDATION, message);
     ++validator->errors;
 }
 
-static int valid_package_name(const char *name)
-{
+static int valid_package_name(const char *name) {
     const unsigned char *cursor = (const unsigned char *)name;
 
-    if (*cursor == '\0' ||
-        !(islower(*cursor) || isdigit(*cursor)))
+    if (*cursor == '\0' || !(islower(*cursor) || isdigit(*cursor)))
         return 0;
     while (*++cursor != '\0') {
         if (!(islower(*cursor) || isdigit(*cursor) || *cursor == '+' ||
@@ -35,8 +33,7 @@ static int valid_package_name(const char *name)
     return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
 }
 
-static int valid_environment_name(const char *name)
-{
+static int valid_environment_name(const char *name) {
     const unsigned char *cursor = (const unsigned char *)name;
 
     if (!(*cursor == '_' || (*cursor >= 'A' && *cursor <= 'Z')))
@@ -49,8 +46,7 @@ static int valid_environment_name(const char *name)
     return 1;
 }
 
-static int valid_sha256(const char *hash)
-{
+static int valid_sha256(const char *hash) {
     size_t index;
 
     if (strlen(hash) != 64)
@@ -63,8 +59,7 @@ static int valid_sha256(const char *hash)
     return 1;
 }
 
-static int source_declared(const Validator *validator, const char *name)
-{
+static int source_declared(const Validator *validator, const char *name) {
     size_t index;
     size_t source_index;
 
@@ -72,7 +67,8 @@ static int source_declared(const Validator *validator, const char *name)
         const CbsNode *sources = validator->package->children[index];
         if (sources->kind != CBS_NODE_SOURCES)
             continue;
-        for (source_index = 0; source_index < sources->child_count; ++source_index) {
+        for (source_index = 0; source_index < sources->child_count;
+             ++source_index) {
             const CbsNode *source = sources->children[source_index];
             if (source->value != NULL && strcmp(source->value, name) == 0)
                 return 1;
@@ -82,11 +78,10 @@ static int source_declared(const Validator *validator, const char *name)
 }
 
 static int known_value_name(Validator *validator, const char *name,
-                            size_t length)
-{
-    static const char *const values[] = {
-        "name", "version", "release", "arch", "triplet", "src", "build", "dest", "jobs"
-    };
+                            size_t length) {
+    static const char *const values[] = {"name",  "version", "release",
+                                         "arch",  "triplet", "src",
+                                         "build", "dest",    "jobs"};
     size_t index;
 
     for (index = 0; index < sizeof(values) / sizeof(values[0]); ++index) {
@@ -104,8 +99,7 @@ static int known_value_name(Validator *validator, const char *name,
 }
 
 static void validate_interpolation(Validator *validator, const CbsNode *node,
-                                   const char *value)
-{
+                                   const char *value) {
     const char *cursor = value;
 
     if (value == NULL)
@@ -127,27 +121,23 @@ static void validate_interpolation(Validator *validator, const CbsNode *node,
 }
 
 static void validate_bare_value(Validator *validator, const CbsNode *node,
-                                const char *value)
-{
+                                const char *value) {
     const char *name;
 
     if (value == NULL || value[0] != '$' || value[1] == '\0' || value[1] == '{')
         return;
     name = value + 1;
     if (!known_value_name(validator, name, strlen(name)))
-        validation_error(validator, node, "CPDL-E3005",
-                         "unknown CBS value");
+        validation_error(validator, node, "CPDL-E3005", "unknown CBS value");
 }
 
 static void validate_value(Validator *validator, const CbsNode *node,
-                           const char *value)
-{
+                           const char *value) {
     validate_bare_value(validator, node, value);
     validate_interpolation(validator, node, value);
 }
 
-static int valid_mode(const char *mode)
-{
+static int valid_mode(const char *mode) {
     size_t index;
     size_t length;
 
@@ -163,8 +153,7 @@ static int valid_mode(const char *mode)
     return 1;
 }
 
-static int valid_glob(const char *glob)
-{
+static int valid_glob(const char *glob) {
     size_t index;
 
     for (index = 0; glob[index] != '\0'; ++index) {
@@ -187,8 +176,7 @@ static int valid_glob(const char *glob)
 }
 
 static void duplicate_option(Validator *validator, const CbsNode *node,
-                             int *seen, const char *name)
-{
+                             int *seen, const char *name) {
     char message[256];
 
     if (*seen) {
@@ -199,8 +187,7 @@ static void duplicate_option(Validator *validator, const CbsNode *node,
 }
 
 static void validate_run(Validator *validator, const CbsNode *run,
-                         int in_on_fail)
-{
+                         int in_on_fail) {
     int jobs = 0;
     int timeout = 0;
     int expect = 0;
@@ -228,15 +215,17 @@ static void validate_run(Validator *validator, const CbsNode *run,
                 const CbsNode *prior = run->children[other];
                 if (prior->kind == CBS_NODE_RUN_ENV && prior->name != NULL &&
                     item->name != NULL && strcmp(prior->name, item->name) == 0)
-                    validation_error(validator, item, "CPDL-E3002",
-                                     "duplicate command-local environment name");
+                    validation_error(
+                        validator, item, "CPDL-E3002",
+                        "duplicate command-local environment name");
             }
             break;
         case CBS_NODE_RUN_JOBS:
             duplicate_option(validator, item, &jobs, "jobs");
             if (item->value != NULL && strcmp(item->value, "$jobs") != 0)
-                validation_error(validator, item, "CPDL-E3005",
-                                 "jobs value must be a positive integer or $jobs");
+                validation_error(
+                    validator, item, "CPDL-E3005",
+                    "jobs value must be a positive integer or $jobs");
             if (item->value == NULL && item->number <= 0)
                 validation_error(validator, item, "CPDL-E3004",
                                  "jobs value must be positive");
@@ -250,8 +239,9 @@ static void validate_run(Validator *validator, const CbsNode *run,
         case CBS_NODE_RUN_EXPECT:
             duplicate_option(validator, item, &expect, "expect");
             if (item->number < 0 || item->number > 255)
-                validation_error(validator, item, "CPDL-E3004",
-                                 "expected exit status must be between 0 and 255");
+                validation_error(
+                    validator, item, "CPDL-E3004",
+                    "expected exit status must be between 0 and 255");
             break;
         case CBS_NODE_ALLOW_FAILURE:
             duplicate_option(validator, item, &allow_failure, "allow_failure");
@@ -271,8 +261,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                                int in_on_fail);
 
 static void validate_block(Validator *validator, const CbsNode *owner,
-                           int in_on_fail)
-{
+                           int in_on_fail) {
     size_t index;
     int seen_on_fail = 0;
 
@@ -293,8 +282,7 @@ static void validate_block(Validator *validator, const CbsNode *owner,
     }
 }
 
-static void validate_selector(Validator *validator, const CbsNode *operation)
-{
+static void validate_selector(Validator *validator, const CbsNode *operation) {
     validate_value(validator, operation, operation->value);
     if (operation->flag && operation->value != NULL &&
         !valid_glob(operation->value))
@@ -303,8 +291,7 @@ static void validate_selector(Validator *validator, const CbsNode *operation)
 }
 
 static void validate_operation(Validator *validator, const CbsNode *operation,
-                               int in_on_fail)
-{
+                               int in_on_fail) {
     size_t index;
     const char *source_name;
 
@@ -333,13 +320,15 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_WRITE:
         validate_value(validator, operation, operation->value);
         validate_value(validator, operation, operation->second_value);
-        if (!valid_mode(operation->second_value) && operation->kind == CBS_NODE_MKDIR)
+        if (!valid_mode(operation->second_value) &&
+            operation->kind == CBS_NODE_MKDIR)
             validation_error(validator, operation, "CPDL-E3004",
                              "invalid permission mode");
         if (operation->kind == CBS_NODE_WRITE) {
             for (index = 0; index < operation->child_count; ++index) {
                 const CbsNode *property = operation->children[index];
-                if (property->name != NULL && strcmp(property->name, "chmod") == 0 &&
+                if (property->name != NULL &&
+                    strcmp(property->name, "chmod") == 0 &&
                     !valid_mode(property->value))
                     validation_error(validator, property, "CPDL-E3004",
                                      "invalid permission mode");
@@ -354,7 +343,8 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_REMOVE:
     case CBS_NODE_CHMOD:
         validate_selector(validator, operation);
-        if (operation->kind == CBS_NODE_CHMOD && !valid_mode(operation->second_value))
+        if (operation->kind == CBS_NODE_CHMOD &&
+            !valid_mode(operation->second_value))
             validation_error(validator, operation, "CPDL-E3004",
                              "invalid permission mode");
         break;
@@ -363,7 +353,8 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         validate_value(validator, operation, operation->second_value);
         break;
     case CBS_NODE_EXTRACT:
-        if (operation->value == NULL || strncmp(operation->value, "$source.", 8) != 0)
+        if (operation->value == NULL ||
+            strncmp(operation->value, "$source.", 8) != 0)
             validation_error(validator, operation, "CPDL-E3005",
                              "extract requires a named source value");
         else {
@@ -375,7 +366,8 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         validate_value(validator, operation, operation->second_value);
         break;
     case CBS_NODE_MATERIALIZE:
-        if (operation->value == NULL || strncmp(operation->value, "$source.", 8) != 0)
+        if (operation->value == NULL ||
+            strncmp(operation->value, "$source.", 8) != 0)
             validation_error(validator, operation, "CPDL-E3005",
                              "materialize requires a named source value");
         else if (!source_declared(validator, operation->value + 8))
@@ -398,8 +390,9 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
              strcmp(operation->name, "directory") != 0 &&
              strcmp(operation->name, "glob") != 0 &&
              strcmp(operation->name, "config") != 0)) {
-            validation_error(validator, operation, "CPDL-E3004",
-                             "require kind must be file, directory, glob, or config");
+            validation_error(
+                validator, operation, "CPDL-E3004",
+                "require kind must be file, directory, glob, or config");
         }
         validate_value(validator, operation, operation->value);
         if (operation->name != NULL && strcmp(operation->name, "glob") == 0 &&
@@ -408,7 +401,8 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                              "invalid glob expression");
         for (index = 0; index < operation->child_count; ++index) {
             const CbsNode *property = operation->children[index];
-            if (operation->name != NULL && strcmp(operation->name, "config") == 0) {
+            if (operation->name != NULL &&
+                strcmp(operation->name, "config") == 0) {
                 if (property->name == NULL ||
                     strncmp(property->name, "CONFIG_", 7) != 0 ||
                     property->name[7] == '\0' ||
@@ -417,13 +411,15 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                      strcmp(property->value, "n") != 0 &&
                      strcmp(property->value, "absent") != 0))
                     validation_error(validator, property, "CPDL-E3004",
-                                     "config assertion must use CONFIG_* = y, m, n, or absent");
+                                     "config assertion must use CONFIG_* = y, "
+                                     "m, n, or absent");
             } else {
                 if (property->name == NULL ||
                     (strcmp(property->name, "contains") != 0 &&
                      strcmp(property->name, "same_as") != 0))
-                    validation_error(validator, property, "CPDL-E3004",
-                                     "file assertion must use contains or same_as");
+                    validation_error(
+                        validator, property, "CPDL-E3004",
+                        "file assertion must use contains or same_as");
                 validate_value(validator, property, property->value);
             }
         }
@@ -435,8 +431,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     }
 }
 
-static int package_item_rank(CbsNodeKind kind, const char *name)
-{
+static int package_item_rank(CbsNodeKind kind, const char *name) {
     switch (kind) {
     case CBS_NODE_VERSION:
         return 1;
@@ -469,8 +464,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name)
     }
 }
 
-static void validate_sources(Validator *validator, const CbsNode *sources)
-{
+static void validate_sources(Validator *validator, const CbsNode *sources) {
     size_t index;
     size_t prior;
     int main_count = 0;
@@ -493,7 +487,8 @@ static void validate_sources(Validator *validator, const CbsNode *sources)
         if (source->child_count >= 2) {
             const CbsNode *hash = source->children[source->child_count - 1];
             size_t url_index;
-            for (url_index = 0; url_index + 1 < source->child_count; ++url_index) {
+            for (url_index = 0; url_index + 1 < source->child_count;
+                 ++url_index) {
                 const CbsNode *url = source->children[url_index];
                 if (url->kind != CBS_NODE_URL || url->value == NULL ||
                     strstr(url->value, "://") == NULL)
@@ -502,8 +497,9 @@ static void validate_sources(Validator *validator, const CbsNode *sources)
             }
             if (hash->kind != CBS_NODE_SHA256 || hash->value == NULL ||
                 !valid_sha256(hash->value))
-                validation_error(validator, hash, "CPDL-E3004",
-                                 "SHA-256 must be 64 lowercase hexadecimal digits");
+                validation_error(
+                    validator, hash, "CPDL-E3004",
+                    "SHA-256 must be 64 lowercase hexadecimal digits");
         }
     }
     if (main_count != 1)
@@ -511,8 +507,7 @@ static void validate_sources(Validator *validator, const CbsNode *sources)
                          "sources block must contain exactly one main source");
 }
 
-static int dependency_role_rank(const char *role)
-{
+static int dependency_role_rank(const char *role) {
     if (strcmp(role, "build") == 0)
         return 1;
     if (strcmp(role, "runtime") == 0)
@@ -523,8 +518,7 @@ static int dependency_role_rank(const char *role)
 }
 
 static int has_toolchain_exception(const Validator *validator,
-                                   const char *compiler)
-{
+                                   const char *compiler) {
     size_t index;
 
     if (strcmp(compiler, "gcc") != 0)
@@ -537,14 +531,15 @@ static int has_toolchain_exception(const Validator *validator,
     return 0;
 }
 
-static void validate_requires(Validator *validator, const CbsNode *requires)
-{
+static void validate_requires(Validator *validator, const CbsNode *requires) {
     size_t index;
     size_t prior;
     int last_rank = 0;
 
     for (index = 0; index < requires->child_count; ++index) {
-        const CbsNode *group = requires->children[index];
+        const CbsNode *group =
+            requires
+            ->children[index];
         int rank = dependency_role_rank(group->name);
         if (strcmp(group->name, "build") != 0 &&
             strcmp(group->name, "runtime") != 0 &&
@@ -570,8 +565,9 @@ static void validate_requires(Validator *validator, const CbsNode *requires)
             if (strcmp(dependency->name, "compiler") == 0 &&
                 strcmp(dependency->value, "tcc") != 0 &&
                 !has_toolchain_exception(validator, dependency->value))
-                validation_error(validator, dependency, "CPDL-E3004",
-                                 "compiler requires TCC or an explicit toolchain exception");
+                validation_error(
+                    validator, dependency, "CPDL-E3004",
+                    "compiler requires TCC or an explicit toolchain exception");
             for (earlier = 0; earlier < prior; ++earlier) {
                 const CbsNode *other = group->children[earlier];
                 if (strcmp(other->name, dependency->name) == 0 &&
@@ -583,8 +579,7 @@ static void validate_requires(Validator *validator, const CbsNode *requires)
     }
 }
 
-static void validate_package(Validator *validator)
-{
+static void validate_package(Validator *validator) {
     const CbsNode *package = validator->package;
     size_t index;
     size_t prior;
@@ -651,8 +646,9 @@ static void validate_package(Validator *validator)
             if (item->value == NULL || strcmp(item->value, "gcc") != 0 ||
                 item->child_count != 1 || item->children[0]->value == NULL ||
                 item->children[0]->value[0] == '\0')
-                validation_error(validator, item, "CPDL-E3006",
-                                 "gcc toolchain use requires an explicit reason");
+                validation_error(
+                    validator, item, "CPDL-E3006",
+                    "gcc toolchain use requires an explicit reason");
             break;
         case CBS_NODE_UPSTREAM:
             if (item->value == NULL || strcmp(item->value, "kernel.org") != 0)
@@ -681,8 +677,7 @@ static void validate_package(Validator *validator)
 }
 
 int cbs_validate(const CbsNode *document, const char *path,
-                 const char *source)
-{
+                 const char *source) {
     Validator validator;
 
     memset(&validator, 0, sizeof(validator));

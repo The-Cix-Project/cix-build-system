@@ -1,22 +1,29 @@
+/* Regression tests for phase capacity and execution event ordering. */
 #include "cbs.h"
 
 #include <stdio.h>
 #include <string.h>
 
 static int events;
-static int phase_event(const char *event, const char *phase, int status, void *user)
-{
+static int phase_event(const char *event, const char *phase, int status,
+                       void *user) {
     (void)user;
-    if (events >= 2) return 1;
+    if (events >= 2)
+        return 1;
     if (events == 0 && strcmp(event, "phase-begin") == 0 &&
-        strcmp(phase, "build") == 0 && status == 0) { events++; return 1; }
+        strcmp(phase, "build") == 0 && status == 0) {
+        events++;
+        return 1;
+    }
     if (events == 1 && strcmp(event, "phase-end") == 0 &&
-        strcmp(phase, "build") == 0 && status == 0) { events++; return 1; }
+        strcmp(phase, "build") == 0 && status == 0) {
+        events++;
+        return 1;
+    }
     return 0;
 }
 
-int main(void)
-{
+int main(void) {
     CbsLocation location = {"plan-test", 1, 1, 0};
     CbsNode *document = cbs_node_create(CBS_NODE_DOCUMENT, location);
     CbsNode *package = cbs_node_create(CBS_NODE_PACKAGE, location);

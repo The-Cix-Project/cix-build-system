@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+/* Regression tests for source edits, cardinality, and atomicity. */
 #include "cbs.h"
 
 #include <stdio.h>
@@ -8,8 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char *read_source(const char *path, size_t *length)
-{
+static char *read_source(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *source;
@@ -29,8 +29,7 @@ static char *read_source(const char *path, size_t *length)
     return source;
 }
 
-static CbsNode *find_phase(CbsNode *document)
-{
+static CbsNode *find_phase(CbsNode *document) {
     CbsNode *package = document->children[0];
     size_t index;
     for (index = 0; index < package->child_count; ++index)
@@ -39,14 +38,13 @@ static CbsNode *find_phase(CbsNode *document)
     return NULL;
 }
 
-static int join(char *output, size_t size, const char *left, const char *right)
-{
+static int join(char *output, size_t size, const char *left,
+                const char *right) {
     return snprintf(output, size, "%s/%s", left, right) < (int)size;
 }
 
 static int file_equals(const char *path, const unsigned char *expected,
-                       size_t expected_length, mode_t mode)
-{
+                       size_t expected_length, mode_t mode) {
     struct stat status;
     unsigned char buffer[256];
     FILE *file;
@@ -66,15 +64,15 @@ static int file_equals(const char *path, const unsigned char *expected,
 
 static int expected_failure(const CbsNode *operation,
                             const CbsExecutionContext *context,
-                            const char *code)
-{
+                            const char *code) {
     FILE *capture = tmpfile();
     int saved = dup(STDERR_FILENO);
     int executed;
     char output[2048];
     size_t length;
 
-    if (capture == NULL || saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (capture == NULL || saved < 0 ||
+        dup2(fileno(capture), STDERR_FILENO) < 0)
         return 0;
     executed = cbs_execute_edit_assertion(operation, context);
     fflush(stderr);
@@ -87,8 +85,7 @@ static int expected_failure(const CbsNode *operation,
     return !executed && strstr(output, code) != NULL;
 }
 
-static int write_binary(const char *path)
-{
+static int write_binary(const char *path) {
     static const unsigned char bytes[] = {'A', 0, 'o', 'l', 'd', 'Z'};
     FILE *file = fopen(path, "wb");
     if (file == NULL)
@@ -100,8 +97,7 @@ static int write_binary(const char *path)
     return fclose(file) == 0 && chmod(path, 0600) == 0;
 }
 
-static int run_test(const char *recipe_path)
-{
+static int run_test(const char *recipe_path) {
     static const unsigned char edited_binary[] = {'A', 0, 'n', 'e', 'w', 'Z'};
     char template[] = "/tmp/cbs-edit-test-XXXXXX";
     char *base = mkdtemp(template);
@@ -147,9 +143,10 @@ static int run_test(const char *recipe_path)
     context.working_directory = src;
     for (index = 0; index < phase->child_count; ++index) {
         CbsNode *item = phase->children[index];
-        int success = item->kind == CBS_NODE_MKDIR || item->kind == CBS_NODE_WRITE ?
-                      cbs_execute_filesystem(item, &context) :
-                      cbs_execute_edit_assertion(item, &context);
+        int success =
+            item->kind == CBS_NODE_MKDIR || item->kind == CBS_NODE_WRITE
+                ? cbs_execute_filesystem(item, &context)
+                : cbs_execute_edit_assertion(item, &context);
         if (!success)
             goto cleanup;
     }
@@ -212,8 +209,7 @@ cleanup:
     return result;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     if (argc != 2) {
         fputs("usage: edit-assert-test RECIPE.cbs\n", stderr);
         return 2;

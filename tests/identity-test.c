@@ -1,11 +1,11 @@
+/* Regression tests for canonical package identity formatting. */
 #include "cbs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static char *read_source(const char *path, size_t *length)
-{
+static char *read_source(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *source;
@@ -24,8 +24,7 @@ static char *read_source(const char *path, size_t *length)
     return source;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     static const char expected[] = "gcc-16.2.0-11-x86_64";
     static const char expected_metadata[] = "identity=gcc-16.2.0-11-x86_64\n";
     char *source;

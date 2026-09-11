@@ -1,3 +1,4 @@
+/* UTF-8-aware lexical analysis for the CPDL source language. */
 #include "cbs.h"
 
 #include <ctype.h>
@@ -18,8 +19,7 @@ typedef struct {
     int failed;
 } Lexer;
 
-static CbsLocation location(const Lexer *lexer)
-{
+static CbsLocation location(const Lexer *lexer) {
     CbsLocation result;
 
     result.path = lexer->path;
@@ -30,13 +30,13 @@ static CbsLocation location(const Lexer *lexer)
 }
 
 static void token_add(Lexer *lexer, CbsTokenKind kind, char *text,
-                      CbsLocation token_location)
-{
+                      CbsLocation token_location) {
     size_t capacity;
     CbsToken *token;
 
     if (lexer->tokens->count == lexer->tokens->capacity) {
-        capacity = lexer->tokens->capacity == 0 ? 64 : lexer->tokens->capacity * 2;
+        capacity =
+            lexer->tokens->capacity == 0 ? 64 : lexer->tokens->capacity * 2;
         lexer->tokens->items = cbs_reallocate(
             lexer->tokens->items, capacity * sizeof(*lexer->tokens->items));
         lexer->tokens->capacity = capacity;
@@ -48,15 +48,13 @@ static void token_add(Lexer *lexer, CbsTokenKind kind, char *text,
 }
 
 static void lexical_error(Lexer *lexer, CbsLocation error_location,
-                          const char *code, const char *message)
-{
+                          const char *code, const char *message) {
     cbs_diagnostic(lexer->path, lexer->source, error_location, "error", code,
                    CBS_DIAG_LEX, message);
     lexer->failed = 1;
 }
 
-static int utf8_width(unsigned char byte)
-{
+static int utf8_width(unsigned char byte) {
     if (byte < 0x80)
         return 1;
     if (byte >= 0xc2 && byte <= 0xdf)
@@ -68,8 +66,7 @@ static int utf8_width(unsigned char byte)
     return 0;
 }
 
-static int valid_utf8_sequence(const char *text, size_t remaining, int width)
-{
+static int valid_utf8_sequence(const char *text, size_t remaining, int width) {
     unsigned char first;
     unsigned char second;
     int index;
@@ -94,8 +91,7 @@ static int valid_utf8_sequence(const char *text, size_t remaining, int width)
     return 1;
 }
 
-static int validate_source_utf8(Lexer *lexer)
-{
+static int validate_source_utf8(Lexer *lexer) {
     size_t offset = 0;
     size_t line = 1;
     size_t column = 1;
@@ -138,8 +134,7 @@ static int validate_source_utf8(Lexer *lexer)
     return 1;
 }
 
-static void advance_ascii(Lexer *lexer)
-{
+static void advance_ascii(Lexer *lexer) {
     char character = lexer->source[lexer->offset++];
 
     if (character == '\n') {
@@ -152,8 +147,7 @@ static void advance_ascii(Lexer *lexer)
     }
 }
 
-static void advance_scalar(Lexer *lexer)
-{
+static void advance_scalar(Lexer *lexer) {
     int width = utf8_width((unsigned char)lexer->source[lexer->offset]);
 
     if (width <= 1) {
@@ -164,25 +158,19 @@ static void advance_scalar(Lexer *lexer)
     ++lexer->column;
 }
 
-static int at_end(const Lexer *lexer)
-{
-    return lexer->offset >= lexer->length;
-}
+static int at_end(const Lexer *lexer) { return lexer->offset >= lexer->length; }
 
-static int is_word_start(char character)
-{
+static int is_word_start(char character) {
     return (character >= 'A' && character <= 'Z') ||
            (character >= 'a' && character <= 'z') || character == '_';
 }
 
-static int is_word_continue(char character)
-{
-    return is_word_start(character) ||
-           (character >= '0' && character <= '9') || character == '-';
+static int is_word_continue(char character) {
+    return is_word_start(character) || (character >= '0' && character <= '9') ||
+           character == '-';
 }
 
-static int hex_value(char character)
-{
+static int hex_value(char character) {
     if (character >= '0' && character <= '9')
         return character - '0';
     if (character >= 'a' && character <= 'f')
@@ -193,8 +181,7 @@ static int hex_value(char character)
 }
 
 static void append_byte(char **buffer, size_t *length, size_t *capacity,
-                        unsigned char byte)
-{
+                        unsigned char byte) {
     if (*length + 1 >= *capacity) {
         *capacity = *capacity == 0 ? 32 : *capacity * 2;
         *buffer = cbs_reallocate(*buffer, *capacity);
@@ -203,8 +190,7 @@ static void append_byte(char **buffer, size_t *length, size_t *capacity,
 }
 
 static void append_codepoint(char **buffer, size_t *length, size_t *capacity,
-                             unsigned long codepoint)
-{
+                             unsigned long codepoint) {
     if (codepoint <= 0x7f) {
         append_byte(buffer, length, capacity, (unsigned char)codepoint);
     } else if (codepoint <= 0x7ff) {
@@ -222,8 +208,7 @@ static void append_codepoint(char **buffer, size_t *length, size_t *capacity,
     }
 }
 
-static void lex_string(Lexer *lexer)
-{
+static void lex_string(Lexer *lexer) {
     CbsLocation start = location(lexer);
     char *buffer = NULL;
     size_t length = 0;
@@ -296,7 +281,8 @@ static void lex_string(Lexer *lexer)
 
             for (index = 0; index < width; ++index)
                 append_byte(&buffer, &length, &capacity,
-                            (unsigned char)lexer->source[lexer->offset + (size_t)index]);
+                            (unsigned char)
+                                lexer->source[lexer->offset + (size_t)index]);
             advance_scalar(lexer);
         }
     }
@@ -310,9 +296,8 @@ static void lex_string(Lexer *lexer)
     token_add(lexer, CBS_TOKEN_STRING, buffer, start);
 }
 
-static int block_closing_line(const Lexer *lexer, size_t offset,
-                              size_t *indent, size_t *after)
-{
+static int block_closing_line(const Lexer *lexer, size_t offset, size_t *indent,
+                              size_t *after) {
     size_t cursor = offset;
 
     while (cursor < lexer->length &&
@@ -332,8 +317,7 @@ static int block_closing_line(const Lexer *lexer, size_t offset,
     return 1;
 }
 
-static void lex_block_string(Lexer *lexer)
-{
+static void lex_block_string(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t content_start;
     size_t cursor;
@@ -385,8 +369,9 @@ static void lex_block_string(Lexer *lexer)
             ++indent;
         content_offset = cursor + indent;
         if (content_offset < line_end && indent < closing_indent) {
-            lexical_error(lexer, start, "CPDL-E1003",
-                          "block string line has less indentation than its closer");
+            lexical_error(
+                lexer, start, "CPDL-E1003",
+                "block string line has less indentation than its closer");
             free(output);
             return;
         }
@@ -407,8 +392,7 @@ static void lex_block_string(Lexer *lexer)
     token_add(lexer, CBS_TOKEN_BLOCK_STRING, output, start);
 }
 
-static void lex_number(Lexer *lexer)
-{
+static void lex_number(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
     size_t digit_end;
@@ -417,7 +401,8 @@ static void lex_number(Lexer *lexer)
     char *end;
     long value;
 
-    while (!at_end(lexer) && isdigit((unsigned char)lexer->source[lexer->offset]))
+    while (!at_end(lexer) &&
+           isdigit((unsigned char)lexer->source[lexer->offset]))
         advance_ascii(lexer);
     digit_end = lexer->offset;
     if (!at_end(lexer) && lexer->source[lexer->offset] == 'm' &&
@@ -426,10 +411,9 @@ static void lex_number(Lexer *lexer)
         advance_ascii(lexer);
         advance_ascii(lexer);
         kind = CBS_TOKEN_DURATION;
-    } else if (!at_end(lexer) &&
-               (lexer->source[lexer->offset] == 's' ||
-                lexer->source[lexer->offset] == 'm' ||
-                lexer->source[lexer->offset] == 'h')) {
+    } else if (!at_end(lexer) && (lexer->source[lexer->offset] == 's' ||
+                                  lexer->source[lexer->offset] == 'm' ||
+                                  lexer->source[lexer->offset] == 'h')) {
         advance_ascii(lexer);
         kind = CBS_TOKEN_DURATION;
     } else if (lexer->source[begin] == '0' && lexer->offset - begin >= 4) {
@@ -456,8 +440,7 @@ static void lex_number(Lexer *lexer)
               start);
 }
 
-static void lex_word(Lexer *lexer)
-{
+static void lex_word(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
 
@@ -468,8 +451,7 @@ static void lex_word(Lexer *lexer)
               start);
 }
 
-static void lex_cbs_value(Lexer *lexer)
-{
+static void lex_cbs_value(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
 
@@ -483,7 +465,8 @@ static void lex_cbs_value(Lexer *lexer)
     if (!at_end(lexer) && lexer->source[lexer->offset] == '.') {
         advance_ascii(lexer);
         if (at_end(lexer) || !is_word_start(lexer->source[lexer->offset])) {
-            lexical_error(lexer, start, "CPDL-E1002", "invalid named CBS value");
+            lexical_error(lexer, start, "CPDL-E1002",
+                          "invalid named CBS value");
             return;
         }
         while (!at_end(lexer) && is_word_continue(lexer->source[lexer->offset]))
@@ -495,8 +478,7 @@ static void lex_cbs_value(Lexer *lexer)
 }
 
 int cbs_lex(const char *path, const char *source, size_t length,
-            CbsTokenList *tokens)
-{
+            CbsTokenList *tokens) {
     Lexer lexer;
 
     memset(&lexer, 0, sizeof(lexer));
@@ -521,7 +503,8 @@ int cbs_lex(const char *path, const char *source, size_t length,
         if (character == ' ' || character == '\t' || character == '\n') {
             advance_ascii(&lexer);
         } else if (character == '\r') {
-            if (lexer.offset + 1 >= length || source[lexer.offset + 1] != '\n') {
+            if (lexer.offset + 1 >= length ||
+                source[lexer.offset + 1] != '\n') {
                 lexical_error(&lexer, start, "CPDL-E1001",
                               "bare carriage return is not permitted");
             } else {
@@ -538,9 +521,9 @@ int cbs_lex(const char *path, const char *source, size_t length,
             else
                 lex_string(&lexer);
         } else if (character == '{' || character == '}' || character == '=') {
-            CbsTokenKind kind = character == '{' ? CBS_TOKEN_LBRACE :
-                                character == '}' ? CBS_TOKEN_RBRACE :
-                                CBS_TOKEN_EQUAL;
+            CbsTokenKind kind = character == '{'   ? CBS_TOKEN_LBRACE
+                                : character == '}' ? CBS_TOKEN_RBRACE
+                                                   : CBS_TOKEN_EQUAL;
             char text[2];
             text[0] = character;
             text[1] = '\0';
@@ -559,6 +542,7 @@ int cbs_lex(const char *path, const char *source, size_t length,
     }
     if (lexer.failed)
         return 0;
-    token_add(&lexer, CBS_TOKEN_EOF, cbs_duplicate("end of file"), location(&lexer));
+    token_add(&lexer, CBS_TOKEN_EOF, cbs_duplicate("end of file"),
+              location(&lexer));
     return 1;
 }

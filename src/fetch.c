@@ -1,3 +1,4 @@
+/* Source transport adapters, including the command-line TLS fetch service. */
 #define _POSIX_C_SOURCE 200809L
 
 #include "cbs.h"
@@ -41,13 +42,11 @@ typedef struct {
 } CurlApi;
 
 static size_t write_file(const void *data, size_t size, size_t count,
-                         void *opaque)
-{
+                         void *opaque) {
     return fwrite(data, size, count, opaque);
 }
 
-static int load_api(CurlApi *api, char *error, size_t error_size)
-{
+static int load_api(CurlApi *api, char *error, size_t error_size) {
     memset(api, 0, sizeof(*api));
     api->library = dlopen("libcurl.so.4", RTLD_NOW | RTLD_LOCAL);
     if (api->library == NULL)
@@ -71,8 +70,7 @@ static int load_api(CurlApi *api, char *error, size_t error_size)
 }
 
 static int curl_fetch(const char *url, const char *destination, void *opaque,
-                      char *error, size_t error_size)
-{
+                      char *error, size_t error_size) {
     CurlApi *api = opaque;
     Curl *handle;
     FILE *file;
@@ -112,21 +110,20 @@ static int curl_fetch(const char *url, const char *destination, void *opaque,
         result = 1;
     if (result != 0) {
         snprintf(error, error_size, "%s",
-                 curl_error[0] == '\0' ? "libcurl transfer failed" : curl_error);
+                 curl_error[0] == '\0' ? "libcurl transfer failed"
+                                       : curl_error);
         return 0;
     }
     return 1;
 }
 
 int cbs_cli_fetch_service(CbsFetchService *service, char *error,
-                          size_t error_size)
-{
+                          size_t error_size) {
     return cbs_cli_fetch_service_with_ca(service, error, error_size, NULL);
 }
 
 int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
-                                  size_t error_size, const char *ca_file)
-{
+                                  size_t error_size, const char *ca_file) {
     static CurlApi api;
 
     if (service == NULL || error == NULL || error_size == 0)

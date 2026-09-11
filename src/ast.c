@@ -1,11 +1,12 @@
+/* Allocation, construction, and destruction of the CPDL abstract syntax tree.
+ */
 #include "cbs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void *cbs_allocate(size_t size)
-{
+void *cbs_allocate(size_t size) {
     void *pointer = calloc(1, size);
 
     if (pointer == NULL) {
@@ -15,8 +16,7 @@ void *cbs_allocate(size_t size)
     return pointer;
 }
 
-void *cbs_reallocate(void *pointer, size_t size)
-{
+void *cbs_reallocate(void *pointer, size_t size) {
     void *result = realloc(pointer, size);
 
     if (result == NULL && size != 0) {
@@ -26,8 +26,7 @@ void *cbs_reallocate(void *pointer, size_t size)
     return result;
 }
 
-char *cbs_duplicate_range(const char *start, size_t length)
-{
+char *cbs_duplicate_range(const char *start, size_t length) {
     char *result = cbs_allocate(length + 1);
 
     memcpy(result, start, length);
@@ -35,13 +34,11 @@ char *cbs_duplicate_range(const char *start, size_t length)
     return result;
 }
 
-char *cbs_duplicate(const char *text)
-{
+char *cbs_duplicate(const char *text) {
     return cbs_duplicate_range(text, strlen(text));
 }
 
-CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location)
-{
+CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location) {
     CbsNode *node = cbs_allocate(sizeof(*node));
 
     node->kind = kind;
@@ -50,8 +47,7 @@ CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location)
     return node;
 }
 
-void cbs_node_add(CbsNode *parent, CbsNode *child)
-{
+void cbs_node_add(CbsNode *parent, CbsNode *child) {
     size_t capacity;
 
     if (parent->child_count == parent->child_capacity) {
@@ -63,8 +59,7 @@ void cbs_node_add(CbsNode *parent, CbsNode *child)
     parent->children[parent->child_count++] = child;
 }
 
-void cbs_node_destroy(CbsNode *node)
-{
+void cbs_node_destroy(CbsNode *node) {
     size_t index;
 
     if (node == NULL)
@@ -78,8 +73,7 @@ void cbs_node_destroy(CbsNode *node)
     free(node);
 }
 
-void cbs_token_list_destroy(CbsTokenList *tokens)
-{
+void cbs_token_list_destroy(CbsTokenList *tokens) {
     size_t index;
 
     for (index = 0; index < tokens->count; ++index)

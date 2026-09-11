@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+/* Regression tests for confined filesystem operations and glob handling. */
 #include "cbs.h"
 
 #include <errno.h>
@@ -9,8 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char *read_file(const char *path, size_t *length)
-{
+static char *read_file(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *source;
@@ -33,8 +33,7 @@ static char *read_file(const char *path, size_t *length)
     return source;
 }
 
-static CbsNode *find_phase(CbsNode *document, const char *name)
-{
+static CbsNode *find_phase(CbsNode *document, const char *name) {
     CbsNode *package = document->children[0];
     size_t index;
 
@@ -47,13 +46,11 @@ static CbsNode *find_phase(CbsNode *document, const char *name)
 }
 
 static int path_join(char *buffer, size_t size, const char *left,
-                     const char *right)
-{
+                     const char *right) {
     return snprintf(buffer, size, "%s/%s", left, right) < (int)size;
 }
 
-static int regular_with(const char *path, const char *expected, mode_t mode)
-{
+static int regular_with(const char *path, const char *expected, mode_t mode) {
     struct stat status;
     char content[64];
     FILE *file;
@@ -73,15 +70,15 @@ static int regular_with(const char *path, const char *expected, mode_t mode)
 }
 
 static int expect_failure(const CbsNode *operation,
-                          const CbsExecutionContext *context)
-{
+                          const CbsExecutionContext *context) {
     FILE *capture = tmpfile();
     int saved = dup(STDERR_FILENO);
     int result;
     char output[2048];
     size_t length;
 
-    if (capture == NULL || saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (capture == NULL || saved < 0 ||
+        dup2(fileno(capture), STDERR_FILENO) < 0)
         return 0;
     result = cbs_execute_filesystem(operation, context);
     fflush(stderr);
@@ -94,8 +91,7 @@ static int expect_failure(const CbsNode *operation,
     return !result && strstr(output, "CPDL-E4004") != NULL;
 }
 
-static int run_test(const char *recipe_path)
-{
+static int run_test(const char *recipe_path) {
     char template[] = "/tmp/cbs-fs-test-XXXXXX";
     char *base = mkdtemp(template);
     char src[512], build[512], dest[512], outside[512], path[512], target[64];
@@ -272,8 +268,7 @@ cleanup:
     return result;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     if (argc != 2) {
         fputs("usage: fs-test RECIPE.cbs\n", stderr);
         return 2;

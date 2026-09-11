@@ -1,3 +1,4 @@
+/* Command-line entry point and non-executing recipe inspection commands. */
 #include "cbs.h"
 
 #include <errno.h>
@@ -6,14 +7,12 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static int has_cbs_extension(const char *path)
-{
+static int has_cbs_extension(const char *path) {
     size_t length = strlen(path);
     return length >= 4 && strcmp(path + length - 4, ".cbs") == 0;
 }
 
-static char *read_file(const char *path, size_t *length)
-{
+static char *read_file(const char *path, size_t *length) {
     FILE *file;
     long size;
     char *source;
@@ -21,29 +20,37 @@ static char *read_file(const char *path, size_t *length)
 
     file = fopen(path, "rb");
     if (file == NULL) {
-        fprintf(stderr, "%s:1:1: error[CPDL-E1001]: lex: cannot read recipe; errno=%d\n",
-                path, errno);
+        fprintf(
+            stderr,
+            "%s:1:1: error[CPDL-E1001]: lex: cannot read recipe; errno=%d\n",
+            path, errno);
         return NULL;
     }
     if (fseek(file, 0, SEEK_END) != 0 || (size = ftell(file)) < 0 ||
         fseek(file, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "%s:1:1: error[CPDL-E1001]: lex: cannot measure recipe; errno=%d\n",
-                path, errno);
+        fprintf(
+            stderr,
+            "%s:1:1: error[CPDL-E1001]: lex: cannot measure recipe; errno=%d\n",
+            path, errno);
         fclose(file);
         return NULL;
     }
     source = cbs_allocate((size_t)size + 1);
     read_length = fread(source, 1, (size_t)size, file);
     if (read_length != (size_t)size || ferror(file)) {
-        fprintf(stderr, "%s:1:1: error[CPDL-E1001]: lex: cannot read complete recipe; errno=%d\n",
+        fprintf(stderr,
+                "%s:1:1: error[CPDL-E1001]: lex: cannot read complete recipe; "
+                "errno=%d\n",
                 path, errno);
         fclose(file);
         free(source);
         return NULL;
     }
     if (fclose(file) != 0) {
-        fprintf(stderr, "%s:1:1: error[CPDL-E1001]: lex: cannot close recipe; errno=%d\n",
-                path, errno);
+        fprintf(
+            stderr,
+            "%s:1:1: error[CPDL-E1001]: lex: cannot close recipe; errno=%d\n",
+            path, errno);
         free(source);
         return NULL;
     }
@@ -66,8 +73,7 @@ static char *read_file(const char *path, size_t *length)
     return source;
 }
 
-static int validate_file(const char *path)
-{
+static int validate_file(const char *path) {
     char *source;
     size_t length;
     CbsTokenList tokens;
@@ -77,7 +83,8 @@ static int validate_file(const char *path)
     memset(&tokens, 0, sizeof(tokens));
     if (!has_cbs_extension(path)) {
         fprintf(stderr,
-                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the .cbs extension\n",
+                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the "
+                ".cbs extension\n",
                 path);
         return 3;
     }
@@ -105,35 +112,37 @@ static int validate_file(const char *path)
     return 0;
 }
 
-static void usage(FILE *stream)
-{
-    fputs("usage: cbs validate PACKAGE.cbs\n"
-          "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
-          "commands:\n"
-          "  cbs check RECIPE.cbs                 Validate without executing\n"
-          "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
-          "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
-          "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
-          "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE [--cache DIR] [--ca-file FILE]\n"
-          "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
-          "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
-          "  cbs --help                           Show this help\n"
-          "  cbs --version                        Show version\n", stream);
+static void usage(FILE *stream) {
+    fputs(
+        "usage: cbs validate PACKAGE.cbs\n"
+        "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
+        "commands:\n"
+        "  cbs check RECIPE.cbs                 Validate without executing\n"
+        "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
+        "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
+        "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
+        "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE "
+        "[--cache DIR] [--ca-file FILE]\n"
+        "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
+        "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
+        "  cbs --help                           Show this help\n"
+        "  cbs --version                        Show version\n",
+        stream);
 }
 
-static int verify_file(const char *path)
-{
+static int verify_file(const char *path) {
     char identity[129];
     if (!cbs_cixpkg_verify_tree(path, identity, sizeof(identity))) {
-        fprintf(stderr, "%s: error[CIXPKG-E4001]: artifact verification failed\n", path);
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4001]: artifact verification failed\n",
+                path);
         return 4;
     }
     printf("%s: verified CIXPKG (identity=%s)\n", path, identity);
     return 0;
 }
 
-static void print_json_string(const char *value)
-{
+static void print_json_string(const char *value) {
     const unsigned char *cursor;
     if (value == NULL) {
         fputs("null", stdout);
@@ -148,8 +157,7 @@ static void print_json_string(const char *value)
     putchar('"');
 }
 
-static int explain_file(const char *path, int json)
-{
+static int explain_file(const char *path, int json) {
     char *source;
     size_t length, index;
     CbsTokenList tokens = {0};
@@ -159,12 +167,14 @@ static int explain_file(const char *path, int json)
 
     if (!has_cbs_extension(path)) {
         fprintf(stderr,
-                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the .cbs extension\n",
+                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the "
+                ".cbs extension\n",
                 path);
         return 3;
     }
     source = read_file(path, &length);
-    if (source == NULL) return 3;
+    if (source == NULL)
+        return 3;
     if (!cbs_lex(path, source, length, &tokens)) {
         free(source);
         cbs_token_list_destroy(&tokens);
@@ -202,30 +212,41 @@ static int explain_file(const char *path, int json)
         printf(",\"release\":%ld,\"architecture\":null,\"sources\":[", release);
         {
             int first_source = 1;
-            for (item_index = 0; item_index < package->child_count; ++item_index) {
+            for (item_index = 0; item_index < package->child_count;
+                 ++item_index) {
                 const CbsNode *sources = package->children[item_index];
-                if (sources->kind != CBS_NODE_SOURCES) continue;
-                for (child_index = 0; child_index < sources->child_count; ++child_index) {
+                if (sources->kind != CBS_NODE_SOURCES)
+                    continue;
+                for (child_index = 0; child_index < sources->child_count;
+                     ++child_index) {
                     const CbsNode *source = sources->children[child_index];
                     size_t url_index;
-                    if (!first_source) putchar(',');
+                    if (!first_source)
+                        putchar(',');
                     first_source = 0;
-                    fputs("{\"name\":", stdout); print_json_string(source->value);
+                    fputs("{\"name\":", stdout);
+                    print_json_string(source->value);
                     fputs(",\"urls\":[", stdout);
                     {
                         int first_url = 1;
-                        for (url_index = 0; url_index < source->child_count; ++url_index) {
+                        for (url_index = 0; url_index < source->child_count;
+                             ++url_index) {
                             const CbsNode *url = source->children[url_index];
-                            if (url->kind != CBS_NODE_URL) continue;
-                            if (!first_url) putchar(',');
+                            if (url->kind != CBS_NODE_URL)
+                                continue;
+                            if (!first_url)
+                                putchar(',');
                             first_url = 0;
                             print_json_string(url->value);
                         }
                     }
                     fputs("],\"sha256\":", stdout);
-                    for (url_index = 0; url_index < source->child_count; ++url_index)
-                        if (source->children[url_index]->kind == CBS_NODE_SHA256)
-                            print_json_string(source->children[url_index]->value);
+                    for (url_index = 0; url_index < source->child_count;
+                         ++url_index)
+                        if (source->children[url_index]->kind ==
+                            CBS_NODE_SHA256)
+                            print_json_string(
+                                source->children[url_index]->value);
                     fputs("}", stdout);
                 }
             }
@@ -233,27 +254,48 @@ static int explain_file(const char *path, int json)
         fputs("],\"requires\":{", stdout);
         {
             int first_group = 1;
-            for (item_index = 0; item_index < package->child_count; ++item_index) {
-                const CbsNode *requires = package->children[item_index];
-                if (requires->kind != CBS_NODE_REQUIRES) continue;
-                for (child_index = 0; child_index < requires->child_count; ++child_index) {
-                    const CbsNode *group = requires->children[child_index];
+            for (item_index = 0; item_index < package->child_count;
+                 ++item_index) {
+                const CbsNode *
+                    requires
+                = package->children[item_index];
+                if (requires->kind != CBS_NODE_REQUIRES)
+                    continue;
+                for (child_index = 0; child_index < requires->child_count;
+                     ++child_index) {
+                    const CbsNode *group =
+                        requires
+                        ->children[child_index];
                     size_t dep_index;
-                    if (!first_group) putchar(','); first_group = 0;
-                    print_json_string(group->name); fputs(":{", stdout);
-                    for (dep_index = 0; dep_index < group->child_count; ++dep_index) {
+                    if (!first_group)
+                        putchar(',');
+                    first_group = 0;
+                    print_json_string(group->name);
+                    fputs(":{", stdout);
+                    for (dep_index = 0; dep_index < group->child_count;
+                         ++dep_index) {
                         const CbsNode *dep = group->children[dep_index];
-                        size_t later; int first_value = 1;
+                        size_t later;
+                        int first_value = 1;
                         for (later = 0; later < dep_index; ++later)
-                            if (strcmp(group->children[later]->name, dep->name) == 0)
+                            if (strcmp(group->children[later]->name,
+                                       dep->name) == 0)
                                 break;
-                        if (later != dep_index) continue;
-                        if (dep_index != 0) putchar(',');
-                        print_json_string(dep->name); putchar(':');
+                        if (later != dep_index)
+                            continue;
+                        if (dep_index != 0)
+                            putchar(',');
+                        print_json_string(dep->name);
+                        putchar(':');
                         fputs("[", stdout);
-                        for (later = dep_index; later < group->child_count; ++later) {
-                            if (strcmp(group->children[later]->name, dep->name) != 0) continue;
-                            if (!first_value) putchar(','); first_value = 0;
+                        for (later = dep_index; later < group->child_count;
+                             ++later) {
+                            if (strcmp(group->children[later]->name,
+                                       dep->name) != 0)
+                                continue;
+                            if (!first_value)
+                                putchar(',');
+                            first_value = 0;
                             print_json_string(group->children[later]->value);
                         }
                         fputs("]", stdout);
@@ -270,8 +312,7 @@ static int explain_file(const char *path, int json)
         print_json_string(metadata.toolchain);
         fputs(",\"toolchain_reason\":", stdout);
         print_json_string(metadata.toolchain_reason);
-        printf(",\"capabilities\":%zu,\"phases\":[",
-               metadata.capability_count);
+        printf(",\"capabilities\":%zu,\"phases\":[", metadata.capability_count);
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,
@@ -279,7 +320,8 @@ static int explain_file(const char *path, int json)
         puts("]}");
     } else {
         printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
-        printf("metadata build_image=%s upstream=%s toolchain=%s capabilities=%zu\n",
+        printf("metadata build_image=%s upstream=%s toolchain=%s "
+               "capabilities=%zu\n",
                metadata.build_image == NULL ? "none" : metadata.build_image,
                metadata.upstream == NULL ? "none" : metadata.upstream,
                metadata.toolchain == NULL ? "none" : metadata.toolchain,
@@ -295,54 +337,70 @@ static int explain_file(const char *path, int json)
 }
 
 static int build_file(const char *recipe, const char *architecture,
-                      const char *staged, const char *output,
-                      const char *cache, const char *ca_file)
-{
+                      const char *staged, const char *output, const char *cache,
+                      const char *ca_file) {
     struct stat status;
     CbsFetchService service;
     char fetch_error[256];
-    if (cache != NULL && (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
+    if (cache != NULL &&
+        (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
         fprintf(stderr, "%s: cache directory is not accessible\n", cache);
         return 3;
     }
-    if (ca_file != NULL && (stat(ca_file, &status) != 0 || !S_ISREG(status.st_mode))) {
+    if (ca_file != NULL &&
+        (stat(ca_file, &status) != 0 || !S_ISREG(status.st_mode))) {
         fprintf(stderr, "%s: CA file is not accessible\n", ca_file);
         return 3;
     }
-    if (!cbs_cli_fetch_service_with_ca(&service, fetch_error, sizeof(fetch_error),
-                                       ca_file)) {
+    if (!cbs_cli_fetch_service_with_ca(&service, fetch_error,
+                                       sizeof(fetch_error), ca_file)) {
         fprintf(stderr, "source transport unavailable: %s\n", fetch_error);
         return 3;
     }
     if (!cbs_build_standalone_with_cache(recipe, staged, output, architecture,
                                          &service, cache)) {
-        fprintf(stderr, "build failed: recipe, staged tree, or package output was rejected\n");
+        fprintf(stderr, "build failed: recipe, staged tree, or package output "
+                        "was rejected\n");
         return 3;
     }
     printf("built %s\n", output);
     return 0;
 }
 
-static int inspect_file(const char *path, const char *artifact)
-{
-    char *source; size_t length; char recipe_digest[65], artifact_digest[65];
-    CbsTokenList tokens = {0}; CbsNode *document; CbsSourceSet sources = {0}; size_t i;
-    source = read_file(path, &length); if (source == NULL) return 3;
-    if (!cbs_lex(path, source, length, &tokens)) return 3;
+static int inspect_file(const char *path, const char *artifact) {
+    char *source;
+    size_t length;
+    char recipe_digest[65], artifact_digest[65];
+    CbsTokenList tokens = {0};
+    CbsNode *document;
+    CbsSourceSet sources = {0};
+    size_t i;
+    source = read_file(path, &length);
+    if (source == NULL)
+        return 3;
+    if (!cbs_lex(path, source, length, &tokens))
+        return 3;
     document = cbs_parse(path, source, length, &tokens);
     if (document == NULL || !cbs_validate(document, path, source) ||
         !cbs_sources_from_document(document, &sources) ||
-        !cbs_digest_text(source, length, recipe_digest)) return 3;
+        !cbs_digest_text(source, length, recipe_digest))
+        return 3;
     printf("recipe-digest %s\n", recipe_digest);
-    for (i=0;i<sources.count;++i) printf("source-digest %s %s\n", sources.items[i].name, sources.items[i].sha256);
-    if (artifact != NULL && cbs_digest_file(artifact, artifact_digest)) printf("artifact-digest %s\n", artifact_digest);
-    cbs_source_set_destroy(&sources); cbs_node_destroy(document); cbs_token_list_destroy(&tokens); free(source); return 0;
+    for (i = 0; i < sources.count; ++i)
+        printf("source-digest %s %s\n", sources.items[i].name,
+               sources.items[i].sha256);
+    if (artifact != NULL && cbs_digest_file(artifact, artifact_digest))
+        printf("artifact-digest %s\n", artifact_digest);
+    cbs_source_set_destroy(&sources);
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(source);
+    return 0;
 }
 
-int main(int argc, char **argv)
-{
-    if (argc == 2 && (strcmp(argv[1], "--help") == 0 ||
-                      strcmp(argv[1], "-h") == 0)) {
+int main(int argc, char **argv) {
+    if (argc == 2 &&
+        (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         usage(stdout);
         return 0;
     }
@@ -357,8 +415,8 @@ int main(int argc, char **argv)
     if (argc == 4 && strcmp(argv[1], "explain") == 0 &&
         strcmp(argv[3], "--json") == 0)
         return explain_file(argv[2], 1);
-    if (argc == 4 && (strcmp(argv[1], "check") == 0 ||
-                      strcmp(argv[1], "validate") == 0) &&
+    if (argc == 4 &&
+        (strcmp(argv[1], "check") == 0 || strcmp(argv[1], "validate") == 0) &&
         strcmp(argv[3], "--json") == 0) {
         cbs_diagnostic_set_json(1);
         return validate_file(argv[2]);
@@ -366,7 +424,8 @@ int main(int argc, char **argv)
     if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
         strcmp(argv[3], "--into") == 0) {
         if (!cbs_cixpkg_extract(argv[2], argv[4])) {
-            fprintf(stderr, "%s: error[CIXPKG-E4001]: artifact extraction failed\n",
+            fprintf(stderr,
+                    "%s: error[CIXPKG-E4001]: artifact extraction failed\n",
                     argv[2]);
             return 4;
         }
@@ -389,11 +448,14 @@ int main(int argc, char **argv)
         strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
         strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0 &&
         strcmp(argv[11], "--ca-file") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10], argv[12]);
-    if (argc == 3 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], NULL);
-    if (argc == 4 && strcmp(argv[1], "inspect") == 0) return inspect_file(argv[2], argv[3]);
-    if (argc != 3 || (strcmp(argv[1], "validate") != 0 &&
-                      strcmp(argv[1], "check") != 0)) {
+        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10],
+                          argv[12]);
+    if (argc == 3 && strcmp(argv[1], "inspect") == 0)
+        return inspect_file(argv[2], NULL);
+    if (argc == 4 && strcmp(argv[1], "inspect") == 0)
+        return inspect_file(argv[2], argv[3]);
+    if (argc != 3 ||
+        (strcmp(argv[1], "validate") != 0 && strcmp(argv[1], "check") != 0)) {
         usage(stderr);
         return 2;
     }

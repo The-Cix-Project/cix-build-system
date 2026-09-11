@@ -1,19 +1,22 @@
 #define _POSIX_C_SOURCE 200809L
+/* Regression tests for cache-first fetching and transport diagnostics. */
 #include "cbs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-typedef struct { int calls; } FetchState;
+typedef struct {
+    int calls;
+} FetchState;
 
 static int fetch_mock(const char *url, const char *destination, void *opaque,
-                      char *error, size_t error_size)
-{
+                      char *error, size_t error_size) {
     FetchState *state = opaque;
     FILE *file;
-    const char *value = strstr(url, "bad.invalid") != NULL ? "wrong" :
-                        (strstr(url, "empty") != NULL ? "" : "abc");
+    const char *value = strstr(url, "bad.invalid") != NULL
+                            ? "wrong"
+                            : (strstr(url, "empty") != NULL ? "" : "abc");
     state->calls += 1;
     file = fopen(destination, "wb");
     if (file == NULL) {
@@ -30,8 +33,7 @@ static int fetch_mock(const char *url, const char *destination, void *opaque,
     return 1;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     char directory_template[] = "/tmp/cbs-fetch-test-XXXXXX";
     char *directory;
     FILE *recipe;
@@ -44,7 +46,8 @@ int main(int argc, char **argv)
     CbsFetchService service;
     FetchState state = {0};
     const char *broken_url = "https://bad.invalid/source";
-    const char *broken_digest = "3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282";
+    const char *broken_digest =
+        "3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282";
     int ok = 1;
 
     if (argc != 2)
@@ -60,22 +63,31 @@ int main(int argc, char **argv)
         return 1;
     source_text = cbs_allocate((size_t)source_length + 1);
     if (fread(source_text, 1, (size_t)source_length, recipe) !=
-        (size_t)source_length) return 1;
+        (size_t)source_length)
+        return 1;
     fclose(recipe);
     source_text[source_length] = '\0';
-    if (!cbs_lex(argv[1], source_text, (size_t)source_length, &tokens)) ok = 0;
+    if (!cbs_lex(argv[1], source_text, (size_t)source_length, &tokens))
+        ok = 0;
     document = cbs_parse(argv[1], source_text, (size_t)source_length, &tokens);
     if (document == NULL || !cbs_validate(document, argv[1], source_text) ||
-        !cbs_sources_from_document(document, &set)) ok = 0;
+        !cbs_sources_from_document(document, &set))
+        ok = 0;
     service.fetch = fetch_mock;
     service.user = &state;
     if (ok && !cbs_sources_fetch(&set, directory, &service, argv[1],
-                                 source_text, document->location)) ok = 0;
-    if (ok && state.calls != 2) ok = 0;
-    if (ok && !cbs_sources_apply_execution_context(&set, &(CbsExecutionContext){0})) ok = 0;
+                                 source_text, document->location))
+        ok = 0;
+    if (ok && state.calls != 2)
+        ok = 0;
+    if (ok &&
+        !cbs_sources_apply_execution_context(&set, &(CbsExecutionContext){0}))
+        ok = 0;
     if (ok && !cbs_sources_fetch(&set, directory, NULL, argv[1], source_text,
-                                 document->location)) ok = 0;
-    if (ok && state.calls != 2) ok = 0;
+                                 document->location))
+        ok = 0;
+    if (ok && state.calls != 2)
+        ok = 0;
 
     broken.items = cbs_allocate(sizeof(*broken.items));
     broken.count = 1;
@@ -84,8 +96,9 @@ int main(int argc, char **argv)
     broken.items[0].urls = &broken_url;
     broken.items[0].url_count = 1;
     broken.items[0].sha256 = broken_digest;
-    if (ok && cbs_sources_fetch(&broken, directory, &service, argv[1],
-                                NULL, document->location)) ok = 0;
+    if (ok && cbs_sources_fetch(&broken, directory, &service, argv[1], NULL,
+                                document->location))
+        ok = 0;
     free(broken.items);
     cbs_source_set_destroy(&set);
     cbs_node_destroy(document);

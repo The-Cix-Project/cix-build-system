@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+/* Regression tests for failure attribution and diagnostic notes. */
 #include "cbs.h"
 
 #include <fcntl.h>
@@ -9,8 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char *read_source(const char *path, size_t *length)
-{
+static char *read_source(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     long size;
     char *source;
@@ -29,8 +29,7 @@ static char *read_source(const char *path, size_t *length)
     return source;
 }
 
-static int copy_executable(const char *source, const char *destination)
-{
+static int copy_executable(const char *source, const char *destination) {
     int input = open(source, O_RDONLY);
     int output;
     char buffer[32768];
@@ -45,8 +44,8 @@ static int copy_executable(const char *source, const char *destination)
     while ((length = read(input, buffer, sizeof(buffer))) > 0) {
         ssize_t offset = 0;
         while (offset < length) {
-            ssize_t written = write(output, buffer + offset,
-                                    (size_t)(length - offset));
+            ssize_t written =
+                write(output, buffer + offset, (size_t)(length - offset));
             if (written < 0) {
                 close(input);
                 close(output);
@@ -59,8 +58,7 @@ static int copy_executable(const char *source, const char *destination)
     return close(output) == 0 && length == 0 && chmod(destination, 0700) == 0;
 }
 
-static CbsNode *phase_named(CbsNode *document, const char *name)
-{
+static CbsNode *phase_named(CbsNode *document, const char *name) {
     CbsNode *package = document->children[0];
     size_t index;
     for (index = 0; index < package->child_count; ++index) {
@@ -71,14 +69,12 @@ static CbsNode *phase_named(CbsNode *document, const char *name)
     return NULL;
 }
 
-static int exists(const char *path)
-{
+static int exists(const char *path) {
     struct stat status;
     return lstat(path, &status) == 0;
 }
 
-static int probe(int argc, char **argv)
-{
+static int probe(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--succeed") == 0)
         return 0;
     if (argc == 3 && strcmp(argv[1], "--fail") == 0)
@@ -96,8 +92,7 @@ static int probe(int argc, char **argv)
     return -1;
 }
 
-static int run_parent(const char *recipe_path, const char *self)
-{
+static int run_parent(const char *recipe_path, const char *self) {
     char template[] = "/tmp/cbs-runtime-test-XXXXXX";
     char *base = mkdtemp(template);
     char src[512], build[512], dest[512], executable[512];
@@ -119,13 +114,15 @@ static int run_parent(const char *recipe_path, const char *self)
     int result = 1;
 
     memset(&tokens, 0, sizeof(tokens));
-    if (base == NULL || snprintf(src, sizeof(src), "%s/src", base) >= (int)sizeof(src) ||
-        snprintf(build, sizeof(build), "%s/build", base) >= (int)sizeof(build) ||
+    if (base == NULL ||
+        snprintf(src, sizeof(src), "%s/src", base) >= (int)sizeof(src) ||
+        snprintf(build, sizeof(build), "%s/build", base) >=
+            (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", base) >= (int)sizeof(dest) ||
         snprintf(executable, sizeof(executable), "%s/runtime-test", build) >=
-        (int)sizeof(executable) || mkdir(src, 0755) != 0 ||
-        mkdir(build, 0755) != 0 || mkdir(dest, 0755) != 0 ||
-        !copy_executable(self, executable))
+            (int)sizeof(executable) ||
+        mkdir(src, 0755) != 0 || mkdir(build, 0755) != 0 ||
+        mkdir(dest, 0755) != 0 || !copy_executable(self, executable))
         return 1;
     snprintf(continued, sizeof(continued), "%s/continued", build);
     snprintf(stopped, sizeof(stopped), "%s/must-not-run", build);
@@ -155,7 +152,8 @@ static int run_parent(const char *recipe_path, const char *self)
     context.working_directory = src;
     capture = tmpfile();
     saved = dup(STDERR_FILENO);
-    if (capture == NULL || saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (capture == NULL || saved < 0 ||
+        dup2(fileno(capture), STDERR_FILENO) < 0)
         goto cleanup;
     if (cbs_execute_block(build_phase, &context))
         goto restore;
@@ -168,14 +166,15 @@ static int run_parent(const char *recipe_path, const char *self)
     diagnostics[diagnostic_length] = '\0';
     primary = strstr(diagnostics, "error[CPDL-E4001]");
     allowed_note = strstr(diagnostics, "note[CPDL-N4001]");
-    stopping_note = allowed_note == NULL ? NULL :
-                    strstr(allowed_note + 1, "note[CPDL-N4001]");
+    stopping_note = allowed_note == NULL
+                        ? NULL
+                        : strstr(allowed_note + 1, "note[CPDL-N4001]");
     if (primary == NULL || allowed_note == NULL || stopping_note == NULL ||
         !(primary < allowed_note && allowed_note < stopping_note) ||
         strstr(primary, "status 17") == NULL ||
         strstr(allowed_note, "status 18") == NULL ||
-        strstr(stopping_note, "status 19") == NULL ||
-        !exists(continued) || exists(stopped)) {
+        strstr(stopping_note, "status 19") == NULL || !exists(continued) ||
+        exists(stopped)) {
         fputs(diagnostics, stderr);
         goto cleanup;
     }
@@ -203,8 +202,7 @@ cleanup:
     return result;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     int probe_result = probe(argc, argv);
     if (probe_result >= 0)
         return probe_result;
@@ -216,6 +214,7 @@ int main(int argc, char **argv)
         fputs("failure orchestration tests: FAIL\n", stderr);
         return 1;
     }
-    puts("failure orchestration tests: PASS (primary cause and subordinate notes)");
+    puts("failure orchestration tests: PASS (primary cause and subordinate "
+         "notes)");
     return 0;
 }
