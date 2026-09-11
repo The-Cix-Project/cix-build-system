@@ -11,6 +11,7 @@ daemon embedder can compare the observed names with the recipe's `runtime`
 declarations and decide how to report or stage them; standalone CBS never
 silently installs an observed library.
 
-Validated by `tests/observe-test.c` against `/bin/ls`, including a real
-`DT_NEEDED` libc entry, and against `/etc/hosts` as invalid non-ELF input.
+Validated by `tests/observe-test.c` and `tests/seams-test.c` against the freshly
+built `./cbs`, including a real `DT_NEEDED` libc entry. Invalid input is tested
+with temporary junk bytes rather than a distro-specific path.
 The complete `make test` suite passes.

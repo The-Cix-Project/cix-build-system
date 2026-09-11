@@ -49,7 +49,7 @@ int main(void) {
         !cbs_daemon_request(request, NULL, "ping", "x", response,
                             sizeof(response)) ||
         strcmp(response, "pong") != 0 || !cbs_service_health(health, NULL) ||
-        !cbs_observe_dependencies(observe, "/bin/ls", NULL) || !observed)
+        !cbs_observe_dependencies(observe, "./cbs", NULL) || !observed)
         return 1;
     puts("embedding seam tests: PASS (sandbox, signature, daemon, health, ELF "
          "observer)");
