@@ -19,8 +19,10 @@ typedef struct {
     size_t capacity;
 } PathList;
 
+/* Forward-declare parent confinement validation. */
 static int safe_parents(const char *path, const char *root);
 
+/* Emit one located filesystem-operation diagnostic. */
 static void fs_error(const CbsNode *operation,
                      const CbsExecutionContext *context,
                      const char *logical_path, const char *detail) {
@@ -33,12 +35,14 @@ static void fs_error(const CbsNode *operation,
                    message);
 }
 
+/* Infer whether a copy source names a file, directory, or glob. */
 static int inferred_kind(const char *value) {
     return value != NULL && value[0] == '$' && value[1] != '{'
                ? CBS_TOKEN_CBS_VALUE
                : CBS_TOKEN_STRING;
 }
 
+/* Join two path components without losing the root separator. */
 static char *join_path(const char *left, const char *right) {
     size_t left_length = strlen(left);
     size_t right_length = strlen(right);
@@ -53,6 +57,7 @@ static char *join_path(const char *left, const char *right) {
     return result;
 }
 
+/* Normalize separators and dot components in an absolute path. */
 static char *normalize_absolute(const char *path) {
     char *copy;
     char *cursor;
@@ -109,6 +114,7 @@ static char *normalize_absolute(const char *path) {
     return result;
 }
 
+/* Check whether a canonical path is beneath a canonical root. */
 static int beneath(const char *path, const char *root) {
     size_t length = strlen(root);
 
@@ -118,6 +124,7 @@ static int beneath(const char *path, const char *root) {
            (path[length] == '\0' || path[length] == '/');
 }
 
+/* Select the execution root corresponding to a logical recipe path. */
 static const char *containing_root(const char *path,
                                    const CbsExecutionContext *context) {
     const char *roots[3];
@@ -135,6 +142,7 @@ static const char *containing_root(const char *path,
     return best;
 }
 
+/* Reject unsafe or unexpectedly broad filesystem roots. */
 static int safe_root(const char *root) {
     char *normalized;
     struct stat status;
@@ -154,6 +162,7 @@ static int safe_root(const char *root) {
     return result;
 }
 
+/* Resolve a recipe path beneath its permitted execution root. */
 static char *resolve_path(const char *logical,
                           const CbsExecutionContext *context,
                           const char **root_out) {
@@ -194,6 +203,7 @@ char *cbs_resolve_confined_path(const char *logical,
     return path;
 }
 
+/* Verify that every existing parent remains within the root. */
 static int safe_parents(const char *path, const char *root) {
     char *copy = cbs_duplicate(path);
     char *cursor = copy + strlen(root);
@@ -226,6 +236,7 @@ static int safe_parents(const char *path, const char *root) {
     return 1;
 }
 
+/* Parse a recipe mode or return the operation's fallback mode. */
 static mode_t parse_mode(const char *text, mode_t fallback) {
     char *end;
     unsigned long value;
@@ -236,6 +247,7 @@ static mode_t parse_mode(const char *text, mode_t fallback) {
     return *end == '\0' ? (mode_t)value : fallback;
 }
 
+/* Create missing parent directories under a confined root. */
 static int ensure_directories(const char *path, const char *root, mode_t mode) {
     char *copy = cbs_duplicate(path);
     char *cursor = copy + strlen(root);
@@ -270,11 +282,13 @@ static int ensure_directories(const char *path, const char *root, mode_t mode) {
     return chmod(path, mode) == 0;
 }
 
+/* Return the final component of a path. */
 static const char *base_name(const char *path) {
     const char *slash = strrchr(path, '/');
     return slash == NULL ? path : slash + 1;
 }
 
+/* Resolve whether a copy destination names a file or directory target. */
 static char *destination_path(const char *source, const char *destination) {
     struct stat status;
 
@@ -283,6 +297,7 @@ static char *destination_path(const char *source, const char *destination) {
     return cbs_duplicate(destination);
 }
 
+/* Copy file descriptors until end of input. */
 static int copy_bytes(int input, int output) {
     char buffer[32768];
     ssize_t received;
@@ -307,6 +322,7 @@ static int copy_bytes(int input, int output) {
     return received == 0;
 }
 
+/* Copy one regular file while preserving the requested mode. */
 static int copy_one(const char *source, const char *destination) {
     struct stat source_status;
     struct stat destination_status;
@@ -370,6 +386,7 @@ done:
     return result;
 }
 
+/* Materialize one verified named source into the build tree. */
 int cbs_execute_materialize(const CbsNode *operation,
                             const CbsExecutionContext *context) {
     char *source =
@@ -412,6 +429,7 @@ failure:
     return 0;
 }
 
+/* Remove a confined tree recursively for the remove operation. */
 static int remove_tree(const char *path) {
     struct stat status;
     DIR *directory;
@@ -441,6 +459,7 @@ static int remove_tree(const char *path) {
     return rmdir(path) == 0;
 }
 
+/* Match one byte against a bracket-expression glob class. */
 static int class_match(const char **pattern, unsigned char byte) {
     const char *cursor = *pattern + 1;
     int negate = *cursor == '!';
@@ -470,6 +489,7 @@ static int class_match(const char **pattern, unsigned char byte) {
     return negate ? !matched : matched;
 }
 
+/* Match a path against the supported glob syntax. */
 static int glob_match(const char *pattern, const char *text) {
     if (*pattern == '\0')
         return *text == '\0';
@@ -511,6 +531,7 @@ static int glob_match(const char *pattern, const char *text) {
     return *pattern == *text && glob_match(pattern + 1, text + 1);
 }
 
+/* Append one matched path to a dynamically growing list. */
 static void path_list_add(PathList *list, const char *path) {
     size_t capacity;
     if (list->count == list->capacity) {
@@ -522,6 +543,7 @@ static void path_list_add(PathList *list, const char *path) {
     list->items[list->count++] = cbs_duplicate(path);
 }
 
+/* Recursively collect paths matching a glob pattern. */
 static void collect_matches(const char *directory, const char *pattern,
                             PathList *matches) {
     DIR *stream = opendir(directory);
@@ -546,12 +568,14 @@ static void collect_matches(const char *directory, const char *pattern,
     closedir(stream);
 }
 
+/* Sort matched paths deterministically by their textual names. */
 static int compare_paths(const void *left, const void *right) {
     const char *const *a = left;
     const char *const *b = right;
     return strcmp(*a, *b);
 }
 
+/* Release all paths collected during glob expansion. */
 static void path_list_destroy(PathList *list) {
     size_t index;
     for (index = 0; index < list->count; ++index)
@@ -559,6 +583,7 @@ static void path_list_destroy(PathList *list) {
     free(list->items);
 }
 
+/* Select source paths for copy/remove operations. */
 static int select_paths(const CbsNode *operation,
                         const CbsExecutionContext *context, PathList *paths) {
     const char *root;
@@ -581,6 +606,7 @@ static int select_paths(const CbsNode *operation,
     return 1;
 }
 
+/* Write replacement content through a temporary file and rename. */
 static int atomic_write_bytes(const char *path, const unsigned char *content,
                               size_t length, mode_t mode) {
     static const char suffix[] = "/.cbs-write-XXXXXX";
@@ -625,6 +651,7 @@ static int atomic_write_bytes(const char *path, const unsigned char *content,
     return result;
 }
 
+/* Execute one confined filesystem operation. */
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context) {
     char *first = NULL;
@@ -728,6 +755,7 @@ failure:
     return 0;
 }
 
+/* Report a source-edit or assertion failure at its operation location. */
 static void assertion_error(const CbsNode *operation,
                             const CbsExecutionContext *context,
                             const char *message) {
@@ -736,6 +764,7 @@ static void assertion_error(const CbsNode *operation,
                    message);
 }
 
+/* Read a regular file for source-edit matching. */
 static unsigned char *read_regular(const char *path, size_t *length,
                                    mode_t *mode) {
     struct stat status;
@@ -779,6 +808,7 @@ static unsigned char *read_regular(const char *path, size_t *length,
     return content;
 }
 
+/* Count non-overlapping occurrences of a byte pattern. */
 static size_t count_bytes(const unsigned char *content, size_t content_length,
                           const unsigned char *needle, size_t needle_length) {
     size_t count = 0;
@@ -797,6 +827,7 @@ static size_t count_bytes(const unsigned char *content, size_t content_length,
     return count;
 }
 
+/* Test whether a byte pattern occurs at least once. */
 static int contains_bytes(const unsigned char *content, size_t content_length,
                           const unsigned char *needle, size_t needle_length) {
     if (needle_length == 0)
@@ -804,6 +835,7 @@ static int contains_bytes(const unsigned char *content, size_t content_length,
     return count_bytes(content, content_length, needle, needle_length) > 0;
 }
 
+/* Build edited file content for replace or insert operations. */
 static unsigned char *
 edited_content(const unsigned char *content, size_t content_length,
                const unsigned char *needle, size_t needle_length,
@@ -846,6 +878,7 @@ edited_content(const unsigned char *content, size_t content_length,
     return result;
 }
 
+/* Apply one cardinality-checked source edit atomically. */
 static int execute_edit(const CbsNode *operation,
                         const CbsExecutionContext *context) {
     const char *root;
@@ -899,6 +932,7 @@ done:
     return success;
 }
 
+/* Evaluate a glob assertion and its expected cardinality. */
 static int require_glob(const CbsNode *operation,
                         const CbsExecutionContext *context) {
     const char *root;
@@ -927,6 +961,7 @@ static int require_glob(const CbsNode *operation,
     return success;
 }
 
+/* Evaluate existence, type, and content properties for one path. */
 static int require_path(const CbsNode *operation,
                         const CbsExecutionContext *context) {
     const char *root;
@@ -1001,6 +1036,7 @@ done:
     return success;
 }
 
+/* Find the enabled/disabled state of one Kconfig symbol. */
 static int config_state(const unsigned char *content, size_t length,
                         const char *symbol, const char *wanted) {
     size_t offset = 0;
@@ -1039,6 +1075,7 @@ static int config_state(const unsigned char *content, size_t length,
     return active;
 }
 
+/* Evaluate a Kconfig assertion against a generated configuration. */
 static int require_config(const CbsNode *operation,
                           const CbsExecutionContext *context) {
     const char *root;
@@ -1073,6 +1110,7 @@ static int require_config(const CbsNode *operation,
     return 1;
 }
 
+/* Execute a source edit or require assertion operation. */
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context) {
     if (operation->kind == CBS_NODE_REPLACE ||

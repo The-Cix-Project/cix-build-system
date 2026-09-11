@@ -7,6 +7,7 @@
 
 static int json_diagnostics;
 
+/* Serialize one diagnostic value as a JSON string. */
 static void json_string(const char *text) {
     const unsigned char *cursor = (const unsigned char *)text;
     while (*cursor != '\0') {
@@ -24,8 +25,10 @@ static void json_string(const char *text) {
     }
 }
 
+/* Enable or disable machine-readable diagnostic output. */
 void cbs_diagnostic_set_json(int enabled) { json_diagnostics = enabled != 0; }
 
+/* Map an internal diagnostic category to its stable wire name. */
 static const char *category_name(CbsDiagCategory category) {
     switch (category) {
     case CBS_DIAG_LEX:

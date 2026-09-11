@@ -7,10 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Check that an ELF offset/length pair fits in the input buffer. */
 static int range_ok(size_t total, uint64_t offset, uint64_t length) {
     return offset <= total && length <= (uint64_t)total - offset;
 }
 
+/* Translate a loadable ELF virtual address into a file offset. */
 static int vaddr_file(const unsigned char *data, size_t size, uint64_t phoff,
                       uint16_t entsize, uint16_t count, uint64_t address,
                       uint64_t *offset) {
@@ -29,6 +31,7 @@ static int vaddr_file(const unsigned char *data, size_t size, uint64_t phoff,
     return 0;
 }
 
+/* Read ELF64 DT_NEEDED entries and report each shared-library dependency. */
 int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
                              void *user) {
     FILE *file;

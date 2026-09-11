@@ -41,11 +41,13 @@ typedef struct {
     const char *ca_file;
 } CurlApi;
 
+/* Write downloaded bytes to the destination stream. */
 static size_t write_file(const void *data, size_t size, size_t count,
                          void *opaque) {
     return fwrite(data, size, count, opaque);
 }
 
+/* Load the small libcurl API surface used by CBS at runtime. */
 static int load_api(CurlApi *api, char *error, size_t error_size) {
     memset(api, 0, sizeof(*api));
     api->library = dlopen("libcurl.so.4", RTLD_NOW | RTLD_LOCAL);
@@ -69,6 +71,7 @@ static int load_api(CurlApi *api, char *error, size_t error_size) {
     return 1;
 }
 
+/* Fetch one URL into a temporary file and publish it atomically. */
 static int curl_fetch(const char *url, const char *destination, void *opaque,
                       char *error, size_t error_size) {
     CurlApi *api = opaque;
@@ -117,11 +120,13 @@ static int curl_fetch(const char *url, const char *destination, void *opaque,
     return 1;
 }
 
+/* Create the default HTTPS source-fetch service. */
 int cbs_cli_fetch_service(CbsFetchService *service, char *error,
                           size_t error_size) {
     return cbs_cli_fetch_service_with_ca(service, error, error_size, NULL);
 }
 
+/* Create an HTTPS fetch service with an optional private CA bundle. */
 int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
                                   size_t error_size, const char *ca_file) {
     static CurlApi api;

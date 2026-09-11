@@ -19,6 +19,7 @@ typedef struct {
     int failed;
 } Lexer;
 
+/* Return the source location at the current lexer cursor. */
 static CbsLocation location(const Lexer *lexer) {
     CbsLocation result;
 
@@ -29,6 +30,7 @@ static CbsLocation location(const Lexer *lexer) {
     return result;
 }
 
+/* Append one token to the lexer's growing token list. */
 static void token_add(Lexer *lexer, CbsTokenKind kind, char *text,
                       CbsLocation token_location) {
     size_t capacity;
@@ -47,6 +49,7 @@ static void token_add(Lexer *lexer, CbsTokenKind kind, char *text,
     token->location = token_location;
 }
 
+/* Emit a lexical diagnostic and stop accepting further input. */
 static void lexical_error(Lexer *lexer, CbsLocation error_location,
                           const char *code, const char *message) {
     cbs_diagnostic(lexer->path, lexer->source, error_location, "error", code,
@@ -54,6 +57,7 @@ static void lexical_error(Lexer *lexer, CbsLocation error_location,
     lexer->failed = 1;
 }
 
+/* Return the expected byte width for a UTF-8 leading byte. */
 static int utf8_width(unsigned char byte) {
     if (byte < 0x80)
         return 1;
@@ -66,6 +70,7 @@ static int utf8_width(unsigned char byte) {
     return 0;
 }
 
+/* Validate continuation bytes and Unicode scalar boundaries. */
 static int valid_utf8_sequence(const char *text, size_t remaining, int width) {
     unsigned char first;
     unsigned char second;
@@ -91,6 +96,7 @@ static int valid_utf8_sequence(const char *text, size_t remaining, int width) {
     return 1;
 }
 
+/* Reject malformed UTF-8 and embedded NUL bytes before tokenization. */
 static int validate_source_utf8(Lexer *lexer) {
     size_t offset = 0;
     size_t line = 1;
@@ -134,6 +140,7 @@ static int validate_source_utf8(Lexer *lexer) {
     return 1;
 }
 
+/* Advance one ASCII byte and update line and column state. */
 static void advance_ascii(Lexer *lexer) {
     char character = lexer->source[lexer->offset++];
 
@@ -147,6 +154,7 @@ static void advance_ascii(Lexer *lexer) {
     }
 }
 
+/* Advance over one validated UTF-8 scalar value. */
 static void advance_scalar(Lexer *lexer) {
     int width = utf8_width((unsigned char)lexer->source[lexer->offset]);
 
@@ -158,18 +166,22 @@ static void advance_scalar(Lexer *lexer) {
     ++lexer->column;
 }
 
+/* Test whether the lexer has consumed every source byte. */
 static int at_end(const Lexer *lexer) { return lexer->offset >= lexer->length; }
 
+/* Test whether a character may begin an unquoted CPDL word. */
 static int is_word_start(char character) {
     return (character >= 'A' && character <= 'Z') ||
            (character >= 'a' && character <= 'z') || character == '_';
 }
 
+/* Test whether a character may continue an unquoted CPDL word. */
 static int is_word_continue(char character) {
     return is_word_start(character) || (character >= '0' && character <= '9') ||
            character == '-';
 }
 
+/* Convert one hexadecimal digit to its numeric value. */
 static int hex_value(char character) {
     if (character >= '0' && character <= '9')
         return character - '0';
@@ -180,6 +192,7 @@ static int hex_value(char character) {
     return -1;
 }
 
+/* Append one decoded byte to a growing lexer buffer. */
 static void append_byte(char **buffer, size_t *length, size_t *capacity,
                         unsigned char byte) {
     if (*length + 1 >= *capacity) {
@@ -189,6 +202,7 @@ static void append_byte(char **buffer, size_t *length, size_t *capacity,
     (*buffer)[(*length)++] = (char)byte;
 }
 
+/* Encode one Unicode scalar as UTF-8 in a growing buffer. */
 static void append_codepoint(char **buffer, size_t *length, size_t *capacity,
                              unsigned long codepoint) {
     if (codepoint <= 0x7f) {
@@ -208,6 +222,7 @@ static void append_codepoint(char **buffer, size_t *length, size_t *capacity,
     }
 }
 
+/* Lex a quoted string and decode its escape sequences. */
 static void lex_string(Lexer *lexer) {
     CbsLocation start = location(lexer);
     char *buffer = NULL;
@@ -296,6 +311,7 @@ static void lex_string(Lexer *lexer) {
     token_add(lexer, CBS_TOKEN_STRING, buffer, start);
 }
 
+/* Find the closing indentation line of a block string. */
 static int block_closing_line(const Lexer *lexer, size_t offset, size_t *indent,
                               size_t *after) {
     size_t cursor = offset;
@@ -317,6 +333,7 @@ static int block_closing_line(const Lexer *lexer, size_t offset, size_t *indent,
     return 1;
 }
 
+/* Lex a multiline block string while preserving its content. */
 static void lex_block_string(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t content_start;
@@ -392,6 +409,7 @@ static void lex_block_string(Lexer *lexer) {
     token_add(lexer, CBS_TOKEN_BLOCK_STRING, output, start);
 }
 
+/* Lex integer, duration, and file-mode literals. */
 static void lex_number(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
@@ -440,6 +458,7 @@ static void lex_number(Lexer *lexer) {
               start);
 }
 
+/* Lex one keyword or identifier-like word. */
 static void lex_word(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
@@ -451,6 +470,7 @@ static void lex_word(Lexer *lexer) {
               start);
 }
 
+/* Lex an interpolation value beginning with `${`. */
 static void lex_cbs_value(Lexer *lexer) {
     CbsLocation start = location(lexer);
     size_t begin = lexer->offset;
@@ -477,6 +497,7 @@ static void lex_cbs_value(Lexer *lexer) {
               start);
 }
 
+/* Tokenize a complete CPDL source string. */
 int cbs_lex(const char *path, const char *source, size_t length,
             CbsTokenList *tokens) {
     Lexer lexer;

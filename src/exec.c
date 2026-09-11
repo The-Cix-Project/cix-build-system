@@ -24,6 +24,7 @@ typedef struct {
 static volatile sig_atomic_t active_child;
 static volatile sig_atomic_t interrupted;
 
+/* Forward SIGINT to the active child process group. */
 static void forward_interrupt(int signal_number) {
     (void)signal_number;
     interrupted = 1;
@@ -56,6 +57,7 @@ static int apply_child_limits(const CbsExecutionContext *context,
            apply_limit(RLIMIT_NPROC, context->limits.processes, 4096, 1);
 }
 
+/* Check whether a recipe attempts to invoke a prohibited shell utility. */
 int cbs_is_forbidden_executable(const char *value) {
     static const char *const forbidden[] = {"sh",  "bash", "dash", "ash",
                                             "ksh", "zsh",  "env"};
@@ -70,6 +72,7 @@ int cbs_is_forbidden_executable(const char *value) {
     return 0;
 }
 
+/* Check whether a compiler name violates the toolchain policy. */
 int cbs_is_forbidden_compiler(const char *value) {
     const char *base = strrchr(value == NULL ? "" : value, '/');
     base = base == NULL ? value : base + 1;
@@ -79,6 +82,7 @@ int cbs_is_forbidden_compiler(const char *value) {
             strcmp(base, "c++") == 0);
 }
 
+/* Append an owned string to a dynamically growing argument list. */
 static void string_list_add(StringList *list, char *value) {
     size_t capacity;
 
@@ -91,10 +95,12 @@ static void string_list_add(StringList *list, char *value) {
     list->items[list->count++] = value;
 }
 
+/* Add the NULL terminator required by execve. */
 static void string_list_terminate(StringList *list) {
     string_list_add(list, NULL);
 }
 
+/* Release every string and pointer in an argument list. */
 static void string_list_destroy(StringList *list) {
     size_t index;
 
@@ -213,6 +219,7 @@ char *cbs_resolve_value(const char *value, int token_kind,
     return result;
 }
 
+/* Check whether an environment entry has a requested variable name. */
 static int environment_has_name(const char *entry, const char *name) {
     size_t length = strlen(name);
     return strncmp(entry, name, length) == 0 && entry[length] == '=';
@@ -232,6 +239,7 @@ static void environment_set(StringList *environment, const char *name,
     string_list_add(environment, entry);
 }
 
+/* Build one NAME=value environment entry. */
 static char *environment_entry(const char *name, const char *value) {
     size_t name_length = strlen(name);
     size_t value_length = strlen(value);
@@ -255,6 +263,7 @@ static const char *environment_get(const StringList *environment,
     return NULL;
 }
 
+/* Join two path components with exactly one separator. */
 static char *join_path(const char *left, const char *right) {
     size_t left_length = strlen(left);
     size_t right_length = strlen(right);
@@ -301,6 +310,7 @@ static char *resolve_executable(const char *program,
     return NULL;
 }
 
+/* Parse a validated CPDL duration into milliseconds. */
 static long duration_milliseconds(const char *duration) {
     char *end;
     long value = strtol(duration, &end, 10);
@@ -321,6 +331,7 @@ static long elapsed_milliseconds(const struct timespec *start,
     return seconds * 1000 + nanoseconds / 1000000;
 }
 
+/* Wait for a child, escalating from interrupt to timeout termination. */
 static int wait_for_child(pid_t child, long timeout_ms, int *status) {
     struct timespec start;
     struct timespec now;
@@ -383,6 +394,7 @@ static void runtime_error(const CbsNode *run,
                    "error", code, CBS_DIAG_RUNTIME, message);
 }
 
+/* Resolve and execute one CPDL run operation under resource limits. */
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     StringList arguments;
     StringList environment;

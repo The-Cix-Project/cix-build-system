@@ -13,6 +13,7 @@ typedef struct {
     int errors;
 } Validator;
 
+/* Emit one located validation error and increment the error count. */
 static void validation_error(Validator *validator, const CbsNode *node,
                              const char *code, const char *message) {
     cbs_diagnostic(validator->path, validator->source, node->location, "error",
@@ -20,6 +21,7 @@ static void validation_error(Validator *validator, const CbsNode *node,
     ++validator->errors;
 }
 
+/* Check the restricted package-name grammar. */
 static int valid_package_name(const char *name) {
     const unsigned char *cursor = (const unsigned char *)name;
 
@@ -33,6 +35,7 @@ static int valid_package_name(const char *name) {
     return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
 }
 
+/* Check whether a recipe environment name is safe and portable. */
 static int valid_environment_name(const char *name) {
     const unsigned char *cursor = (const unsigned char *)name;
 
@@ -46,6 +49,7 @@ static int valid_environment_name(const char *name) {
     return 1;
 }
 
+/* Check that a source digest is exactly 64 hexadecimal characters. */
 static int valid_sha256(const char *hash) {
     size_t index;
 
@@ -59,6 +63,7 @@ static int valid_sha256(const char *hash) {
     return 1;
 }
 
+/* Check whether a named source exists in the package declaration. */
 static int source_declared(const Validator *validator, const char *name) {
     size_t index;
     size_t source_index;
@@ -77,6 +82,7 @@ static int source_declared(const Validator *validator, const char *name) {
     return 0;
 }
 
+/* Check whether an interpolation name is defined by CBS policy. */
 static int known_value_name(Validator *validator, const char *name,
                             size_t length) {
     static const char *const values[] = {"name",  "version", "release",
@@ -98,6 +104,7 @@ static int known_value_name(Validator *validator, const char *name,
     return 0;
 }
 
+/* Validate every interpolation embedded in a node value. */
 static void validate_interpolation(Validator *validator, const CbsNode *node,
                                    const char *value) {
     const char *cursor = value;
@@ -120,6 +127,7 @@ static void validate_interpolation(Validator *validator, const CbsNode *node,
     }
 }
 
+/* Validate a value that must not contain an interpolation. */
 static void validate_bare_value(Validator *validator, const CbsNode *node,
                                 const char *value) {
     const char *name;
@@ -131,12 +139,14 @@ static void validate_bare_value(Validator *validator, const CbsNode *node,
         validation_error(validator, node, "CPDL-E3005", "unknown CBS value");
 }
 
+/* Validate a normal CPDL string value and its interpolation rules. */
 static void validate_value(Validator *validator, const CbsNode *node,
                            const char *value) {
     validate_bare_value(validator, node, value);
     validate_interpolation(validator, node, value);
 }
 
+/* Check an octal mode and reject privileged bits. */
 static int valid_mode(const char *mode) {
     size_t index;
     size_t length;
@@ -153,6 +163,7 @@ static int valid_mode(const char *mode) {
     return 1;
 }
 
+/* Check that a glob uses only the supported pattern vocabulary. */
 static int valid_glob(const char *glob) {
     size_t index;
 
@@ -175,6 +186,7 @@ static int valid_glob(const char *glob) {
     return 1;
 }
 
+/* Report an option repeated inside one operation. */
 static void duplicate_option(Validator *validator, const CbsNode *node,
                              int *seen, const char *name) {
     char message[256];
@@ -186,6 +198,7 @@ static void duplicate_option(Validator *validator, const CbsNode *node,
     *seen = 1;
 }
 
+/* Validate command, argument, environment, and limit options. */
 static void validate_run(Validator *validator, const CbsNode *run,
                          int in_on_fail) {
     int jobs = 0;
@@ -257,9 +270,11 @@ static void validate_run(Validator *validator, const CbsNode *run,
     }
 }
 
+/* Forward-declare operation validation for recursive block validation. */
 static void validate_operation(Validator *validator, const CbsNode *operation,
                                int in_on_fail);
 
+/* Validate every operation and on-failure block in one phase. */
 static void validate_block(Validator *validator, const CbsNode *owner,
                            int in_on_fail) {
     size_t index;
@@ -282,6 +297,7 @@ static void validate_block(Validator *validator, const CbsNode *owner,
     }
 }
 
+/* Validate a selector attached to a filesystem operation. */
 static void validate_selector(Validator *validator, const CbsNode *operation) {
     validate_value(validator, operation, operation->value);
     if (operation->flag && operation->value != NULL &&
@@ -290,6 +306,7 @@ static void validate_selector(Validator *validator, const CbsNode *operation) {
                          "invalid glob expression");
 }
 
+/* Validate one operation and its operation-specific children. */
 static void validate_operation(Validator *validator, const CbsNode *operation,
                                int in_on_fail) {
     size_t index;
@@ -431,6 +448,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     }
 }
 
+/* Return the canonical ordering rank for a package item. */
 static int package_item_rank(CbsNodeKind kind, const char *name) {
     switch (kind) {
     case CBS_NODE_VERSION:
@@ -464,6 +482,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     }
 }
 
+/* Validate source names, URLs, digests, and duplicate declarations. */
 static void validate_sources(Validator *validator, const CbsNode *sources) {
     size_t index;
     size_t prior;
@@ -507,6 +526,7 @@ static void validate_sources(Validator *validator, const CbsNode *sources) {
                          "sources block must contain exactly one main source");
 }
 
+/* Return the canonical ordering rank for a dependency role. */
 static int dependency_role_rank(const char *role) {
     if (strcmp(role, "build") == 0)
         return 1;
@@ -517,6 +537,7 @@ static int dependency_role_rank(const char *role) {
     return 4;
 }
 
+/* Check whether a non-default compiler is explicitly approved. */
 static int has_toolchain_exception(const Validator *validator,
                                    const char *compiler) {
     size_t index;
@@ -531,6 +552,7 @@ static int has_toolchain_exception(const Validator *validator,
     return 0;
 }
 
+/* Validate dependency groups, names, roles, and ordering. */
 static void validate_requires(Validator *validator, const CbsNode *requires) {
     size_t index;
     size_t prior;
@@ -579,6 +601,7 @@ static void validate_requires(Validator *validator, const CbsNode *requires) {
     }
 }
 
+/* Validate package declarations, metadata, phases, and cardinality. */
 static void validate_package(Validator *validator) {
     const CbsNode *package = validator->package;
     size_t index;
@@ -676,6 +699,7 @@ static void validate_package(Validator *validator) {
                          "package requires exactly one release declaration");
 }
 
+/* Validate one complete CPDL document and report all semantic errors. */
 int cbs_validate(const CbsNode *document, const char *path,
                  const char *source) {
     Validator validator;

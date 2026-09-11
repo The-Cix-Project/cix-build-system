@@ -7,11 +7,13 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* Check the command-line recipe extension before parsing. */
 static int has_cbs_extension(const char *path) {
     size_t length = strlen(path);
     return length >= 4 && strcmp(path + length - 4, ".cbs") == 0;
 }
 
+/* Read and normalize one recipe file for the lexer. */
 static char *read_file(const char *path, size_t *length) {
     FILE *file;
     long size;
@@ -73,6 +75,7 @@ static char *read_file(const char *path, size_t *length) {
     return source;
 }
 
+/* Implement the validate/check command without executing a recipe. */
 static int validate_file(const char *path) {
     char *source;
     size_t length;
@@ -112,6 +115,7 @@ static int validate_file(const char *path) {
     return 0;
 }
 
+/* Print the command-line interface summary. */
 static void usage(FILE *stream) {
     fputs(
         "usage: cbs validate PACKAGE.cbs\n"
@@ -130,6 +134,7 @@ static void usage(FILE *stream) {
         stream);
 }
 
+/* Verify one CIXPKG artifact and print its identity. */
 static int verify_file(const char *path) {
     char identity[129];
     if (!cbs_cixpkg_verify_tree(path, identity, sizeof(identity))) {
@@ -142,6 +147,7 @@ static int verify_file(const char *path) {
     return 0;
 }
 
+/* Print a JSON string with quotes and backslashes escaped. */
 static void print_json_string(const char *value) {
     const unsigned char *cursor;
     if (value == NULL) {
@@ -157,6 +163,7 @@ static void print_json_string(const char *value) {
     putchar('"');
 }
 
+/* Validate a recipe and print its execution metadata and plan. */
 static int explain_file(const char *path, int json) {
     char *source;
     size_t length, index;
@@ -336,6 +343,7 @@ static int explain_file(const char *path, int json) {
     return 0;
 }
 
+/* Build one recipe through the standalone package pipeline. */
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
                       const char *ca_file) {
@@ -367,6 +375,7 @@ static int build_file(const char *recipe, const char *architecture,
     return 0;
 }
 
+/* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
     size_t length;
@@ -398,6 +407,7 @@ static int inspect_file(const char *path, const char *artifact) {
     return 0;
 }
 
+/* Dispatch the command-line request selected by the user. */
 int main(int argc, char **argv) {
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {

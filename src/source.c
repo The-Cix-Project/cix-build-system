@@ -17,10 +17,12 @@ typedef struct {
     size_t used;
 } Sha256;
 
+/* Rotate a SHA-256 working word to the right. */
 static uint32_t rotate_right(uint32_t value, unsigned count) {
     return (value >> count) | (value << (32U - count));
 }
 
+/* Compress one 512-bit block into the SHA-256 state. */
 static void transform(Sha256 *sha, const unsigned char block[64]) {
     static const uint32_t k[64] = {
         0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
@@ -83,6 +85,7 @@ static void transform(Sha256 *sha, const unsigned char block[64]) {
     sha->state[7] += h;
 }
 
+/* Initialize a SHA-256 context with the standard initial state. */
 static void initialize(Sha256 *sha) {
     static const uint32_t state[8] = {0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U,
                                       0xa54ff53aU, 0x510e527fU, 0x9b05688cU,
@@ -91,6 +94,7 @@ static void initialize(Sha256 *sha) {
     memcpy(sha->state, state, sizeof(state));
 }
 
+/* Add arbitrary input bytes to a SHA-256 context. */
 static void update(Sha256 *sha, const unsigned char *data, size_t length) {
     while (length) {
         size_t room = 64 - sha->used;
@@ -107,6 +111,7 @@ static void update(Sha256 *sha, const unsigned char *data, size_t length) {
     }
 }
 
+/* Pad and finish a SHA-256 calculation. */
 static void finish(Sha256 *sha, unsigned char digest[32]) {
     size_t i;
     sha->block[sha->used++] = 0x80;
@@ -125,6 +130,7 @@ static void finish(Sha256 *sha, unsigned char digest[32]) {
         digest[i] = (unsigned char)(sha->state[i / 4] >> (24 - 8 * (i % 4)));
 }
 
+/* Hash a file and return its lowercase hexadecimal SHA-256 digest. */
 int cbs_digest_file(const char *path, char output[65]) {
     static const char hex[] = "0123456789abcdef";
     unsigned char buffer[32768], digest[32];
@@ -147,6 +153,7 @@ int cbs_digest_file(const char *path, char output[65]) {
     return 1;
 }
 
+/* Hash an in-memory byte string and return its hexadecimal digest. */
 int cbs_digest_text(const char *text, size_t length, char output[65]) {
     Sha256 sha;
     unsigned char digest[32];
@@ -165,6 +172,7 @@ int cbs_digest_text(const char *text, size_t length, char output[65]) {
     return 1;
 }
 
+/* Convert source declarations in the AST into fetchable source records. */
 int cbs_sources_from_document(const CbsNode *document, CbsSourceSet *set) {
     const CbsNode *package, *block = NULL;
     size_t i, j;
@@ -193,6 +201,7 @@ int cbs_sources_from_document(const CbsNode *document, CbsSourceSet *set) {
     return 1;
 }
 
+/* Release source URLs, names, and verification paths. */
 void cbs_source_set_destroy(CbsSourceSet *set) {
     size_t i;
     for (i = 0; i < set->count; ++i) {
@@ -204,6 +213,7 @@ void cbs_source_set_destroy(CbsSourceSet *set) {
     memset(set, 0, sizeof(*set));
 }
 
+/* Verify one downloaded source against its declared digest. */
 int cbs_source_verify(CbsSource *source, const char *path,
                       const char *recipe_path, const char *recipe_source,
                       CbsLocation location) {
@@ -230,6 +240,7 @@ int cbs_source_verify(CbsSource *source, const char *path,
     return 1;
 }
 
+/* Bind verified source paths to the execution context. */
 int cbs_sources_apply_execution_context(CbsSourceSet *set,
                                         CbsExecutionContext *context) {
     size_t i;
@@ -247,6 +258,7 @@ int cbs_sources_apply_execution_context(CbsSourceSet *set,
     return 1;
 }
 
+/* Resolve all sources from cache or through the supplied fetch service. */
 int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
                       const CbsFetchService *service, const char *recipe_path,
                       const char *recipe_source, CbsLocation location) {
@@ -312,6 +324,7 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
     return 1;
 }
 
+/* Fetch and extract all sources into the build source directory. */
 int cbs_prepare_sources(CbsSourceSet *set, const char *cache_directory,
                         const char *source_root, const CbsFetchService *service,
                         const char *recipe_path, const char *recipe_source,
