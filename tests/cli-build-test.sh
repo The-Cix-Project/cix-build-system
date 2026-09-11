@@ -21,6 +21,11 @@ grep -q 'build operations=' "$temporary_dir/explain.out"
 test ! -s "$temporary_dir/explain-json.err"
 grep -q '"phases"' "$temporary_dir/explain.json"
 grep -q '"name":"build"' "$temporary_dir/explain.json"
+grep -q '"name":"standalone-smoke"' "$temporary_dir/explain.json"
+grep -q '"version":"1"' "$temporary_dir/explain.json"
+grep -q '"release":1' "$temporary_dir/explain.json"
+grep -q '"sources":\[\]' "$temporary_dir/explain.json"
+grep -q '"requires":{}' "$temporary_dir/explain.json"
 printf '%s\n' 'package "broken" {' '}' >"$temporary_dir/broken.cbs"
 if "$cbs" check "$temporary_dir/broken.cbs" --json \
     >"$temporary_dir/broken.out" 2>"$temporary_dir/broken.json"; then

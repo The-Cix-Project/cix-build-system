@@ -103,7 +103,9 @@ error on standard error, suitable for editor and CI integration:
 `explain` performs the same validation and then prints the ordered phases and
 their operation counts. It is non-executing and useful for reviewing a recipe
 before allowing a build. Add `--json` for a machine-readable object containing
-the ordered phase names and operation counts.
+the package identity fields, `architecture: null`, all source URLs and SHA-256
+digests, dependency groups by kind, and the ordered phase names and operation
+counts. Architecture is selected by `build --arch`, not declared in CPDL.
 
 ## 4. Build a package
 

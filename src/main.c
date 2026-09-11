@@ -185,7 +185,84 @@ static int explain_file(const char *path, int json)
         return 3;
     }
     if (json) {
-        fputs("{\"build_image\":", stdout);
+        const CbsNode *package = document->children[0];
+        size_t item_index, child_index;
+        const char *version = NULL;
+        long release = 0;
+        fputs("{\"name\":", stdout);
+        print_json_string(package->value);
+        for (item_index = 0; item_index < package->child_count; ++item_index) {
+            if (package->children[item_index]->kind == CBS_NODE_VERSION)
+                version = package->children[item_index]->value;
+            if (package->children[item_index]->kind == CBS_NODE_RELEASE)
+                release = package->children[item_index]->number;
+        }
+        fputs(",\"version\":", stdout);
+        print_json_string(version);
+        printf(",\"release\":%ld,\"architecture\":null,\"sources\":[", release);
+        {
+            int first_source = 1;
+            for (item_index = 0; item_index < package->child_count; ++item_index) {
+                const CbsNode *sources = package->children[item_index];
+                if (sources->kind != CBS_NODE_SOURCES) continue;
+                for (child_index = 0; child_index < sources->child_count; ++child_index) {
+                    const CbsNode *source = sources->children[child_index];
+                    size_t url_index;
+                    if (!first_source) putchar(',');
+                    first_source = 0;
+                    fputs("{\"name\":", stdout); print_json_string(source->value);
+                    fputs(",\"urls\":[", stdout);
+                    {
+                        int first_url = 1;
+                        for (url_index = 0; url_index < source->child_count; ++url_index) {
+                            const CbsNode *url = source->children[url_index];
+                            if (url->kind != CBS_NODE_URL) continue;
+                            if (!first_url) putchar(',');
+                            first_url = 0;
+                            print_json_string(url->value);
+                        }
+                    }
+                    fputs("],\"sha256\":", stdout);
+                    for (url_index = 0; url_index < source->child_count; ++url_index)
+                        if (source->children[url_index]->kind == CBS_NODE_SHA256)
+                            print_json_string(source->children[url_index]->value);
+                    fputs("}", stdout);
+                }
+            }
+        }
+        fputs("],\"requires\":{", stdout);
+        {
+            int first_group = 1;
+            for (item_index = 0; item_index < package->child_count; ++item_index) {
+                const CbsNode *requires = package->children[item_index];
+                if (requires->kind != CBS_NODE_REQUIRES) continue;
+                for (child_index = 0; child_index < requires->child_count; ++child_index) {
+                    const CbsNode *group = requires->children[child_index];
+                    size_t dep_index;
+                    if (!first_group) putchar(','); first_group = 0;
+                    print_json_string(group->name); fputs(":{", stdout);
+                    for (dep_index = 0; dep_index < group->child_count; ++dep_index) {
+                        const CbsNode *dep = group->children[dep_index];
+                        size_t later; int first_value = 1;
+                        for (later = 0; later < dep_index; ++later)
+                            if (strcmp(group->children[later]->name, dep->name) == 0)
+                                break;
+                        if (later != dep_index) continue;
+                        if (dep_index != 0) putchar(',');
+                        print_json_string(dep->name); putchar(':');
+                        fputs("[", stdout);
+                        for (later = dep_index; later < group->child_count; ++later) {
+                            if (strcmp(group->children[later]->name, dep->name) != 0) continue;
+                            if (!first_value) putchar(','); first_value = 0;
+                            print_json_string(group->children[later]->value);
+                        }
+                        fputs("]", stdout);
+                    }
+                    fputs("}", stdout);
+                }
+            }
+        }
+        fputs("},\"build_image\":", stdout);
         print_json_string(metadata.build_image);
         fputs(",\"upstream\":", stdout);
         print_json_string(metadata.upstream);
