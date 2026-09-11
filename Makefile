@@ -122,6 +122,10 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/observe-test.c src/observe.o -o tests/observe-test
 	./tests/observe-test
 	rm -f tests/observe-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fuzz-test.c \
+		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/fuzz-test
+	./tests/fuzz-test
+	rm -f tests/fuzz-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/typed-package-test.c \
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/typed-package-test
 	./tests/typed-package-test
@@ -144,4 +148,5 @@ clean:
 	rm -f tests/dependency-test
 	rm -f tests/plan-test
 	rm -f tests/observe-test
+	rm -f tests/fuzz-test
 	rm -f tests/typed-package-test
