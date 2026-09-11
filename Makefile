@@ -36,7 +36,7 @@ LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
 PREFIX ?= /usr/local
 INSTALL ?= install
 
-.PHONY: all clean test install upstream-test qualification-test
+.PHONY: all clean test install upstream-test qualification-test recipe-test
 
 all: $(TARGET) $(LIBRARY)
 
@@ -56,7 +56,7 @@ install: $(TARGET) $(LIBRARY)
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-test: $(TARGET) upstream-test
+test: $(TARGET) upstream-test recipe-test
 	./tests/parser-validation.sh ./$(TARGET)
 	./tests/recipe-metadata-test.sh cbs.cbs
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/http-server.c -o tests/http-server
@@ -161,6 +161,12 @@ test: $(TARGET) upstream-test
 
 upstream-test: $(TARGET)
 	./tests/upstream-smoke-test.sh ./$(TARGET)
+
+recipe-test: $(TARGET)
+	for recipe in recipes/*.cbs; do \
+		./$(TARGET) validate "$$recipe" >/dev/null || exit 1; \
+	done
+	printf '%s\n' 'recipe corpus tests: PASS (all repository recipes validate)'
 
 qualification-test: test upstream-test
 
