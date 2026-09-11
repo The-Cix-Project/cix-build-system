@@ -591,6 +591,7 @@ static void validate_package(Validator *validator)
     int last_rank = 0;
     int versions = 0;
     int releases = 0;
+    size_t phases = 0;
 
     if (!valid_package_name(package->value))
         validation_error(validator, package, "CPDL-E3004",
@@ -659,6 +660,10 @@ static void validate_package(Validator *validator)
                                  "unsupported upstream discovery provider");
             break;
         case CBS_NODE_PHASE:
+            ++phases;
+            if (phases > CBS_MAX_PHASES)
+                validation_error(validator, item, "CPDL-E3004",
+                                 "package has more than five phases");
             validate_block(validator, item, 0);
             break;
         default:

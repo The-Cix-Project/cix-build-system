@@ -1,0 +1,10 @@
+package "too-many-phases" {
+    version "1"
+    release 1
+    prepare {}
+    configure {}
+    build {}
+    check {}
+    install {}
+    install {}
+}
