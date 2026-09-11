@@ -27,6 +27,7 @@ hide a changed decision; a later ADR supersedes it.
 - [CBS integration blocker register](integration-blockers.md)
 - [CIXPKG v2 binary specification](spec/cixpkg-1.0.md)
 - [CBS delivery roadmap](roadmap.md)
+- [Repository status and scope](repository-status.md)
 
 ## Validation records
 
@@ -64,6 +65,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #120: transaction boundary](reviews/issue-0120-validation.md)
 - [Issue #119: CIXPKG authenticity boundary](reviews/issue-0119-validation.md)
 - [Issue #118: embedding seams](reviews/issue-0118-validation.md)
+- [Issue #117: repository scope reconciliation](reviews/issue-0117-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

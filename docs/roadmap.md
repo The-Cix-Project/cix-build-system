@@ -16,35 +16,37 @@ standalone builds, and the end-to-end user workflow.
 
 Applicable issues: #23–#26, #54–#56, #69, #95, #100, #107, #108, #115.
 
-Status: the production tree writer, verifier, extractor, deterministic
-manifest, and corruption tests are implemented. A legacy manifest-only API is
-retained only for compatibility tests and is not part of the production path.
-Remaining work is compatibility API retirement and broader hostile-input
-coverage. See [the integration blocker register](integration-blockers.md).
+Status: the production tree writer, verifier, extractor, deterministic typed
+manifest, v2 CIXPKG format, and hostile-input corpus are implemented. CIXPKG v1
+is intentionally unreadable; signatures remain an external repository concern.
+See [the integration blocker register](integration-blockers.md).
 
 ## Workstream 2: usable CLI
 
 Applicable issues: #20, #78, #97, #110.
 
 Status: structured diagnostics, phase-aware failure reporting, explain output,
-and bounded job policy are implemented. Remaining work is CLI option parsing
-ergonomics and additional machine-readable operation modes.
+bounded job policy, child resource limits, and interrupt cleanup are
+implemented. Additional machine-readable operation modes remain optional CLI
+work.
 
 ## Workstream 3: dependencies and trust
 
 Applicable issues: #27, #42, #45, #61, #72, #109.
 
 Status: dependency declarations, role-aware phase inputs, cycle checks, source
-digests, and package identity are implemented. Full graph resolution, lock
-files, conflict handling, package signatures, and offline graph replay remain
-open; repository and key-management policy remains cixd-owned.
+digests, package identity, and ELF `DT_NEEDED` observation are implemented.
+Graph resolution, lock files, conflict handling, and offline graph replay
+remain outside standalone CBS; package signatures and key management are
+cixd/repository-owned.
 
 ## Workstream 4: qualification
 
 Applicable issues: #64, #65, #77, #79, #81, #106.
 
-Next deliverables are hostile archive/package fixtures, bounds and fuzz gates,
-cancellation and resource limits, clean-host CI, and reproducibility gates.
+Hostile archive/package fixtures, mutation coverage, cancellation, resource
+limits, and reproducibility gates are implemented. Clean-host CI remains a
+qualification task.
 
 ## Workstream 5: production integration
 
