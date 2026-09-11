@@ -67,7 +67,9 @@ src/%.o: src/%.c src/cbs.h
 test: $(TARGET)
 	./tests/parser-validation.sh ./$(TARGET)
 	./tests/recipe-metadata-test.sh cbs.cbs
-	./tests/cli-build-test.sh ./$(TARGET)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/http-server.c -o tests/http-server
+	HTTP_SERVER=./tests/http-server ./tests/cli-build-test.sh ./$(TARGET)
+	rm -f tests/http-server
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-o tests/exec-test
@@ -170,7 +172,7 @@ qualification-test: test upstream-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) $(LIBRARY) tests/exec-test tests/fs-test \
-		tests/edit-assert-test
+		tests/edit-assert-test tests/http-server
 	rm -f tests/runtime-test
 	rm -f tests/identity-test
 	rm -f tests/source-test

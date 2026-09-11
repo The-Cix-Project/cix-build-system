@@ -2,6 +2,7 @@
 set -eu
 
 cbs=${1:?usage: cli-build-test.sh CBS}
+http_server=${HTTP_SERVER:?HTTP_SERVER is required}
 tests_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 temporary_dir=${TMPDIR:-/tmp}/cbs-cli-build-tests.$$
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
@@ -94,8 +95,8 @@ printf '%s\n' \
     '    }' \
     '}' >"$temporary_dir/fetch-smoke.cbs"
 port=$((18000 + ($$ % 1000)))
-python3 -m http.server "$port" --bind 127.0.0.1 \
-    --directory "$temporary_dir/server" >"$temporary_dir/http.log" 2>&1 &
+"$http_server" "$port" "$temporary_dir/server/payload.tar" \
+    >"$temporary_dir/http.log" 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 sleep 1

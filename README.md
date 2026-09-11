@@ -32,6 +32,8 @@ make
 ```
 
 The build treats every compiler warning as an error and produces `./cbs`.
+Python is not required to build or test CBS; the local HTTP regression server
+is compiled from C as part of `make test`.
 
 ## Test
 
