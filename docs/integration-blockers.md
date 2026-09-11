@@ -15,11 +15,11 @@ The standalone path is operational:
 ```
 
 `make test` passes, including the end-to-end HTTP fetch, cache, package
-verification, extraction, and mode-preservation tests. It is the deterministic
-offline gate for the repository. The real-package smoke test is available as
-`make upstream-test`; it downloads upstream sources and therefore is not part
-of the default gate. Run `make qualification-test` in a network-capable clean
-build environment to run both gates.
+verification, extraction, and mode-preservation tests. The real-package smoke
+test is included and requires either network access or a caller-supplied
+`CBS_UPSTREAM_CACHE` directory containing verified source files. `make
+upstream-test` runs that qualification alone; `make qualification-test` names
+both gates.
 
 ## Blockers and unblock actions
 

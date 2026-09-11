@@ -1,15 +1,7 @@
 CC := tcc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -pedantic
 CPPFLAGS := -Isrc
-CBS_VERSION ?= $(shell \
-	version=$$(git describe --tags --exact-match 2>/dev/null | sed 's/^v//'); \
-	if [ -n "$$version" ]; then \
-		printf '%s' "$$version"; \
-	elif [ -f cbs.cbs ]; then \
-		sed -n 's/^[[:space:]]*version[[:space:]]*"\([^"]*\)".*/\1/p' cbs.cbs | sed -n '1p'; \
-	else \
-		printf '%s' 'unknown'; \
-	fi)
+CBS_VERSION ?= $(shell sed -n '1p' VERSION 2>/dev/null || printf '%s' 'unknown')
 CPPFLAGS += -DCBS_VERSION=\"$(CBS_VERSION)\"
 
 SOURCES := \
@@ -64,7 +56,7 @@ install: $(TARGET) $(LIBRARY)
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-test: $(TARGET)
+test: $(TARGET) upstream-test
 	./tests/parser-validation.sh ./$(TARGET)
 	./tests/recipe-metadata-test.sh cbs.cbs
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/http-server.c -o tests/http-server

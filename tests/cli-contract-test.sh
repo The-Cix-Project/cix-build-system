@@ -21,7 +21,7 @@ package "cli-contract" {
 }
 EOF
 
-test "$("$cbs" --version)" = 'cbs 0.1.23'
+test "$("$cbs" --version)" = "cbs $(sed -n '1p' VERSION)"
 "$cbs" --help >"$temporary_dir/help.out"
 grep -q '^usage: cbs validate PACKAGE.cbs$' "$temporary_dir/help.out"
 "$cbs" -h >"$temporary_dir/short-help.out"

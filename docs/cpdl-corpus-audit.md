@@ -18,7 +18,7 @@ its measured frequency where available, and the CPDL disposition.
 | `CC=tcc` | 83 packages | structural `compiler "tcc"`; CBS now passes `CC=tcc` as a command-line make variable |
 | GCC-style make dependency flags | observed in zstd | explicit `replace` removes unsupported `-MT/-MMD/-MP/-MF` flags for the TCC toolchain |
 | `DESTDIR=` | 77 packages | `${dest}`; covered |
-| Three-stage TCC bootstrap | present | existing isolated phases and byte-identity assertion; covered and gated by `make upstream-test` |
+| Three-stage TCC bootstrap | present | existing isolated phases and byte-identity assertion; covered and gated by `make test` |
 | `rm -rf .../share/man` | 35 packages | platform finalization policy; omit from migrated recipes |
 | GCC source layout/private tool paths | present | unresolved in #144; source revision and compiler-path policy need correction |
 | Kernel firmware/configuration helpers | present | unresolved in #144; executor capability/native helpers required |

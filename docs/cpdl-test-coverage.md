@@ -17,6 +17,7 @@ features must add focused success and failure assertions to this matrix.
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 
 The CLI contract test asserts output and representative failure exit statuses.
-Focused C tests assert operation results and diagnostic codes. Network-backed
-upstream qualification remains make upstream-test; make qualification-test
-runs both gates.
+Focused C tests assert operation results and diagnostic codes. The upstream
+qualification is included in make test and can use a caller-supplied
+CBS_UPSTREAM_CACHE directory; make upstream-test runs it alone and make
+qualification-test names both gates.
