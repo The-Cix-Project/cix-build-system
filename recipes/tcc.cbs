@@ -722,7 +722,6 @@ package "tcc" {
                 "DESTDIR=${dest}"
             }
         }
-        remove tree "${dest}/usr/share/man"
         require file "${dest}/usr/bin/tcc" {
             exists
         }
