@@ -592,7 +592,8 @@ Standalone CBS owns parsing, validation, source transport, workspace
 confinement, phase execution, manifest generation, CIXPKG creation, verification,
 and extraction. It does not resolve package graphs, create Linux namespaces,
 grant capabilities, construct build images, manage signing keys, or publish to
-a repository.
+a repository. It also does not implement image transactions: atomic image
+replacement and rollback belong to the orchestrator that owns image versions.
 
 The cixd/orchestrated path may provide fetch, sandbox, signature, transaction,
 dependency, and image services through their explicit adapter boundaries. Those

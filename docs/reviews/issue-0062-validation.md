@@ -1,5 +1,6 @@
 # Issue #62 validation
 
-`cbs_transaction` separates preparation from atomic commit and propagates
-failure, preserving the previous image until commit succeeds. cixd remains the
-owner of immutable image versioning and retention.
+This historical placeholder was superseded by issue #120. The prepare/commit
+function did not actually provide rollback or an image-version model, so it was
+removed. cixd remains the owner of immutable image versioning, atomic
+publication, and retention.
