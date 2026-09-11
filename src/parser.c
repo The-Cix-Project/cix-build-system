@@ -153,13 +153,35 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
             if (duration != NULL)
                 item->value = cbs_duplicate(duration->text);
         } else if (is_word(parser, "expect")) {
-            CbsToken *status;
             advance(parser);
-            item = cbs_node_create(CBS_NODE_RUN_EXPECT, token->location);
-            consume_word(parser, "exit");
-            status = consume_kind(parser, CBS_TOKEN_INTEGER, "exit status");
-            if (status != NULL)
-                item->number = strtol(status->text, NULL, 10);
+            if (is_word(parser, "exit")) {
+                CbsToken *status;
+                item = cbs_node_create(CBS_NODE_RUN_EXPECT, token->location);
+                advance(parser);
+                status = consume_kind(parser, CBS_TOKEN_INTEGER, "exit status");
+                if (status != NULL)
+                    item->number = strtol(status->text, NULL, 10);
+            } else {
+                CbsToken *pattern;
+                item = cbs_node_create(CBS_NODE_RUN_STDOUT_ASSERT,
+                                       token->location);
+                consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+                consume_word(parser, "stdout");
+                consume_word(parser, "contains");
+                pattern = consume_text_value(parser, "stdout text");
+                if (pattern != NULL) {
+                    item->value = cbs_duplicate(pattern->text);
+                    item->flag = pattern->kind;
+                }
+                consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+            }
+        } else if (is_word(parser, "stdout")) {
+            CbsToken *name;
+            advance(parser);
+            item = cbs_node_create(CBS_NODE_RUN_STDOUT_BIND, token->location);
+            name = consume_kind(parser, CBS_TOKEN_STRING, "stdout binding name");
+            if (name != NULL)
+                item->name = cbs_duplicate(name->text);
         } else if (is_word(parser, "allow_failure")) {
             advance(parser);
             item = cbs_node_create(CBS_NODE_ALLOW_FAILURE, token->location);

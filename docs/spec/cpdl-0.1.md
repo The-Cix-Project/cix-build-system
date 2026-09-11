@@ -397,6 +397,8 @@ run-item = argument
          | run-jobs
          | run-timeout
          | run-expect
+         | run-stdout-assert
+         | run-stdout-bind
          | "allow_failure" ;
 
 argument        = text-value ;
@@ -404,6 +406,8 @@ run-environment = "env", string, "=", text-value ;
 run-jobs        = "jobs", ( integer | "$jobs" ) ;
 run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
+run-stdout-assert = "expect", "{", "stdout", "contains", string, "}" ;
+run-stdout-bind = "stdout", string ;
 ```
 
 The first value names the executable. Each bare `text-value` in the block adds

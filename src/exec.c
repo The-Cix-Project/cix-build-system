@@ -157,6 +157,13 @@ static const char *context_value(const CbsExecutionContext *context,
                 return context->sources[index].path;
         }
     }
+    if (length > 7 && strncmp(name, "stdout.", 7) == 0) {
+        for (index = 0; index < context->output_binding_count; ++index)
+            if (strlen(context->output_bindings[index].name) == length - 7 &&
+                strncmp(context->output_bindings[index].name, name + 7,
+                        length - 7) == 0)
+                return context->output_bindings[index].value;
+    }
     return NULL;
 }
 
@@ -410,6 +417,10 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     int status = 0;
     int wait_result;
     char message[512];
+    FILE *capture = NULL;
+    char output[65537];
+    size_t output_length = 0;
+    int capture_stdout = 0;
 
     memset(&arguments, 0, sizeof(arguments));
     memset(&environment, 0, sizeof(environment));
@@ -440,6 +451,20 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             expected_status = item->number;
         } else if (item->kind == CBS_NODE_RUN_TIMEOUT) {
             timeout_ms = duration_milliseconds(item->value);
+        } else if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT ||
+                   item->kind == CBS_NODE_RUN_STDOUT_BIND) {
+            capture_stdout = 1;
+        }
+    }
+    if (capture_stdout) {
+        capture = tmpfile();
+        if (capture == NULL) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "cannot capture process stdout");
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
         }
     }
     if (context->compiler != NULL) {
@@ -487,6 +512,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                 _exit(125);
             if (chdir(context->working_directory) != 0)
                 _exit(126);
+            if (capture_stdout && dup2(fileno(capture), STDOUT_FILENO) < 0)
+                _exit(126);
             execve(executable, arguments.items, environment.items);
             _exit(127);
         }
@@ -495,6 +522,38 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         sigaction(SIGINT, &old_action, NULL);
     }
     active_child = 0;
+    if (capture_stdout) {
+        rewind(capture);
+        output_length = fread(output, 1, sizeof(output) - 1, capture);
+        output[output_length] = '\0';
+        if (output_length == sizeof(output) - 1 || fgetc(capture) != EOF) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "process stdout exceeds the 64 KiB limit");
+            fclose(capture);
+            free(executable);
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        while (output_length > 0 && (output[output_length - 1] == '\n' ||
+                                     output[output_length - 1] == '\r' ||
+                                     output[output_length - 1] == ' ' ||
+                                     output[output_length - 1] == '\t'))
+            output[--output_length] = '\0';
+        if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "process stdout must be one line");
+            fclose(capture);
+            free(executable);
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+    }
+    if (capture)
+        fclose(capture);
     free(executable);
     free(program);
     string_list_destroy(&arguments);
@@ -521,6 +580,38 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                  WIFEXITED(status) ? WEXITSTATUS(status) : -1, expected_status);
         runtime_error(run, context, "CPDL-E4001", message);
         return 0;
+    }
+    if (capture_stdout) {
+        for (index = 0; index < run->child_count; ++index) {
+            const CbsNode *item = run->children[index];
+            if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT &&
+                strstr(output, cbs_resolve_value(item->value, item->flag,
+                                                  context)) == NULL) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "stdout assertion failed");
+                return 0;
+            }
+            if (item->kind == CBS_NODE_RUN_STDOUT_BIND) {
+                CbsExecutionContext *mutable_context =
+                    (CbsExecutionContext *)(void *)context;
+                if (mutable_context->output_binding_count ==
+                    mutable_context->output_binding_capacity) {
+                    size_t next = mutable_context->output_binding_capacity == 0
+                                       ? 4
+                                       : mutable_context->output_binding_capacity * 2;
+                    mutable_context->output_bindings = cbs_reallocate(
+                        mutable_context->output_bindings,
+                        next * sizeof(*mutable_context->output_bindings));
+                    mutable_context->output_binding_capacity = next;
+                }
+                mutable_context->output_bindings[
+                    mutable_context->output_binding_count].name = item->name;
+                mutable_context->output_bindings[
+                    mutable_context->output_binding_count].value =
+                    cbs_duplicate(output);
+                mutable_context->output_binding_count++;
+            }
+        }
     }
     return 1;
 }

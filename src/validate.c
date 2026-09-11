@@ -105,6 +105,8 @@ static int known_value_name(Validator *validator, const char *name,
         free(source_name);
         return declared;
     }
+    if (length > 7 && strncmp(name, "stdout.", 7) == 0)
+        return 1;
     return 0;
 }
 
@@ -261,6 +263,22 @@ static void validate_run(Validator *validator, const CbsNode *run,
                 validation_error(
                     validator, item, "CPDL-E3004",
                     "expected exit status must be between 0 and 255");
+            break;
+        case CBS_NODE_RUN_STDOUT_ASSERT:
+            duplicate_option(validator, item, &expect, "stdout assertion");
+            validate_value(validator, item, item->value);
+            break;
+        case CBS_NODE_RUN_STDOUT_BIND:
+            if (!valid_environment_name(item->name))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "invalid stdout binding name");
+            for (other = 0; other < index; ++other) {
+                const CbsNode *prior = run->children[other];
+                if (prior->kind == CBS_NODE_RUN_STDOUT_BIND &&
+                    strcmp(prior->name, item->name) == 0)
+                    validation_error(validator, item, "CPDL-E3002",
+                                     "duplicate stdout binding name");
+            }
             break;
         case CBS_NODE_ALLOW_FAILURE:
             duplicate_option(validator, item, &allow_failure, "allow_failure");

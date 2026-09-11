@@ -75,6 +75,8 @@ typedef enum {
     CBS_NODE_RUN_JOBS,
     CBS_NODE_RUN_TIMEOUT,
     CBS_NODE_RUN_EXPECT,
+    CBS_NODE_RUN_STDOUT_ASSERT,
+    CBS_NODE_RUN_STDOUT_BIND,
     CBS_NODE_ALLOW_FAILURE,
     CBS_NODE_ENV,
     CBS_NODE_CD,
@@ -155,6 +157,11 @@ typedef struct {
     /* Source path or URL recorded for this named source. */
     const char *path;
 } CbsNamedSource;
+
+typedef struct {
+    const char *name;
+    char *value;
+} CbsOutputBinding;
 
 typedef struct {
     /* Environment variable name visible to a phase. */
@@ -255,6 +262,9 @@ typedef struct {
     size_t source_count;
     const CbsEnvironmentBinding *environment;
     size_t environment_count;
+    CbsOutputBinding *output_bindings;
+    size_t output_binding_count;
+    size_t output_binding_capacity;
     CbsPhaseEvent phase_event;
     /* State passed to the phase-event callback. */
     void *phase_event_user;
