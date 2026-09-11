@@ -1,9 +1,11 @@
 # CBS library boundary
 
 `libcbs.a` contains the standalone CBS engine used by the `cbs` executable.
-Consumers include `cbs/cbs.h` and may use the functions declared in that
-header for recipe validation, source fetching, archive extraction, execution,
-manifests, and CIXPKG creation and verification.
+Consumers include the installed `cbs/cbs.h`. It is the stable embedding
+surface for standalone builds, manifests, CIXPKG verification, source fetch
+adapters, dependency observation, and signature adapters. Recipe lexer/parser
+tokens, AST node layouts, and other implementation details remain private to
+CBS and are not installed as library ABI.
 
 The library does not create a sandbox, daemon connection, service lifecycle, or
 transaction. `cbs_sandbox_run`, `cbs_daemon_request`, `cbs_service_health`,

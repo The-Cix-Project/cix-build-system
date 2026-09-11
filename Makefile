@@ -51,7 +51,7 @@ install: $(TARGET) $(LIBRARY)
 		$(DESTDIR)$(PREFIX)/include/cbs
 	$(INSTALL) -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/cbs
 	$(INSTALL) -m 644 $(LIBRARY) $(DESTDIR)$(PREFIX)/lib/$(LIBRARY)
-	$(INSTALL) -m 644 src/cbs.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
+	$(INSTALL) -m 644 src/cbs_public.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
 
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@

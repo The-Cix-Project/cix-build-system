@@ -81,11 +81,11 @@ if "$cbs" validate >"$temporary_dir/usage.out" 2>"$temporary_dir/usage.err"; the
     echo "FAIL: invalid command line succeeded" >&2
     exit 1
 fi
-grep -q '^usage: cbs validate PACKAGE.cbs$' "$temporary_dir/usage.err"
+grep -q '^usage: cbs <command> \[options\]$' "$temporary_dir/usage.err"
 passed=$((passed + 1))
 
 "$cbs" --help >"$temporary_dir/help.out" 2>"$temporary_dir/help.err"
-grep -q '^usage: cbs validate PACKAGE.cbs$' "$temporary_dir/help.out"
+grep -q '^usage: cbs <command> \[options\]$' "$temporary_dir/help.out"
 test ! -s "$temporary_dir/help.err"
 passed=$((passed + 1))
 

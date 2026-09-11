@@ -122,7 +122,7 @@ static int validate_file(const char *path) {
 /* Print the command-line interface summary. */
 static void usage(FILE *stream) {
     fputs(
-        "usage: cbs validate PACKAGE.cbs\n"
+        "usage: cbs <command> [options]\n"
         "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
         "commands:\n"
         "  cbs check RECIPE.cbs                 Validate without executing\n"
