@@ -169,6 +169,9 @@ typedef struct {
     size_t count;
 } CbsDependencySet;
 
+typedef int (*CbsPhaseEvent)(const char *event, const char *phase,
+                            int status, void *user);
+
 typedef struct {
     const char *recipe_path;
     const char *recipe_source;
@@ -185,6 +188,8 @@ typedef struct {
     size_t source_count;
     const CbsEnvironmentBinding *environment;
     size_t environment_count;
+    CbsPhaseEvent phase_event;
+    void *phase_event_user;
     struct {
         long address_space_mb;
         long file_size_mb;

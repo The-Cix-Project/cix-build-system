@@ -610,6 +610,11 @@ the build. A successful callback sets the CIXPKG v2 finalized-policy flag, so
 the artifact records that the external policy step ran. The policy is an API
 input, not CPDL syntax, and recipes cannot disable it.
 
+Embedders can also observe execution through `CbsPhaseEvent` in the execution
+context. CBS sends `phase-begin` and `phase-end` events in phase order; an end
+status of `0` means success and `1` identifies the failed phase. This callback
+is optional, and event delivery failure stops execution.
+
 ## 15. Quick diagnosis
 
 `recipe must use the .cbs extension` means the input filename is not accepted.

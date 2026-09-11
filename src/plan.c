@@ -49,8 +49,21 @@ int cbs_execute_plan(const CbsBuildPlan *plan,
     size_t index;
     if (plan == NULL || context == NULL)
         return 0;
-    for (index = 0; index < plan->count; ++index)
-        if (!cbs_execute_block(plan->phases[index], context))
+    for (index = 0; index < plan->count; ++index) {
+        if (context->phase_event != NULL &&
+            !context->phase_event("phase-begin", plan->phases[index]->name,
+                                  0, context->phase_event_user))
             return 0;
+        if (!cbs_execute_block(plan->phases[index], context)) {
+            if (context->phase_event != NULL)
+                context->phase_event("phase-end", plan->phases[index]->name,
+                                     1, context->phase_event_user);
+            return 0;
+        }
+        if (context->phase_event != NULL &&
+            !context->phase_event("phase-end", plan->phases[index]->name,
+                                  0, context->phase_event_user))
+            return 0;
+    }
     return 1;
 }

@@ -73,6 +73,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #127: parallel CIXPKG implementations](reviews/issue-0127-validation.md)
 - [Issue #129: embedder-supplied finalization policy](reviews/issue-0129-validation.md)
 - [Issue #130: complete non-executing recipe explanation](reviews/issue-0130-validation.md)
+- [Issue #131: phase progress and failure attribution](reviews/issue-0131-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
