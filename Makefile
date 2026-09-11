@@ -125,6 +125,9 @@ test: $(TARGET)
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/fuzz-test
 	./tests/fuzz-test
 	rm -f tests/fuzz-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/seams-test.c src/api.o src/observe.o src/sandbox.o src/service.o src/signature.o -o tests/seams-test
+	./tests/seams-test
+	rm -f tests/seams-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/typed-package-test.c \
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/typed-package-test
 	./tests/typed-package-test
@@ -148,4 +151,5 @@ clean:
 	rm -f tests/plan-test
 	rm -f tests/observe-test
 	rm -f tests/fuzz-test
+	rm -f tests/seams-test
 	rm -f tests/typed-package-test
