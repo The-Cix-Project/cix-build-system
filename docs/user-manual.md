@@ -601,6 +601,13 @@ services must preserve CPDL semantics: they may strengthen isolation and policy,
 but may not turn a recipe into shell input or bypass source and artifact
 verification.
 
+An embedder that owns platform-wide staged-tree policy can use
+`cbs_build_standalone_with_cache_policy()` with a `CbsFinalizePolicy` callback.
+CBS calls it after `install` and before manifest generation; a failure aborts
+the build. A successful callback sets the CIXPKG v2 finalized-policy flag, so
+the artifact records that the external policy step ran. The policy is an API
+input, not CPDL syntax, and recipes cannot disable it.
+
 ## 15. Quick diagnosis
 
 `recipe must use the .cbs extension` means the input filename is not accepted.

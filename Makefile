@@ -133,6 +133,11 @@ test: $(TARGET)
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/typed-package-test
 	./tests/typed-package-test
 	rm -f tests/typed-package-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/policy-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o \
+		src/archive.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o \
+		src/plan.o src/workspace.o src/identity.o src/runtime.o -larchive -lzstd -o tests/policy-test
+	./tests/policy-test
+	rm -f tests/policy-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \

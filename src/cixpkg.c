@@ -14,6 +14,7 @@
 #include <zstd.h>
 
 #define CIXPKG_MAGIC "CIXPKG\0\2"
+#define CIXPKG_FLAG_FINALIZED CBS_CIXPKG_FLAG_FINALIZED
 
 static int parse_mode(const char *text, unsigned *mode)
 {
@@ -164,8 +165,9 @@ static int compress_blob(const unsigned char *input, size_t input_size,
     return 1;
 }
 
-int cbs_cixpkg_write_tree(const char *manifest, const char *root,
-                          const char *package_path, const char *identity)
+int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
+                                     const char *package_path, const char *identity,
+                                     unsigned flags)
 {
     unsigned char *manifest_data = NULL, *payload = NULL;
     unsigned char *manifest_compressed = NULL, *payload_compressed = NULL;
@@ -192,6 +194,8 @@ int cbs_cixpkg_write_tree(const char *manifest, const char *root,
     put64(header + 24, payload_size);
     memcpy(header + 32, manifest_digest, 64);
     memcpy(header + 96, payload_digest, 64);
+    if (flags & ~CIXPKG_FLAG_FINALIZED) goto cleanup;
+    header[224] = (unsigned char)flags;
     identity_length = strlen(identity);
     if (identity_length > 127) identity_length = 127;
     memcpy(header + 160, identity, identity_length);
@@ -210,6 +214,13 @@ cleanup:
     return ok;
 }
 
+int cbs_cixpkg_write_tree(const char *manifest, const char *root,
+                          const char *package_path, const char *identity)
+{
+    return cbs_cixpkg_write_tree_with_flags(manifest, root, package_path,
+                                            identity, 0);
+}
+
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size)
 {
@@ -220,6 +231,7 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     FILE *file;
     if (!read_blob(package_path, &data, &size) || size < 352 ||
         memcmp(data, CIXPKG_MAGIC, 8) != 0 || get64(data + 8) != 352 ||
+        (data[224] & ~CIXPKG_FLAG_FINALIZED) != 0 ||
         (manifest_size = get64(data + 16)) > 1024ULL * 1024ULL * 1024ULL ||
         (payload_size = get64(data + 24)) > 1024ULL * 1024ULL * 1024ULL)
         { free(data); return 0; }

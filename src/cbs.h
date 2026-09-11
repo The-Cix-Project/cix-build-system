@@ -253,6 +253,11 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const char *architecture,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
+typedef int (*CbsFinalizePolicy)(const char *staged_root, void *user);
+int cbs_build_standalone_with_cache_policy(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user);
 #define CBS_MAX_PHASES 5
 typedef struct { const CbsNode *phases[CBS_MAX_PHASES]; size_t count; } CbsBuildPlan;
 typedef struct {
@@ -289,6 +294,10 @@ int cbs_cixpkg_compress(const char *input, const char *output);
 int cbs_cixpkg_decompress(const char *input, const char *output);
 int cbs_cixpkg_write_tree(const char *manifest, const char *root,
                           const char *package_path, const char *identity);
+#define CBS_CIXPKG_FLAG_FINALIZED 1U
+int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
+                                     const char *package_path,
+                                     const char *identity, unsigned flags);
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size);
 int cbs_cixpkg_extract(const char *package_path, const char *destination);
