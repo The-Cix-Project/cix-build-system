@@ -541,6 +541,15 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                                      output[output_length - 1] == ' ' ||
                                      output[output_length - 1] == '\t'))
             output[--output_length] = '\0';
+        {
+            size_t leading = 0;
+            while (output[leading] == ' ' || output[leading] == '\t')
+                ++leading;
+            if (leading != 0) {
+                memmove(output, output + leading, output_length - leading + 1);
+                output_length -= leading;
+            }
+        }
         if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
             runtime_error(run, context, "CPDL-E4001",
                           "process stdout must be one line");
@@ -584,9 +593,13 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     if (capture_stdout) {
         for (index = 0; index < run->child_count; ++index) {
             const CbsNode *item = run->children[index];
-            if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT &&
-                strstr(output, cbs_resolve_value(item->value, item->flag,
-                                                  context)) == NULL) {
+            if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT) {
+                char *expected = cbs_resolve_value(item->value, item->flag,
+                                                   context);
+                int matched = strstr(output, expected) != NULL;
+                free(expected);
+                if (matched)
+                    continue;
                 runtime_error(run, context, "CPDL-E4001",
                               "stdout assertion failed");
                 return 0;

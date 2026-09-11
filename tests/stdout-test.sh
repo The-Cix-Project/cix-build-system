@@ -12,7 +12,7 @@ package "stdout-test" {
     format "cixpkg"
     build {
         run "printf" {
-            "hello world\n"
+            "  hello world  \n"
             expect { stdout contains "world" }
             stdout "VALUE"
         }
