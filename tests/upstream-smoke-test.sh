@@ -17,12 +17,6 @@ if [ -n "$caller_cache" ]; then
 	find "$caller_cache" -maxdepth 1 -type f -exec cp -- {} "$cache_dir"/ \;
 fi
 
-"$cbs" build "$tests_dir/../recipes/tcc.cbs" \
-    --arch x86_64 --staged "$stage_dir" --output "$artifact" \
-    --cache "$cache_dir" >/dev/null
-"$cbs" verify "$artifact" >/dev/null
-test -x "$stage_dir/dest/usr/bin/tcc"
-
 zstd_stage=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-stage.XXXXXX")
 zstd_cache=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-cache.XXXXXX")
 zstd_artifact=$(mktemp "${TMPDIR:-/tmp}/cbs-zstd-artifact.XXXXXX.cixpkg")
@@ -32,4 +26,4 @@ trap 'rm -rf -- "$stage_dir" "$cache_dir" "$artifact" "$zstd_stage" "$zstd_cache
     --cache "$zstd_cache" >/dev/null
 "$cbs" verify "$zstd_artifact" >/dev/null
 test -f "$zstd_stage/dest/usr/lib/libzstd.a"
-printf '%s\n' 'upstream smoke test: PASS (TCC bootstrap, zstd build, and verification)'
+printf '%s\n' 'upstream smoke test: PASS (zstd build and verification)'

@@ -18,7 +18,7 @@ features must add focused success and failure assertions to this matrix.
 | Every in-repository migrated recipe parses and validates | make recipe-test |
 
 The CLI contract test asserts output and representative failure exit statuses.
-Focused C tests assert operation results and diagnostic codes. The upstream
+Focused C tests assert operation results and diagnostic codes. The zstd package
 qualification is included in make test and can use a caller-supplied
-CBS_UPSTREAM_CACHE directory; make upstream-test runs it alone and make
-qualification-test names both gates.
+CBS_UPSTREAM_CACHE directory. The TCC bootstrap is opt-in as make
+bootstrap-test; make qualification-test runs both.

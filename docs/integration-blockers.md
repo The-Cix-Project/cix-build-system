@@ -18,8 +18,9 @@ The standalone path is operational:
 verification, extraction, and mode-preservation tests. The real-package smoke
 test is included and requires either network access or a caller-supplied
 `CBS_UPSTREAM_CACHE` directory containing verified source files. `make
-upstream-test` runs that qualification alone; `make qualification-test` names
-both gates.
+upstream-test` runs the zstd qualification alone. The TCC bootstrap is
+deliberately opt-in as `make bootstrap-test`; `make qualification-test` runs
+both qualification layers.
 
 ## Blockers and unblock actions
 
