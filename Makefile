@@ -70,6 +70,7 @@ test: $(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/http-server.c -o tests/http-server
 	HTTP_SERVER=./tests/http-server ./tests/cli-build-test.sh ./$(TARGET)
 	rm -f tests/http-server
+	./tests/cli-contract-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-o tests/exec-test
