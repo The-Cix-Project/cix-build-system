@@ -18,6 +18,7 @@ package "filesystem-test" {
         write "${build}/input/reference.txt" "alpha"
         require file "${build}/input/a.txt" {
             exists
+            nonempty
             same_as "${build}/input/reference.txt"
         }
         write "${build}/input/b.txt" "beta"

@@ -467,17 +467,21 @@ static CbsNode *parse_require(CbsParser *parser) {
             node->number = strtol(count->text, NULL, 10);
     } else {
         consume_word(parser, "exists");
-        while (is_word(parser, "contains") || is_word(parser, "same_as")) {
+        while (is_word(parser, "contains") || is_word(parser, "same_as") ||
+               is_word(parser, "nonempty")) {
             CbsToken *text;
             CbsNode *property;
             int same_as = is_word(parser, "same_as");
+            int nonempty = is_word(parser, "nonempty");
             advance(parser);
-            text = same_as ? consume_path(parser)
-                           : consume_text_value(parser, "contained value");
-            if (text == NULL)
-                break;
-            property = node_from_token(CBS_NODE_PROPERTY, text);
-            property->name = cbs_duplicate(same_as ? "same_as" : "contains");
+            text = nonempty ? NULL
+                            : (same_as ? consume_path(parser)
+                                       : consume_text_value(parser, "contained value"));
+            property = text == NULL ? cbs_node_create(CBS_NODE_PROPERTY,
+                                                       keyword->location)
+                                    : node_from_token(CBS_NODE_PROPERTY, text);
+            property->name = cbs_duplicate(nonempty ? "nonempty"
+                                                     : (same_as ? "same_as" : "contains"));
             cbs_node_add(node, property);
         }
     }

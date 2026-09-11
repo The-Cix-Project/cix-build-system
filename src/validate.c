@@ -457,11 +457,14 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             } else {
                 if (property->name == NULL ||
                     (strcmp(property->name, "contains") != 0 &&
-                     strcmp(property->name, "same_as") != 0))
+                     strcmp(property->name, "same_as") != 0 &&
+                     strcmp(property->name, "nonempty") != 0))
                     validation_error(
                         validator, property, "CPDL-E3004",
-                        "file assertion must use contains or same_as");
-                validate_value(validator, property, property->value);
+                        "file assertion must use contains, same_as, or nonempty");
+                if (property->name != NULL &&
+                    strcmp(property->name, "nonempty") != 0)
+                    validate_value(validator, property, property->value);
             }
         }
         break;

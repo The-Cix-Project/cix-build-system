@@ -992,6 +992,14 @@ static int require_path(const CbsNode *operation,
         goto failed;
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
+        if (strcmp(property->name, "nonempty") == 0) {
+            if (content_length == 0) {
+                assertion_error(operation, context,
+                                "required file must not be empty");
+                goto done;
+            }
+            continue;
+        }
         if (strcmp(property->name, "same_as") == 0) {
             char *other_path =
                 cbs_resolve_confined_path(property->value, context);

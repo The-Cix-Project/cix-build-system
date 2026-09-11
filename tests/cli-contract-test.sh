@@ -2,6 +2,7 @@
 set -eu
 
 cbs=${1:?usage: cli-contract-test.sh CBS}
+version=$(sed -n '1p' VERSION)
 temporary_dir=${TMPDIR:-/tmp}/cbs-cli-contract-tests.$$
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 mkdir -p -- "$temporary_dir/workspace"
@@ -21,7 +22,7 @@ package "cli-contract" {
 }
 EOF
 
-test "$("$cbs" --version)" = "cbs $(sed -n '1p' VERSION)"
+test "$("$cbs" --version)" = "cbs $version"
 "$cbs" --help >"$temporary_dir/help.out"
 grep -q '^usage: cbs <command> \[options\]$' "$temporary_dir/help.out"
 "$cbs" -h >"$temporary_dir/short-help.out"

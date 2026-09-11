@@ -18,12 +18,11 @@ if [ -n "$caller_cache" ]; then
 fi
 
 zstd_stage=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-stage.XXXXXX")
-zstd_cache=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-cache.XXXXXX")
 zstd_artifact=$(mktemp "${TMPDIR:-/tmp}/cbs-zstd-artifact.XXXXXX.cixpkg")
-trap 'rm -rf -- "$stage_dir" "$cache_dir" "$artifact" "$zstd_stage" "$zstd_cache" "$zstd_artifact"' EXIT HUP INT TERM
+trap 'rm -rf -- "$stage_dir" "$cache_dir" "$artifact" "$zstd_stage" "$zstd_artifact"' EXIT HUP INT TERM
 "$cbs" build "$tests_dir/../recipes/zstd.cbs" \
     --arch x86_64 --staged "$zstd_stage" --output "$zstd_artifact" \
-    --cache "$zstd_cache" >/dev/null
+    --cache "$cache_dir" >/dev/null
 "$cbs" verify "$zstd_artifact" >/dev/null
 test -f "$zstd_stage/dest/usr/lib/libzstd.a"
 printf '%s\n' 'upstream smoke test: PASS (zstd build and verification)'

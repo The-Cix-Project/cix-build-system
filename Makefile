@@ -36,11 +36,21 @@ LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
 PREFIX ?= /usr/local
 INSTALL ?= install
 
-.PHONY: all clean test install upstream-test bootstrap-test qualification-test recipe-test
+.PHONY: all clean test install version-check upstream-test bootstrap-test qualification-test recipe-test
 
-all: $(TARGET) $(LIBRARY)
+all: version-check $(TARGET) $(LIBRARY)
 
-$(TARGET): $(OBJECTS)
+version-check:
+	@tag=$$(git describe --tags --exact-match 2>/dev/null || true); \
+	if [ -n "$$tag" ]; then \
+		expected=$${tag#v}; \
+		actual=$$(sed -n '1p' VERSION); \
+		test "$$actual" = "$$expected" || { \
+			echo "VERSION ($$actual) does not match tag ($$tag)" >&2; exit 1; \
+		}; \
+	fi
+
+$(TARGET): version-check $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -larchive -lzstd -ldl -o $@
 
 $(LIBRARY): $(LIB_OBJECTS)
@@ -53,7 +63,7 @@ install: $(TARGET) $(LIBRARY)
 	$(INSTALL) -m 644 $(LIBRARY) $(DESTDIR)$(PREFIX)/lib/$(LIBRARY)
 	$(INSTALL) -m 644 src/cbs_public.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
 
-src/%.o: src/%.c src/cbs.h
+src/%.o: src/%.c src/cbs.h VERSION
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 test: $(TARGET) upstream-test recipe-test
