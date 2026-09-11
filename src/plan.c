@@ -2,6 +2,7 @@
 #include "cbs.h"
 #include <string.h>
 
+/* Collect the five ordered phase slots from a validated package. */
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan) {
     const CbsNode *package;
     size_t index;
@@ -18,6 +19,7 @@ int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan) {
     return plan->count > 0;
 }
 
+/* Collect embedder-facing build metadata from the package AST. */
 int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
     const CbsNode *package;
     size_t index;
@@ -42,6 +44,7 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
     return 1;
 }
 
+/* Execute phases in order and emit optional begin/end events. */
 int cbs_execute_plan(const CbsBuildPlan *plan,
                      const CbsExecutionContext *context) {
     size_t index;

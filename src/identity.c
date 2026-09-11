@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Check that an architecture is a concrete lower-case target name. */
 static int valid_architecture(const char *architecture) {
     const unsigned char *cursor = (const unsigned char *)architecture;
 
@@ -20,6 +21,8 @@ static int valid_architecture(const char *architecture) {
     return 1;
 }
 
+/* Read package identity fields and combine them with the target architecture.
+ */
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,
                                CbsPackageIdentity *identity) {
@@ -49,6 +52,7 @@ int cbs_identity_from_document(const CbsNode *document,
            identity->release > 0;
 }
 
+/* Format the canonical identity used in artifact names and metadata. */
 char *cbs_identity_string(const CbsPackageIdentity *identity) {
     int length =
         snprintf(NULL, 0, "%s-%s-%ld-%s", identity->name, identity->version,
@@ -63,6 +67,7 @@ char *cbs_identity_string(const CbsPackageIdentity *identity) {
     return result;
 }
 
+/* Append the CIXPKG suffix to the canonical identity. */
 char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity) {
     char *canonical = cbs_identity_string(identity);
     size_t length;
@@ -78,6 +83,7 @@ char *cbs_identity_artifact_filename(const CbsPackageIdentity *identity) {
     return filename;
 }
 
+/* Create the stable newline-terminated identity digest input. */
 char *cbs_identity_digest_metadata(const CbsPackageIdentity *identity,
                                    size_t *length) {
     static const char prefix[] = "identity=";

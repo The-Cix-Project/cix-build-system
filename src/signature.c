@@ -2,6 +2,7 @@
 #include "cbs.h"
 #include <stdio.h>
 #include <stdlib.h>
+/* Read a file and pass its bytes to the embedder's verifier. */
 int cbs_verify_signature(CbsSignatureVerifier verifier, const char *path,
                          void *user) {
     FILE *f;

@@ -5,15 +5,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Return the token currently under the parser cursor. */
 static CbsToken *current(CbsParser *parser) {
     return &parser->tokens.items[parser->cursor];
 }
 
+/* Test whether the current token is a specific word. */
 static int is_word(CbsParser *parser, const char *word) {
     CbsToken *token = current(parser);
     return token->kind == CBS_TOKEN_WORD && strcmp(token->text, word) == 0;
 }
 
+/* Consume and return the current token. */
 static CbsToken *advance(CbsParser *parser) {
     CbsToken *token = current(parser);
     if (token->kind != CBS_TOKEN_EOF)
@@ -21,6 +24,7 @@ static CbsToken *advance(CbsParser *parser) {
     return token;
 }
 
+/* Produce a readable description for an unexpected token. */
 static const char *token_description(const CbsToken *token) {
     switch (token->kind) {
     case CBS_TOKEN_EOF:
@@ -36,6 +40,7 @@ static const char *token_description(const CbsToken *token) {
     }
 }
 
+/* Report a missing grammar element once and mark parsing failed. */
 static void expected(CbsParser *parser, const char *description) {
     CbsToken *token = current(parser);
     if (!parser->failed)
@@ -53,6 +58,7 @@ static CbsToken *consume_kind(CbsParser *parser, CbsTokenKind kind,
     return advance(parser);
 }
 
+/* Consume a required keyword or emit its expected-token diagnostic. */
 static CbsToken *consume_word(CbsParser *parser, const char *word) {
     if (!is_word(parser, word)) {
         expected(parser, word);
@@ -61,6 +67,7 @@ static CbsToken *consume_word(CbsParser *parser, const char *word) {
     return advance(parser);
 }
 
+/* Identify tokens accepted wherever CPDL expects a string value. */
 static int is_text_value(const CbsToken *token) {
     return token->kind == CBS_TOKEN_STRING ||
            token->kind == CBS_TOKEN_BLOCK_STRING ||
@@ -76,6 +83,7 @@ static CbsToken *consume_text_value(CbsParser *parser,
     return advance(parser);
 }
 
+/* Create a string-valued AST node from one source token. */
 static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token) {
     CbsNode *node = cbs_node_create(kind, token->location);
     node->value = cbs_duplicate(token->text);
@@ -86,6 +94,7 @@ static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token) {
 static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
                                       int diagnostic_only);
 
+/* Parse a process operation and its arguments/options. */
 static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = consume_word(parser, "run");
     CbsToken *program;
@@ -165,6 +174,7 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
     return node;
 }
 
+/* Parse an environment-binding operation. */
 static CbsNode *parse_env(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "env");
     CbsToken *name;
@@ -183,6 +193,7 @@ static CbsNode *parse_env(CbsParser *parser) {
     return node;
 }
 
+/* Consume a path value accepted by filesystem operations. */
 static CbsToken *consume_path(CbsParser *parser) {
     CbsToken *token = current(parser);
     if (token->kind != CBS_TOKEN_STRING && token->kind != CBS_TOKEN_CBS_VALUE) {
@@ -209,6 +220,7 @@ static CbsNode *parse_selector(CbsParser *parser, CbsNodeKind kind,
     return node;
 }
 
+/* Parse an optional chmod mode attached to an operation. */
 static void parse_optional_mode(CbsParser *parser, CbsNode *node) {
     int standalone_chmod = 0;
 
@@ -235,6 +247,7 @@ static void parse_optional_mode(CbsParser *parser, CbsNode *node) {
     }
 }
 
+/* Parse one filesystem operation and its path arguments. */
 static CbsNode *parse_filesystem(CbsParser *parser) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
@@ -311,6 +324,7 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
     return node;
 }
 
+/* Parse an archive extraction operation. */
 static CbsNode *parse_extract(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "extract");
     CbsToken *source;
@@ -338,6 +352,7 @@ static CbsNode *parse_extract(CbsParser *parser) {
     return node;
 }
 
+/* Parse a named-source materialization operation. */
 static CbsNode *parse_materialize(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "materialize");
     CbsToken *source =
@@ -354,6 +369,7 @@ static CbsNode *parse_materialize(CbsParser *parser) {
     return node;
 }
 
+/* Parse replace/insert source-edit operations. */
 static CbsNode *parse_edit(CbsParser *parser, int insert) {
     CbsToken *keyword = advance(parser);
     CbsToken *path;
@@ -387,6 +403,7 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
     return node;
 }
 
+/* Parse a runtime assertion and its property block. */
 static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
     CbsToken *kind;
@@ -446,6 +463,7 @@ static CbsNode *parse_require(CbsParser *parser) {
     return node;
 }
 
+/* Parse any operation allowed in the current block. */
 static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = current(parser);
     CbsNode *node;
@@ -512,6 +530,7 @@ static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
     return owner;
 }
 
+/* Parse the package's named source declarations. */
 static CbsNode *parse_sources(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "sources");
     CbsNode *node = cbs_node_create(CBS_NODE_SOURCES, keyword->location);
@@ -555,6 +574,7 @@ static CbsNode *parse_sources(CbsParser *parser) {
     return node;
 }
 
+/* Parse dependency groups and their typed requirements. */
 static CbsNode *parse_requires(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "requires");
     CbsNode *node = cbs_node_create(CBS_NODE_REQUIRES, keyword->location);
@@ -601,12 +621,14 @@ static CbsNode *parse_requires(CbsParser *parser) {
     return node;
 }
 
+/* Identify one of CPDL's five phase keywords. */
 static int phase_word(CbsParser *parser) {
     return is_word(parser, "prepare") || is_word(parser, "configure") ||
            is_word(parser, "build") || is_word(parser, "check") ||
            is_word(parser, "install");
 }
 
+/* Parse build-image, capability, toolchain, or upstream metadata. */
 static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
@@ -632,6 +654,7 @@ static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
     return node;
 }
 
+/* Parse the next package-level declaration or phase. */
 static CbsNode *parse_package_item(CbsParser *parser) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
@@ -686,6 +709,7 @@ static CbsNode *parse_package_item(CbsParser *parser) {
     return NULL;
 }
 
+/* Parse the complete CPDL document and its single package. */
 static CbsNode *parse_document(CbsParser *parser) {
     CbsToken *package_keyword;
     CbsToken *name;

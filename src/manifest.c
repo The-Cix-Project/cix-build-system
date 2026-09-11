@@ -8,10 +8,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Reject permission bits that would create a privileged installed file. */
 static int unsafe_mode(mode_t mode) {
     return (mode & (S_ISUID | S_ISGID)) != 0;
 }
 
+/* Check that a relative staged symlink stays within the staged root. */
 static int safe_link_target(const char *relative, const char *target) {
     const char *p;
     int depth = 0;
@@ -41,6 +43,7 @@ static int safe_link_target(const char *relative, const char *target) {
     return 1;
 }
 
+/* Append one validated entry while growing the manifest array. */
 static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      const char *path, char type, mode_t mode,
                      const char *target) {
@@ -67,6 +70,7 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
     return 1;
 }
 
+/* Recursively collect supported entries from a staged directory. */
 static int collect(const char *root, const char *relative,
                    CbsManifestEntry **items, size_t *count, size_t *capacity) {
     char path[4096];
@@ -139,6 +143,7 @@ static int collect(const char *root, const char *relative,
     return 1;
 }
 
+/* Encode a symlink target as lowercase hexadecimal bytes. */
 static int write_target(FILE *file, const char *target) {
     static const char hex[] = "0123456789abcdef";
     const unsigned char *cursor = (const unsigned char *)target;
@@ -150,6 +155,7 @@ static int write_target(FILE *file, const char *target) {
     return 1;
 }
 
+/* Serialize one typed manifest entry. */
 static int write_entry(FILE *file, const CbsManifestEntry *entry) {
     if (entry->type == 'f')
         return fprintf(file, "f %o 0 0 %llu %s %s\n", entry->mode, entry->size,
@@ -161,6 +167,7 @@ static int write_entry(FILE *file, const CbsManifestEntry *entry) {
            fprintf(file, " %s\n", entry->path) >= 0;
 }
 
+/* Collect, sort, and write a deterministic manifest file. */
 int cbs_manifest_write(const char *root, const char *output) {
     CbsManifestEntry *items = NULL;
     size_t count = 0, capacity = 0, index;
@@ -190,6 +197,7 @@ int cbs_manifest_compare(const void *left, const void *right) {
     return strcmp(a->path, b->path);
 }
 
+/* Return sorted manifest entries for callers that need direct inspection. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count) {
     size_t capacity = 0;
@@ -207,6 +215,7 @@ int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
     return 1;
 }
 
+/* Release entries and all strings owned by the manifest collector. */
 void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count) {
     size_t index;
     if (!entries)

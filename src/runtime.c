@@ -49,13 +49,16 @@ typedef struct {
     size_t inherited_count;
 } EnvironmentList;
 
+/* Dispatch one operation to its specialized runtime implementation. */
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context);
 
+/* Identify operations that modify the staged filesystem. */
 static int is_filesystem(CbsNodeKind kind) {
     return kind >= CBS_NODE_MKDIR && kind <= CBS_NODE_CHMOD;
 }
 
+/* Read whether a run operation explicitly permits its failure. */
 static int run_allows_failure(const CbsNode *run) {
     size_t index;
     for (index = 0; index < run->child_count; ++index)
@@ -64,6 +67,7 @@ static int run_allows_failure(const CbsNode *run) {
     return 0;
 }
 
+/* Capture one diagnostic stream for attachment to a runtime error. */
 static char *capture_stream(FILE *stream) {
     long size;
     char *content;
@@ -81,6 +85,7 @@ static char *capture_stream(FILE *stream) {
     return content;
 }
 
+/* Execute a run operation while capturing its output for diagnostics. */
 static int execute_captured(const CbsNode *operation,
                             const CbsExecutionContext *context,
                             char **diagnostic) {
@@ -108,6 +113,7 @@ static int execute_captured(const CbsNode *operation,
     return result;
 }
 
+/* Attach a diagnostic-operation failure to its primary failure. */
 static void subordinate_note(const CbsNode *operation,
                              const CbsExecutionContext *context,
                              const char *diagnostic, int allowed) {
@@ -130,6 +136,7 @@ static void subordinate_note(const CbsNode *operation,
                    message);
 }
 
+/* Add or replace one environment variable in an operation environment. */
 static void environment_add(EnvironmentList *list, const char *name,
                             char *value) {
     size_t capacity;
@@ -144,6 +151,7 @@ static void environment_add(EnvironmentList *list, const char *name,
     ++list->count;
 }
 
+/* Release an operation environment and its owned strings. */
 static void environment_destroy(EnvironmentList *list) {
     size_t index;
     for (index = list->inherited_count; index < list->count; ++index)
@@ -151,6 +159,7 @@ static void environment_destroy(EnvironmentList *list) {
     free(list->items);
 }
 
+/* Execute best-effort diagnostic operations after a primary failure. */
 static int execute_diagnostics(const CbsNode *on_fail,
                                const CbsExecutionContext *context) {
     size_t index;
@@ -171,6 +180,7 @@ static int execute_diagnostics(const CbsNode *on_fail,
     return 1;
 }
 
+/* Execute a block while preserving its first failure as the result. */
 static int execute_block_internal(const CbsNode *block,
                                   const CbsExecutionContext *context) {
     CbsExecutionContext local = *context;
@@ -218,6 +228,7 @@ static int execute_block_internal(const CbsNode *block,
     return result;
 }
 
+/* Execute a nested block after changing to its confined directory. */
 static int execute_cd(const CbsNode *operation,
                       const CbsExecutionContext *context) {
     CbsExecutionContext nested = *context;
@@ -243,6 +254,7 @@ static int execute_cd(const CbsNode *operation,
     return result;
 }
 
+/* Find the source name referenced by an extract operation. */
 static const char *extract_name(const CbsNode *operation) {
     size_t index;
 
@@ -254,6 +266,7 @@ static const char *extract_name(const CbsNode *operation) {
     return NULL;
 }
 
+/* Emit a located diagnostic for an extraction failure. */
 static int extract_error(const CbsNode *operation,
                          const CbsExecutionContext *context,
                          const char *message) {
@@ -263,6 +276,7 @@ static int extract_error(const CbsNode *operation,
     return 0;
 }
 
+/* Resolve, validate, and extract one named source archive. */
 static int execute_extract(const CbsNode *operation,
                            const CbsExecutionContext *context) {
     char *archive =
@@ -359,6 +373,7 @@ static int execute_extract(const CbsNode *operation,
     return 1;
 }
 
+/* Dispatch one operation after applying phase runtime policy. */
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context) {
     if (operation->kind == CBS_NODE_RUN)
@@ -381,6 +396,7 @@ static int execute_operation(const CbsNode *operation,
     return 0;
 }
 
+/* Execute a complete phase block and its optional failure diagnostics. */
 int cbs_execute_block(const CbsNode *block,
                       const CbsExecutionContext *context) {
     return execute_block_internal(block, context);

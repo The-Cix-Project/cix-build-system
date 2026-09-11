@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Decide whether one dependency role applies to the requested phase. */
 static int role_selected(const char *role, const char *phase) {
     if (strcmp(role, "bootstrap") == 0 || strcmp(role, "build") == 0)
         return strcmp(phase, "install") != 0;
@@ -12,6 +13,7 @@ static int role_selected(const char *role, const char *phase) {
     return strcmp(phase, "install") == 0;
 }
 
+/* Copy the dependencies relevant to one phase into a caller-owned set. */
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *set) {
     const CbsNode *package;
@@ -65,6 +67,7 @@ int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
     return 1;
 }
 
+/* Release the array returned by cbs_dependencies_for_phase. */
 void cbs_dependency_set_destroy(CbsDependencySet *set) {
     free(set->items);
     memset(set, 0, sizeof(*set));

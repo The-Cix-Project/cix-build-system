@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Allocate zeroed memory and abort with a stable status on exhaustion. */
 void *cbs_allocate(size_t size) {
     void *pointer = calloc(1, size);
 
@@ -16,6 +17,7 @@ void *cbs_allocate(size_t size) {
     return pointer;
 }
 
+/* Resize an allocation while preserving its existing contents. */
 void *cbs_reallocate(void *pointer, size_t size) {
     void *result = realloc(pointer, size);
 
@@ -26,6 +28,7 @@ void *cbs_reallocate(void *pointer, size_t size) {
     return result;
 }
 
+/* Copy exactly length bytes and append a string terminator. */
 char *cbs_duplicate_range(const char *start, size_t length) {
     char *result = cbs_allocate(length + 1);
 
@@ -34,10 +37,12 @@ char *cbs_duplicate_range(const char *start, size_t length) {
     return result;
 }
 
+/* Duplicate a complete NUL-terminated string. */
 char *cbs_duplicate(const char *text) {
     return cbs_duplicate_range(text, strlen(text));
 }
 
+/* Create one empty AST node with its source location attached. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location) {
     CbsNode *node = cbs_allocate(sizeof(*node));
 
@@ -47,6 +52,7 @@ CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location) {
     return node;
 }
 
+/* Append a child while growing the parent's child-pointer array. */
 void cbs_node_add(CbsNode *parent, CbsNode *child) {
     size_t capacity;
 
@@ -59,6 +65,7 @@ void cbs_node_add(CbsNode *parent, CbsNode *child) {
     parent->children[parent->child_count++] = child;
 }
 
+/* Recursively release an AST node and all owned child data. */
 void cbs_node_destroy(CbsNode *node) {
     size_t index;
 
@@ -73,6 +80,7 @@ void cbs_node_destroy(CbsNode *node) {
     free(node);
 }
 
+/* Release token text and storage after parsing is complete. */
 void cbs_token_list_destroy(CbsTokenList *tokens) {
     size_t index;
 

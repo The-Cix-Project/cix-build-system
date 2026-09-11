@@ -17,12 +17,14 @@
 #define CIXPKG_MAGIC "CIXPKG\0\2"
 #define CIXPKG_FLAG_FINALIZED CBS_CIXPKG_FLAG_FINALIZED
 
+/* Parse an octal mode and reject setuid/setgid bits. */
 static int parse_mode(const char *text, unsigned *mode) {
     char extra;
     return sscanf(text, "%o %c", mode, &extra) == 1 &&
            (*mode & (04000U | 02000U)) == 0 && *mode <= 07777U;
 }
 
+/* Check that a relative symlink remains inside the package root. */
 static int safe_link_target(const char *relative, const char *target) {
     const char *p;
     int depth = 0;
@@ -68,12 +70,14 @@ static int decode_link_target(const char *hex, char *target,
     return 1;
 }
 
+/* Store one little-endian 64-bit header field. */
 static void put64(unsigned char *p, uint64_t value) {
     size_t i;
     for (i = 0; i < 8; ++i)
         p[i] = (unsigned char)(value >> (i * 8));
 }
 
+/* Load one little-endian 64-bit header field. */
 static uint64_t get64(const unsigned char *p) {
     uint64_t value = 0;
     size_t i;
@@ -82,6 +86,7 @@ static uint64_t get64(const unsigned char *p) {
     return value;
 }
 
+/* Read a complete file into a newly allocated byte buffer. */
 static int read_blob(const char *path, unsigned char **data, size_t *size) {
     FILE *file;
     long length;
@@ -106,6 +111,7 @@ static int read_blob(const char *path, unsigned char **data, size_t *size) {
     return 1;
 }
 
+/* Append one regular-file payload to the concatenated payload buffer. */
 static int append_blob(unsigned char **data, size_t *size, size_t *capacity,
                        const char *path) {
     unsigned char *part;
@@ -137,6 +143,7 @@ static int append_blob(unsigned char **data, size_t *size, size_t *capacity,
     return 1;
 }
 
+/* Concatenate regular-file bytes in canonical manifest order. */
 static int make_payload(const char *manifest, const char *root,
                         unsigned char **payload, size_t *payload_size) {
     FILE *file;
@@ -171,6 +178,7 @@ static int make_payload(const char *manifest, const char *root,
     return 1;
 }
 
+/* Compress one uncompressed CIXPKG section with zstd. */
 static int compress_blob(const unsigned char *input, size_t input_size,
                          unsigned char **output, size_t *output_size) {
     size_t bound = ZSTD_compressBound(input_size);
@@ -186,6 +194,7 @@ static int compress_blob(const unsigned char *input, size_t input_size,
     return 1;
 }
 
+/* Write a complete CIXPKG v2 header, manifest section, and payload section. */
 int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
                                      const char *package_path,
                                      const char *identity, unsigned flags) {
@@ -242,12 +251,14 @@ cleanup:
     return ok;
 }
 
+/* Write a CIXPKG v2 artifact without embedder metadata flags. */
 int cbs_cixpkg_write_tree(const char *manifest, const char *root,
                           const char *package_path, const char *identity) {
     return cbs_cixpkg_write_tree_with_flags(manifest, root, package_path,
                                             identity, 0);
 }
 
+/* Verify the entire artifact before exposing identity or manifest entries. */
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size) {
     unsigned char *data, *manifest, *payload;
@@ -403,6 +414,7 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     return 1;
 }
 
+/* Remove a temporary extraction tree recursively. */
 static int remove_tree(const char *path) {
     DIR *directory = opendir(path);
     struct dirent *entry;
@@ -423,6 +435,7 @@ static int remove_tree(const char *path) {
     return rmdir(path) == 0 || errno == ENOENT;
 }
 
+/* Create parent directories for one manifest entry. */
 static int make_parent_dirs(const char *root, const char *relative) {
     char path[4096], *cursor;
     if (snprintf(path, sizeof(path), "%s/%s", root, relative) >=
@@ -443,6 +456,7 @@ static int make_parent_dirs(const char *root, const char *relative) {
     return mkdir(path, 0700) == 0 || errno == EEXIST;
 }
 
+/* Verify, populate, and atomically publish one extracted package tree. */
 int cbs_cixpkg_extract(const char *package_path, const char *destination) {
     unsigned char *data = NULL, *manifest = NULL, *payload = NULL;
     size_t total, manifest_frame, manifest_compressed, payload_compressed;

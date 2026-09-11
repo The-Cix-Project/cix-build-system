@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zstd.h>
+/* Compress a standalone file using the CIXPKG zstd settings. */
 int cbs_cixpkg_compress(const char *input, const char *output) {
     FILE *in = fopen(input, "rb"), *out;
     long n;
@@ -48,6 +49,7 @@ int cbs_cixpkg_compress(const char *input, const char *output) {
     return 1;
 }
 
+/* Decompress one bounded zstd frame into a file. */
 int cbs_cixpkg_decompress(const char *input, const char *output) {
     FILE *in = fopen(input, "rb"), *out;
     long n;
@@ -96,12 +98,14 @@ int cbs_cixpkg_decompress(const char *input, const char *output) {
     return 1;
 }
 
+/* Apply a mode and atomically rename one staged file. */
 int cbs_install_atomic(const char *staged, const char *destination,
                        unsigned mode) {
     if (staged == NULL || destination == NULL || chmod(staged, mode) != 0)
         return 0;
     return rename(staged, destination) == 0;
 }
+/* Compare two files byte by byte without loading either whole file. */
 int cbs_compare_files(const char *left, const char *right) {
     FILE *a = fopen(left, "rb"), *b = fopen(right, "rb");
     int x, y;
@@ -126,6 +130,7 @@ int cbs_compare_files(const char *left, const char *right) {
     return 1;
 }
 
+/* Validate a recipe and package an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path) {
     FILE *f;
@@ -170,6 +175,7 @@ int cbs_build_package(const char *recipe, const char *staged_root,
     return ok;
 }
 
+/* Execute a recipe, apply policy, and write its standalone artifact. */
 int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
@@ -259,6 +265,7 @@ int cbs_build_standalone_with_cache_policy(
     free(text);
     return ok;
 }
+/* Use the standalone pipeline without a finalization callback. */
 int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const char *package_path,
                                     const char *architecture,
@@ -268,6 +275,7 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
         recipe, workspace, package_path, architecture, fetch_service,
         cache_directory, NULL, NULL);
 }
+/* Compatibility wrapper for the default source-cache pipeline. */
 int cbs_build_standalone(const char *recipe, const char *workspace,
                          const char *package_path, const char *architecture,
                          const CbsFetchService *fetch_service) {

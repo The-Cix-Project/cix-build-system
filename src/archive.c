@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Return false when an archive member can escape its extraction root. */
 static int safe_name(const char *name) {
     const char *part = name;
     if (name == NULL || name[0] == '/' || strstr(name, "\\") != NULL)
@@ -24,12 +25,14 @@ static int safe_name(const char *name) {
     return 1;
 }
 
+/* Accept only archive formats supported by the package policy. */
 static int supported_format(const char *name) {
     return name != NULL &&
            (strstr(name, "tar") != NULL || strstr(name, "pax") != NULL ||
             strstr(name, "ZIP") != NULL);
 }
 
+/* Extract regular files and directories after validating every member. */
 int cbs_extract_archive(const char *archive_path, const char *destination,
                         const char *source_name, const char *recipe_path,
                         const char *recipe_source, CbsLocation location) {
