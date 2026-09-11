@@ -221,7 +221,16 @@ int cbs_execute_block(const CbsNode *block,
 long cbs_effective_jobs(long requested, long cpu_budget, long administrator_limit);
 typedef struct { int reject_absolute; int reject_parent; int reject_empty; } CbsStagePolicy;
 int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
-typedef struct { const char *path; char type; unsigned mode; unsigned long long size; const char *digest; } CbsManifestEntry;
+typedef struct {
+    const char *path;
+    char type;
+    unsigned mode;
+    unsigned uid;
+    unsigned gid;
+    unsigned long long size;
+    const char *digest;
+    const char *target;
+} CbsManifestEntry;
 int cbs_manifest_compare(const void *left, const void *right);
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count);

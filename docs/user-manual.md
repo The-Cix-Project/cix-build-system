@@ -563,12 +563,14 @@ The package identity is `(name, version, release, architecture)`. The
 architecture comes from `--arch`; it cannot be selected by a recipe. The usual
 artifact filename is `name-version-release-architecture.cixpkg`.
 
-The artifact contains a sorted manifest and compressed regular-file payload.
-Directories are represented by their files, symlinks and special files are not
-part of the current CIXPKG v1 payload. Manifest paths, file sizes, file modes,
-section digests, and per-file digests are verified before extraction. Builds
-must therefore install only the regular files and modes intended for the
-package.
+The artifact contains a sorted typed manifest and a compressed regular-file
+payload. CIXPKG v2 represents regular files, directories (including empty
+directories), and symbolic links. Ownership is normalized to root (`uid=0,
+gid=0`), permission bits are preserved, and setuid/setgid entries are rejected.
+Absolute symlink targets are image-root-relative and may be dangling; relative
+targets must remain within the image root. Devices, FIFOs, sockets, and
+hardlinks are rejected. Manifest paths, metadata, section digests, and
+per-file digests are verified before extraction.
 
 For reproducibility, use pinned source digests, deterministic generated files,
 explicit modes, fixed package identity, and gates that check actual output
@@ -603,8 +605,8 @@ Run `check` first, confirm the workspace root exists, and inspect the located
 runtime diagnostic emitted before the final summary.
 
 `artifact verification failed` means the file is truncated, corrupted, has
-been modified, or does not conform to CIXPKG v1. Never extract an artifact that
-does not verify.
+been modified, uses the retired v1 format, or does not conform to CIXPKG v2.
+Never extract an artifact that does not verify.
 
 For the complete grammar and diagnostic contract, see the [CPDL specification](spec/cpdl-0.1.md).
 
@@ -640,12 +642,11 @@ or a generated script. CBS rejects command interpreters as recipe executables.
 
 ### 16.1 Current CIXPKG limitations
 
-CIXPKG v1 currently packages regular files and their modes. It does not carry
-symlink, device-node, socket, ownership, or extended-attribute entries. A
-recipe may use symlinks inside its build workspace for a tool’s own build, but
-those links are not emitted into the v1 package payload. If an installed alias
-must ship, install a regular file until a future CIXPKG format explicitly
-defines that entry type.
+CIXPKG v2 intentionally has no extended-attribute, device-node, FIFO, socket,
+hardlink, signature, or v1-reader compatibility. Package signatures and
+repository trust remain orchestrator responsibilities. A package needing one
+of the rejected filesystem types must use a platform-specific installation
+mechanism rather than smuggling it through the artifact.
 
 ### 16.2 Standalone policy boundaries
 
@@ -709,6 +710,5 @@ The output path must be separate from the staged root. CBS creates and owns
 
 `CIXPKG-E4001` means verification failed before extraction. Treat the artifact
 as corrupt or incompatible; do not bypass verification or extract it manually.
-If an expected installed file is missing, remember that CIXPKG v1 currently
-contains regular files only and inspect the staged manifest before changing the
-recipe.
+If an expected installed path is missing, inspect the staged v2 manifest and
+check its entry type, mode, and target before changing the recipe.

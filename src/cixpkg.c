@@ -13,6 +13,53 @@
 #include <sys/stat.h>
 #include <zstd.h>
 
+#define CIXPKG_MAGIC "CIXPKG\0\2"
+
+static int parse_mode(const char *text, unsigned *mode)
+{
+    char extra;
+    return sscanf(text, "%o %c", mode, &extra) == 1 &&
+           (*mode & (04000U | 02000U)) == 0 && *mode <= 07777U;
+}
+
+static int safe_link_target(const char *relative, const char *target)
+{
+    const char *p;
+    int depth = 0;
+    if (target[0] == '/') return 1;
+    for (p = relative; *p != '\0'; ++p)
+        if (*p == '/') ++depth;
+    for (p = target; *p != '\0'; ) {
+        const char *start = p;
+        size_t length;
+        while (*p == '/') ++p;
+        start = p;
+        while (*p != '\0' && *p != '/') ++p;
+        length = (size_t)(p - start);
+        if (length == 0 || (length == 1 && start[0] == '.')) continue;
+        if (length == 2 && start[0] == '.' && start[1] == '.') {
+            if (depth == 0) return 0;
+            --depth;
+        } else {
+            ++depth;
+        }
+    }
+    return 1;
+}
+
+static int decode_link_target(const char *hex, char *target, size_t target_size)
+{
+    size_t length = strlen(hex), i;
+    if (length % 2 != 0 || length / 2 >= target_size) return 0;
+    for (i = 0; i < length; i += 2) {
+        unsigned value;
+        if (sscanf(hex + i, "%2x", &value) != 1 || value == 0 || value > 255) return 0;
+        target[i / 2] = (char)value;
+    }
+    target[length / 2] = '\0';
+    return 1;
+}
+
 static void put64(unsigned char *p, uint64_t value)
 {
     size_t i;
@@ -89,8 +136,9 @@ static int make_payload(const char *manifest, const char *root,
     file = fopen(manifest, "rb");
     if (file == NULL) return 0;
     while (fgets(line, sizeof(line), file) != NULL) {
-        if (sscanf(line, "%c %31s %llu %64s %4095[^\n]", &type, mode, &size,
-                   digest, relative) != 5 || type != 'f' || size > SIZE_MAX ||
+        if (line[0] != 'f') continue;
+        if (sscanf(line, "f %31s %*u %*u %llu %64s %4095[^\n]", mode, &size,
+                   digest, relative) != 4 || size > SIZE_MAX ||
             snprintf(path, sizeof(path), "%s/%s", root, relative) >=
                 (int)sizeof(path) || !append_blob(payload, payload_size,
                                                    &capacity, path)) {
@@ -138,7 +186,7 @@ int cbs_cixpkg_write_tree(const char *manifest, const char *root,
                        &payload_compressed_size))
         goto cleanup;
     memset(header, 0, sizeof(header));
-    memcpy(header, "CIXPKG\0\1", 8);
+    memcpy(header, CIXPKG_MAGIC, 8);
     put64(header + 8, sizeof(header));
     put64(header + 16, manifest_size);
     put64(header + 24, payload_size);
@@ -171,7 +219,7 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     char digest[65];
     FILE *file;
     if (!read_blob(package_path, &data, &size) || size < 352 ||
-        memcmp(data, "CIXPKG\0\1", 8) != 0 || get64(data + 8) != 352 ||
+        memcmp(data, CIXPKG_MAGIC, 8) != 0 || get64(data + 8) != 352 ||
         (manifest_size = get64(data + 16)) > 1024ULL * 1024ULL * 1024ULL ||
         (payload_size = get64(data + 24)) > 1024ULL * 1024ULL * 1024ULL)
         { free(data); return 0; }
@@ -204,20 +252,34 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     }
     file = fmemopen(manifest, (size_t)manifest_size, "rb");
     if (file == NULL) { free(data); free(manifest); free(payload); return 0; }
-    { char line[8192], type, mode[32], entry_digest[65], relative[4096];
+    { char line[8192], type, mode_text[32], entry_digest[65], relative[4096];
       char previous[4096] = {0};
-      unsigned long long entry_size; size_t offset = 0; int have_previous = 0;
+      unsigned long long entry_size; unsigned uid, gid, mode; size_t offset = 0; int have_previous = 0;
       while (fgets(line, sizeof(line), file) != NULL) {
-          if (sscanf(line, "%c %31s %llu %64s %4095[^\n]", &type, mode,
-                     &entry_size, entry_digest, relative) != 5 || type != 'f' ||
-              (have_previous && strcmp(previous, relative) >= 0) ||
-              !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
-              entry_size > (unsigned long long)payload_size ||
-              entry_size > payload_size - offset ||
-              !cbs_digest_text((char *)payload + offset, (size_t)entry_size, digest) ||
-              strcmp(digest, entry_digest) != 0) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          if (sscanf(line, "%c", &type) != 1) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          if (type == 'f') {
+              if (sscanf(line, "f %31s %u %u %llu %64s %4095[^\n]", mode_text,
+                         &uid, &gid, &entry_size, entry_digest, relative) != 6 ||
+                  !parse_mode(mode_text, &mode) || uid != 0 || gid != 0 ||
+                  entry_size > (unsigned long long)payload_size ||
+                  entry_size > payload_size - offset ||
+                  !cbs_digest_text((char *)payload + offset, (size_t)entry_size, digest) ||
+                  strcmp(digest, entry_digest) != 0) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+              offset += (size_t)entry_size;
+          } else if (type == 'd') {
+              if (sscanf(line, "d %31s %u %u %4095[^\n]", mode_text, &uid, &gid, relative) != 4 ||
+                  !parse_mode(mode_text, &mode) || uid != 0 || gid != 0) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          } else if (type == 'l') {
+              char target_hex[8192], target[4096];
+              if (sscanf(line, "l %31s %u %u %8191s %4095[^\n]", mode_text,
+                         &uid, &gid, target_hex, relative) != 5 ||
+                  !parse_mode(mode_text, &mode) || uid != 0 || gid != 0 ||
+                  !decode_link_target(target_hex, target, sizeof(target)) ||
+                  !safe_link_target(relative, target)) { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          } else { fclose(file); free(data); free(manifest); free(payload); return 0; }
+          if ((have_previous && strcmp(previous, relative) >= 0) ||
+              !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1})) { fclose(file); free(data); free(manifest); free(payload); return 0; }
           strcpy(previous, relative); have_previous = 1;
-          offset += (size_t)entry_size;
       }
       if (ferror(file) || offset != (size_t)payload_size) { fclose(file); free(data); free(manifest); free(payload); return 0; }
     }
@@ -272,7 +334,7 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination)
     if (!package_path || !destination || strlen(destination) == 0 ||
         strlen(destination) > sizeof(temporary) - 32 || access(destination, F_OK) == 0 ||
         !read_blob(package_path, &data, &total) || total < 352 ||
-        memcmp(data, "CIXPKG\0\1", 8) != 0 || get64(data + 8) != 352 ||
+        memcmp(data, CIXPKG_MAGIC, 8) != 0 || get64(data + 8) != 352 ||
         (manifest_length = get64(data + 16)) > 1024ULL * 1024ULL * 1024ULL ||
         (payload_length = get64(data + 24)) > 1024ULL * 1024ULL * 1024ULL)
         goto cleanup;
@@ -309,17 +371,48 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination)
         char path[4096], entry_digest[65];
         unsigned mode;
         int output;
-        if (sscanf(line, "%c %31s %llu %64s %4095[^\n]", &type, mode_text,
-                   &entry_size, entry_digest, relative) != 5 || type != 'f' ||
-            (have_previous && strcmp(previous, relative) >= 0) ||
-            !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
-            sscanf(mode_text, "%o", &mode) != 1 || entry_size > payload_size ||
-            entry_size > payload_size - offset ||
-            !cbs_digest_text((char *)payload + offset, (size_t)entry_size, digest) ||
-            strcmp(digest, entry_digest) != 0 ||
-            snprintf(path, sizeof(path), "%s/%s", temporary, relative) >=
-                (int)sizeof(path) || !make_parent_dirs(temporary, relative))
-            goto cleanup;
+        if (sscanf(line, "%c", &type) != 1) goto cleanup;
+        if (type == 'f') {
+            unsigned uid, gid;
+            int parsed = sscanf(line, "f %31s %u %u %llu %64s %4095[^\n]", mode_text,
+                       &uid, &gid, &entry_size, entry_digest, relative);
+            if (parsed != 6 ||
+                !parse_mode(mode_text, &mode) || uid != 0 || gid != 0 || entry_size > payload_size ||
+                entry_size > payload_size - offset ||
+                !cbs_digest_text((char *)payload + offset, (size_t)entry_size, digest) ||
+                strcmp(digest, entry_digest) != 0 ||
+                snprintf(path, sizeof(path), "%s/%s", temporary, relative) >=
+                    (int)sizeof(path) || !make_parent_dirs(temporary, relative)) goto cleanup;
+        } else if (type == 'd') {
+            unsigned uid, gid;
+            if (sscanf(line, "d %31s %u %u %4095[^\n]", mode_text, &uid, &gid, relative) != 4 ||
+                !parse_mode(mode_text, &mode) || uid != 0 || gid != 0 ||
+                snprintf(path, sizeof(path), "%s/%s", temporary, relative) >= (int)sizeof(path) ||
+                !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
+                !make_parent_dirs(temporary, relative)) goto cleanup;
+            if (mkdir(path, mode & 07777) != 0 && errno != EEXIST) goto cleanup;
+            offset += 0;
+            if (have_previous && strcmp(previous, relative) >= 0) goto cleanup;
+            strcpy(previous, relative); have_previous = 1;
+            continue;
+        } else if (type == 'l') {
+            char target_hex[8192], target[4096];
+            unsigned uid, gid;
+            if (sscanf(line, "l %31s %u %u %8191s %4095[^\n]", mode_text,
+                       &uid, &gid, target_hex, relative) != 5 || !parse_mode(mode_text, &mode) ||
+                uid != 0 || gid != 0 ||
+                !decode_link_target(target_hex, target, sizeof(target)) ||
+                !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1}) ||
+                snprintf(path, sizeof(path), "%s/%s", temporary, relative) >= (int)sizeof(path) ||
+                !make_parent_dirs(temporary, relative)) goto cleanup;
+            if (!safe_link_target(relative, target)) goto cleanup;
+            if (symlink(target, path) != 0) goto cleanup;
+            if (have_previous && strcmp(previous, relative) >= 0) goto cleanup;
+            strcpy(previous, relative); have_previous = 1;
+            continue;
+        } else goto cleanup;
+        if (have_previous && strcmp(previous, relative) >= 0 ||
+            !cbs_validate_stage_path(relative, &(CbsStagePolicy){1,1,1})) goto cleanup;
         strcpy(previous, relative); have_previous = 1;
         output = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode & 07777);
         if (output < 0 || write(output, payload + offset, (size_t)entry_size) !=

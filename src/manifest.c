@@ -1,11 +1,149 @@
 #include "cbs.h"
-#include <string.h>
+
 #include <dirent.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-static int collect(const char *root,const char *relative,CbsManifestEntry **items,size_t *count,size_t *capacity){char path[4096];DIR*d;struct dirent*e;if(snprintf(path,sizeof(path),"%s/%s",root,relative)>= (int)sizeof(path))return 0;d=opendir(path);if(!d)return 0;while((e=readdir(d))!=NULL){char child[4096];struct stat st;if(strcmp(e->d_name,".")==0||strcmp(e->d_name,"..")==0)continue;if(snprintf(child,sizeof(child),"%s%s%s",relative,relative[0]?"/":"",e->d_name)>=(int)sizeof(child)){closedir(d);return 0;}if(snprintf(path,sizeof(path),"%s/%s",root,child)>=(int)sizeof(path)||lstat(path,&st)!=0){closedir(d);return 0;}if(S_ISDIR(st.st_mode)){if(!collect(root,child,items,count,capacity)){closedir(d);return 0;}}else if(S_ISREG(st.st_mode)){if(*count==*capacity){size_t next=*capacity?*capacity*2:16;CbsManifestEntry*n=realloc(*items,next*sizeof(*n));if(!n){closedir(d);return 0;}*items=n;*capacity=next;}(*items)[*count].path=cbs_duplicate(child);(*items)[*count].type='f';(*items)[*count].mode=(unsigned)(st.st_mode&07777);(*items)[*count].size=(unsigned long long)st.st_size;(*items)[*count].digest=cbs_duplicate_range("",0);{char digest[65];if(!cbs_digest_file(path,digest)){closedir(d);return 0;}free((char *)(*items)[*count].digest);(*items)[*count].digest=cbs_duplicate(digest);}(*count)++;}}closedir(d);return 1;}
-int cbs_manifest_write(const char *root,const char *output){CbsManifestEntry*items=NULL;size_t count=0,capacity=0,i;FILE*f;if(!collect(root,"",&items,&count,&capacity)){free(items);return 0;}qsort(items,count,sizeof(*items),cbs_manifest_compare);f=fopen(output,"wb");if(!f){free(items);return 0;}for(i=0;i<count;++i){if(fprintf(f,"%c %o %llu %s %s\n",items[i].type,items[i].mode,items[i].size,items[i].digest,items[i].path)<0){fclose(f);return 0;}free((char*)items[i].path);free((char*)items[i].digest);}free(items);return fclose(f)==0;}
-int cbs_manifest_compare(const void *left, const void *right){const CbsManifestEntry *a=left,*b=right;return strcmp(a->path,b->path);}
-int cbs_manifest_collect(const char *root,CbsManifestEntry **entries,size_t *count){size_t capacity=0;if(!root||!entries||!count)return 0;*entries=NULL;*count=0;if(!collect(root,"",entries,count,&capacity)){free(*entries);*entries=NULL;*count=0;return 0;}qsort(*entries,*count,sizeof(**entries),cbs_manifest_compare);return 1;}
-void cbs_manifest_entries_destroy(CbsManifestEntry *entries,size_t count){size_t i;if(!entries)return;for(i=0;i<count;++i){free((char*)entries[i].path);free((char*)entries[i].digest);}free(entries);}
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static int unsafe_mode(mode_t mode)
+{
+    return (mode & (S_ISUID | S_ISGID)) != 0;
+}
+
+static int safe_link_target(const char *relative, const char *target)
+{
+    const char *p;
+    int depth = 0;
+    if (target[0] == '/') return 1;
+    for (p = relative; *p != '\0'; ++p) if (*p == '/') ++depth;
+    for (p = target; *p != '\0'; ) {
+        const char *start;
+        size_t length;
+        while (*p == '/') ++p;
+        start = p;
+        while (*p != '\0' && *p != '/') ++p;
+        length = (size_t)(p - start);
+        if (length == 0 || (length == 1 && start[0] == '.')) continue;
+        if (length == 2 && start[0] == '.' && start[1] == '.') {
+            if (depth == 0) return 0;
+            --depth;
+        } else ++depth;
+    }
+    return 1;
+}
+
+static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
+                     const char *path, char type, mode_t mode, const char *target)
+{
+    CbsManifestEntry *entry;
+    if (unsafe_mode(mode)) return 0;
+    if (*count == *capacity) {
+        size_t next = *capacity == 0 ? 16 : *capacity * 2;
+        CbsManifestEntry *grown = realloc(*items, next * sizeof(*grown));
+        if (grown == NULL) return 0;
+        *items = grown; *capacity = next;
+    }
+    entry = &(*items)[(*count)++];
+    memset(entry, 0, sizeof(*entry));
+    entry->path = cbs_duplicate(path); entry->type = type;
+    entry->mode = (unsigned)(mode & 07777); entry->uid = 0; entry->gid = 0;
+    if (target != NULL) entry->target = cbs_duplicate(target);
+    return 1;
+}
+
+static int collect(const char *root, const char *relative,
+                   CbsManifestEntry **items, size_t *count, size_t *capacity)
+{
+    char path[4096]; DIR *directory; struct dirent *entry;
+    if (snprintf(path, sizeof(path), "%s/%s", root, relative) >= (int)sizeof(path)) return 0;
+    directory = opendir(path); if (directory == NULL) return 0;
+    while ((entry = readdir(directory)) != NULL) {
+        char child[4096]; struct stat status;
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+        if (snprintf(child, sizeof(child), "%s%s%s", relative, relative[0] ? "/" : "",
+                     entry->d_name) >= (int)sizeof(child) ||
+            snprintf(path, sizeof(path), "%s/%s", root, child) >= (int)sizeof(path) ||
+            lstat(path, &status) != 0) { closedir(directory); return 0; }
+        if (S_ISDIR(status.st_mode)) {
+            if (!add_entry(items, count, capacity, child, 'd', status.st_mode, NULL) ||
+                !collect(root, child, items, count, capacity)) { closedir(directory); return 0; }
+        } else if (S_ISREG(status.st_mode)) {
+            char digest[65];
+            if (status.st_nlink != 1) { closedir(directory); return 0; }
+            if (!add_entry(items, count, capacity, child, 'f', status.st_mode, NULL) ||
+                !cbs_digest_file(path, digest)) { closedir(directory); return 0; }
+            (*items)[*count - 1].size = (unsigned long long)status.st_size;
+            (*items)[*count - 1].digest = cbs_duplicate(digest);
+        } else if (S_ISLNK(status.st_mode)) {
+            char target[4096]; ssize_t length = readlink(path, target, sizeof(target) - 1);
+            if (length < 0 || (size_t)length >= sizeof(target) - 1) { closedir(directory); return 0; }
+            target[length] = '\0';
+            if (!safe_link_target(child, target)) { closedir(directory); return 0; }
+            if (!add_entry(items, count, capacity, child, 'l', status.st_mode, target)) {
+                closedir(directory); return 0;
+            }
+        } else { closedir(directory); return 0; }
+    }
+    closedir(directory); return 1;
+}
+
+static int write_target(FILE *file, const char *target)
+{
+    static const char hex[] = "0123456789abcdef";
+    const unsigned char *cursor = (const unsigned char *)target;
+    while (*cursor) {
+        if (fprintf(file, "%c%c", hex[*cursor >> 4], hex[*cursor & 15]) < 0) return 0;
+        ++cursor;
+    }
+    return 1;
+}
+
+static int write_entry(FILE *file, const CbsManifestEntry *entry)
+{
+    if (entry->type == 'f') return fprintf(file, "f %o 0 0 %llu %s %s\n", entry->mode,
+                                             entry->size, entry->digest, entry->path) >= 0;
+    if (entry->type == 'd') return fprintf(file, "d %o 0 0 %s\n", entry->mode, entry->path) >= 0;
+    return fprintf(file, "l %o 0 0 ", entry->mode) >= 0 && write_target(file, entry->target) &&
+           fprintf(file, " %s\n", entry->path) >= 0;
+}
+
+int cbs_manifest_write(const char *root, const char *output)
+{
+    CbsManifestEntry *items = NULL; size_t count = 0, capacity = 0, index; FILE *file;
+    if (!collect(root, "", &items, &count, &capacity)) goto fail;
+    qsort(items, count, sizeof(*items), cbs_manifest_compare);
+    file = fopen(output, "wb"); if (file == NULL) goto fail;
+    for (index = 0; index < count; ++index) if (!write_entry(file, &items[index])) { fclose(file); goto fail; }
+    if (fclose(file) != 0) goto fail;
+    cbs_manifest_entries_destroy(items, count); return 1;
+fail: cbs_manifest_entries_destroy(items, count); return 0;
+}
+
+int cbs_manifest_compare(const void *left, const void *right)
+{
+    const CbsManifestEntry *a = left, *b = right; return strcmp(a->path, b->path);
+}
+
+int cbs_manifest_collect(const char *root, CbsManifestEntry **entries, size_t *count)
+{
+    size_t capacity = 0;
+    if (!root || !entries || !count) return 0;
+    *entries = NULL; *count = 0;
+    if (!collect(root, "", entries, count, &capacity)) {
+        cbs_manifest_entries_destroy(*entries, *count); *entries = NULL; *count = 0; return 0;
+    }
+    qsort(*entries, *count, sizeof(**entries), cbs_manifest_compare); return 1;
+}
+
+void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count)
+{
+    size_t index;
+    if (!entries) return;
+    for (index = 0; index < count; ++index) {
+        free((char *)entries[index].path); free((char *)entries[index].digest);
+        free((char *)entries[index].target);
+    }
+    free(entries);
+}

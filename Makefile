@@ -119,6 +119,10 @@ test: $(TARGET)
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/plan-test
 	./tests/plan-test
 	rm -f tests/plan-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/typed-package-test.c \
+		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/typed-package-test
+	./tests/typed-package-test
+	rm -f tests/typed-package-test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
@@ -136,3 +140,4 @@ clean:
 	rm -f tests/repro-test
 	rm -f tests/dependency-test
 	rm -f tests/plan-test
+	rm -f tests/typed-package-test
