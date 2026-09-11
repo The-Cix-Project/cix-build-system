@@ -426,6 +426,14 @@ requires { build { compiler "gcc" } }
 toolchain "gcc" { reason "Linux kbuild requires GCC extensions" }
 ```
 
+For post-build inspection, `cbs_observe_dependencies` reads a little-endian
+ELF64 file directly and calls its observer once for each `DT_NEEDED` library
+name. It rejects non-ELF, malformed, truncated, or unsupported files and
+propagates an observer failure. This is observation, not dependency solving:
+an embedder can compare the observed names with the recipe’s declared runtime
+libraries and report undeclared or missing requirements. Standalone CBS does
+not silently resolve or install those libraries.
+
 ### 11.4 Processes and environments
 
 `run` always names one executable followed by one argument per string:

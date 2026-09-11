@@ -59,6 +59,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #22: Third-party source policy](reviews/issue-0022-validation.md)
 - [CIXPKG v2 binary specification](spec/cixpkg-1.0.md)
 - [Issue #23: CIXPKG v1 layout](reviews/issue-0023-validation.md)
+- [Issue #122: ELF runtime dependency observation](reviews/issue-0122-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
