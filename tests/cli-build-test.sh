@@ -6,6 +6,7 @@ tests_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 temporary_dir=${TMPDIR:-/tmp}/cbs-cli-build-tests.$$
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 mkdir -p -- "$temporary_dir/workspace" "$temporary_dir/cache"
+test "$("$cbs" --version)" = 'cbs 0.1.23'
 
 artifact=$temporary_dir/standalone-smoke-x86_64-1.cixpkg
 "$cbs" check "$tests_dir/fixtures/standalone-smoke.cbs" \
@@ -48,6 +49,25 @@ test -f "$temporary_dir/workspace/dest/usr/bin/hello"
 test "$(cat "$temporary_dir/extracted/usr/bin/hello")" = 'hello from CBS'
 test "$(stat -c '%a' "$temporary_dir/extracted/usr/bin/hello")" = 755
 
+mkdir -p -- "$temporary_dir/repro-workspace" "$temporary_dir/repro-cache"
+repro_artifact=$temporary_dir/repro-smoke-x86_64-1.cixpkg
+"$cbs" build "$tests_dir/fixtures/standalone-smoke.cbs" \
+    --arch x86_64 --staged "$temporary_dir/repro-workspace" \
+    --output "$repro_artifact" --cache "$temporary_dir/repro-cache" \
+    >"$temporary_dir/repro.out" 2>"$temporary_dir/repro.err"
+test ! -s "$temporary_dir/repro.err"
+cmp -s "$artifact" "$repro_artifact"
+
+mkdir -p -- "$temporary_dir/stage-only" "$temporary_dir/stage-cache"
+"$cbs" build "$tests_dir/fixtures/standalone-smoke.cbs" \
+    --staged "$temporary_dir/stage-only" --cache "$temporary_dir/stage-cache" \
+    --arch=x86_64 \
+    >"$temporary_dir/stage.out" 2>"$temporary_dir/stage.err"
+test ! -s "$temporary_dir/stage.err"
+grep -q '^staged ' "$temporary_dir/stage.out"
+test -f "$temporary_dir/stage-only/dest/usr/bin/hello"
+test ! -e "$temporary_dir/stage-only/dest/.cbs-manifest"
+
 mkdir -p -- "$temporary_dir/server/payload"
 printf 'fetched source\n' >"$temporary_dir/server/payload/source.txt"
 tar -cf "$temporary_dir/server/payload.tar" -C "$temporary_dir/server/payload" .
@@ -56,6 +76,7 @@ printf '%s\n' \
     'package "fetch-smoke" {' \
     '    version "1"' \
     '    release 1' \
+    '    format "cixpkg"' \
     '    sources {' \
     '        main "payload" {' \
     "            url \"http://127.0.0.1:$((18000 + ($$ % 1000)))/payload.tar\"" \

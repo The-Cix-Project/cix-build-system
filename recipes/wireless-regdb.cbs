@@ -4,6 +4,7 @@
 package "wireless-regdb" {
     version "2026.09.03"
     release 2
+    format "cixpkg"
     sources {
         main "wireless-regdb" {
             url "https://mirrors.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz"

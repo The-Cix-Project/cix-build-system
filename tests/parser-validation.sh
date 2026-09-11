@@ -50,7 +50,7 @@ fi
 grep -q 'recipe must use the .cbs extension' "$temporary_dir/extension.err"
 passed=$((passed + 1))
 
-printf 'package "crlf" {\r\n    version "1"\r\n    release 1\r\n}\r\n' \
+printf 'package "crlf" {\r\n    version "1"\r\n    release 1\r\n    format "cixpkg"\r\n}\r\n' \
     >"$temporary_dir/crlf.cbs"
 "$cbs" validate "$temporary_dir/crlf.cbs" >"$temporary_dir/crlf.out" \
     2>"$temporary_dir/crlf.err"

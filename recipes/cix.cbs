@@ -8,6 +8,7 @@
 package "cix" {
     version "v2.57.55"
     release 1
+    format "cixpkg"
 
     sources {
         main "cix" {

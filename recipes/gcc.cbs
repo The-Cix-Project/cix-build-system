@@ -6,6 +6,7 @@
 package "gcc" {
     version "16.2.0"
     release 16
+    format "cixpkg"
 
     sources {
         main "gcc" {

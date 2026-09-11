@@ -59,6 +59,7 @@ typedef enum {
     CBS_NODE_PACKAGE,
     CBS_NODE_VERSION,
     CBS_NODE_RELEASE,
+    CBS_NODE_FORMAT,
     CBS_NODE_ARCHITECTURE,
     CBS_NODE_SOURCES,
     CBS_NODE_SOURCE,
@@ -240,6 +241,8 @@ typedef struct {
     const char *version;
     long release;
     const char *arch;
+    /* Compiler selected by the package's structural compiler dependency. */
+    const char *compiler;
     /* Confined source, build, and destination roots. */
     const char *src;
     const char *build;

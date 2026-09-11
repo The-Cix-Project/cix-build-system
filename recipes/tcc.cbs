@@ -19,6 +19,7 @@
 package "tcc" {
     version "0.9.28rc"
     release 29
+    format "cixpkg"
 
     sources {
         main "tcc" {

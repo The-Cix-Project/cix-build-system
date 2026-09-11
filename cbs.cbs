@@ -1,10 +1,11 @@
 package "cbs" {
-    version "0.1"
+    version "0.1.23"
     release 1
+    format "cixpkg"
     sources {
         main "cbs" {
-            url "https://git.home.arpa/itdlabs/cix-build-system/archive/v0.1.21.tar.gz"
-            sha256 "852bbedfe83dc5f3a154e54216874138e6ccc88889e8ce3d80477a6750b6ea6c"
+            url "https://git.home.arpa/itdlabs/cix-build-system/archive/v0.1.23.tar.gz"
+            sha256 "66d5d353ffce97e07c0c8150f32f2d4e795c502b3dc24d04f092b43e2a18f18c"
         }
     }
     requires {

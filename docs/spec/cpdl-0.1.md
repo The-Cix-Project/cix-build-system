@@ -92,7 +92,7 @@ env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
 insert         into       jobs           library     main
 mkdir          move       on_fail        package     prepare
-release        remove     replace        require     requires
+release        format     remove        replace     require     requires
 run            runtime    sha256         source      sources
 symlink        test       timeout        to          tool
 tree           url        version        write       materialize
@@ -216,6 +216,7 @@ package-declaration = "package", string, "{",
 
 package-item = version-declaration
              | release-declaration
+             | format-declaration
              | sources-declaration
              | requires-declaration
              | build-image-declaration
@@ -230,6 +231,7 @@ package-item = version-declaration
 
 version-declaration      = "version", string ;
 release-declaration      = "release", integer ;
+format-declaration       = "format", string ;
 build-image-declaration  = "build_image", string ;
 capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
@@ -248,7 +250,7 @@ remain the immutable build input until a resolver selects a new release.
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
 
-The package name, version, and release are required. CBS supplies the build
+The package name, version, release, and artifact format are required. CBS supplies the build
 target architecture; a CPDL 0.1 recipe cannot select or override it. The
 `architecture` and `any` keywords remain reserved for a future decision about
 architecture-independent packages, but an architecture declaration is invalid

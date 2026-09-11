@@ -136,7 +136,9 @@ static void validate_bare_value(Validator *validator, const CbsNode *node,
                                 const char *value) {
     const char *name;
 
-    if (value == NULL || value[0] != '$' || value[1] == '\0' || value[1] == '{')
+    if (value == NULL || value[0] != '$' || value[1] == '\0' ||
+        value[1] == '{' ||
+        (!isalpha((unsigned char)value[1]) && value[1] != '_'))
         return;
     name = value + 1;
     if (!known_value_name(validator, name, strlen(name)))
@@ -459,28 +461,30 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
         return 1;
     case CBS_NODE_RELEASE:
         return 2;
-    case CBS_NODE_UPSTREAM:
+    case CBS_NODE_FORMAT:
         return 3;
-    case CBS_NODE_ARCHITECTURE:
+    case CBS_NODE_UPSTREAM:
         return 4;
+    case CBS_NODE_ARCHITECTURE:
+        return 5;
     case CBS_NODE_SOURCES:
         return 4;
     case CBS_NODE_REQUIRES:
-        return 5;
+        return 6;
     case CBS_NODE_BUILD_IMAGE:
     case CBS_NODE_CAPABILITY:
     case CBS_NODE_TOOLCHAIN:
-        return 6;
+        return 7;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
-            return 7;
-        if (strcmp(name, "configure") == 0)
             return 8;
-        if (strcmp(name, "build") == 0)
+        if (strcmp(name, "configure") == 0)
             return 9;
-        if (strcmp(name, "check") == 0)
+        if (strcmp(name, "build") == 0)
             return 10;
-        return 11;
+        if (strcmp(name, "check") == 0)
+            return 11;
+        return 12;
     default:
         return 99;
     }
@@ -613,6 +617,7 @@ static void validate_package(Validator *validator) {
     int last_rank = 0;
     int versions = 0;
     int releases = 0;
+    int formats = 0;
     size_t phases = 0;
 
     if (!valid_package_name(package->value))
@@ -648,6 +653,14 @@ static void validate_package(Validator *validator) {
             if (item->number <= 0)
                 validation_error(validator, item, "CPDL-E3004",
                                  "release must be greater than zero");
+            break;
+        case CBS_NODE_FORMAT:
+            ++formats;
+            if (item->value == NULL ||
+                (strcmp(item->value, "cixpkg") != 0 &&
+                 strcmp(item->value, "tar.gz") != 0))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "artifact format must be cixpkg or tar.gz");
             break;
         case CBS_NODE_ARCHITECTURE:
             validation_error(validator, item, "CPDL-E3006",
@@ -701,6 +714,9 @@ static void validate_package(Validator *validator) {
     if (releases != 1)
         validation_error(validator, package, "CPDL-E3001",
                          "package requires exactly one release declaration");
+    if (formats != 1)
+        validation_error(validator, package, "CPDL-E3001",
+                         "package requires exactly one artifact format declaration");
 }
 
 /* Validate one complete CPDL document and report all semantic errors. */

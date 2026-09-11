@@ -2,6 +2,7 @@
 package "kernel" {
     version "7.2.3"
     release 9
+    format "cixpkg"
     upstream "kernel.org"
     sources {
         main "linux" {

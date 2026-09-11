@@ -675,6 +675,11 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         }
         return node;
     }
+    if (is_word(parser, "format")) {
+        advance(parser);
+        value = consume_kind(parser, CBS_TOKEN_STRING, "artifact format");
+        return value == NULL ? NULL : node_from_token(CBS_NODE_FORMAT, value);
+    }
     if (is_word(parser, "architecture")) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_ARCHITECTURE, keyword->location);

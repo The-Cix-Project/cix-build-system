@@ -7,6 +7,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#ifndef CBS_VERSION
+#define CBS_VERSION "unknown"
+#endif
+
 /* Check the command-line recipe extension before parsing. */
 static int has_cbs_extension(const char *path) {
     size_t length = strlen(path);
@@ -125,13 +129,86 @@ static void usage(FILE *stream) {
         "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
         "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
-        "  cbs build RECIPE.cbs --arch ARCH --staged ROOT --output FILE "
+        "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
         "  cbs --version                        Show version\n",
         stream);
+}
+
+typedef struct {
+    const char *recipe;
+    const char *architecture;
+    const char *staged;
+    const char *output;
+    const char *cache;
+    const char *ca_file;
+} CbsBuildOptions;
+
+/* Parse build options independently of their order on the command line. */
+static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) {
+    int index;
+    memset(options, 0, sizeof(*options));
+    if (argc < 3 || strcmp(argv[1], "build") != 0) {
+        fprintf(stderr, "build: missing recipe\n");
+        return 0;
+    }
+    options->recipe = argv[2];
+    for (index = 3; index < argc; ++index) {
+        const char *argument = argv[index];
+        const char *value = NULL;
+        if (strncmp(argument, "--arch=", 7) == 0)
+            value = argument + 7;
+        else if (strncmp(argument, "--staged=", 9) == 0)
+            value = argument + 9;
+        else if (strncmp(argument, "--output=", 9) == 0)
+            value = argument + 9;
+        else if (strncmp(argument, "--cache=", 8) == 0)
+            value = argument + 8;
+        else if (strncmp(argument, "--ca-file=", 10) == 0)
+            value = argument + 10;
+        else if (strcmp(argument, "--arch") == 0 ||
+                 strcmp(argument, "--staged") == 0 ||
+                 strcmp(argument, "--output") == 0 ||
+                 strcmp(argument, "--cache") == 0 ||
+                 strcmp(argument, "--ca-file") == 0) {
+            if (++index >= argc) {
+                fprintf(stderr, "build: option `%s` requires a value\n",
+                        argument);
+                return 0;
+            }
+            value = argv[index];
+        } else {
+            fprintf(stderr, "build: unknown option `%s`\n", argument);
+            return 0;
+        }
+        if (value == NULL || value[0] == '\0') {
+            fprintf(stderr, "build: option `%s` requires a non-empty value\n",
+                    argument);
+            return 0;
+        }
+        if (strcmp(argument, "--arch") == 0 ||
+            strncmp(argument, "--arch=", 7) == 0)
+            options->architecture = value;
+        else if (strcmp(argument, "--staged") == 0 ||
+                 strncmp(argument, "--staged=", 9) == 0)
+            options->staged = value;
+        else if (strcmp(argument, "--output") == 0 ||
+                 strncmp(argument, "--output=", 9) == 0)
+            options->output = value;
+        else if (strcmp(argument, "--cache") == 0 ||
+                 strncmp(argument, "--cache=", 8) == 0)
+            options->cache = value;
+        else
+            options->ca_file = value;
+    }
+    if (options->architecture == NULL || options->staged == NULL) {
+        fprintf(stderr, "build: --arch and --staged are required\n");
+        return 0;
+    }
+    return 1;
 }
 
 /* Verify one CIXPKG artifact and print its identity. */
@@ -350,6 +427,7 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat status;
     CbsFetchService service;
     char fetch_error[256];
+    memset(&service, 0, sizeof(service));
     if (cache != NULL &&
         (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
         fprintf(stderr, "%s: cache directory is not accessible\n", cache);
@@ -360,18 +438,19 @@ static int build_file(const char *recipe, const char *architecture,
         fprintf(stderr, "%s: CA file is not accessible\n", ca_file);
         return 3;
     }
-    if (!cbs_cli_fetch_service_with_ca(&service, fetch_error,
-                                       sizeof(fetch_error), ca_file)) {
-        fprintf(stderr, "source transport unavailable: %s\n", fetch_error);
-        return 3;
-    }
+    /* Cache hits must work in a network-less image without libcurl. */
+    (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
+                                        sizeof(fetch_error), ca_file);
     if (!cbs_build_standalone_with_cache(recipe, staged, output, architecture,
                                          &service, cache)) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output "
                         "was rejected\n");
         return 3;
     }
-    printf("built %s\n", output);
+    if (output == NULL)
+        printf("staged %s\n", staged);
+    else
+        printf("built %s\n", output);
     return 0;
 }
 
@@ -415,7 +494,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (argc == 2 && strcmp(argv[1], "--version") == 0) {
-        puts("cbs 0.1.0");
+        printf("cbs %s\n", CBS_VERSION);
         return 0;
     }
     if (argc == 3 && strcmp(argv[1], "verify") == 0)
@@ -442,24 +521,13 @@ int main(int argc, char **argv) {
         printf("extracted %s\n", argv[4]);
         return 0;
     }
-    if (argc == 9 && strcmp(argv[1], "build") == 0 &&
-        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
-        strcmp(argv[7], "--output") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], NULL, NULL);
-    if (argc == 11 && strcmp(argv[1], "build") == 0 &&
-        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
-        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10], NULL);
-    if (argc == 11 && strcmp(argv[1], "build") == 0 &&
-        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
-        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--ca-file") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], NULL, argv[10]);
-    if (argc == 13 && strcmp(argv[1], "build") == 0 &&
-        strcmp(argv[3], "--arch") == 0 && strcmp(argv[5], "--staged") == 0 &&
-        strcmp(argv[7], "--output") == 0 && strcmp(argv[9], "--cache") == 0 &&
-        strcmp(argv[11], "--ca-file") == 0)
-        return build_file(argv[2], argv[4], argv[6], argv[8], argv[10],
-                          argv[12]);
+    if (argc >= 3 && strcmp(argv[1], "build") == 0) {
+        CbsBuildOptions options;
+        if (!parse_build_options(argc, argv, &options))
+            return 2;
+        return build_file(options.recipe, options.architecture, options.staged,
+                          options.output, options.cache, options.ca_file);
+    }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);
     if (argc == 4 && strcmp(argv[1], "inspect") == 0)

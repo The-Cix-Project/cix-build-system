@@ -4,6 +4,7 @@
 package "squashfs-tools" {
     version "4.7.5"
     release 12
+    format "cixpkg"
 
     sources {
         main "squashfs-tools" {

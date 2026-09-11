@@ -7,6 +7,42 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zstd.h>
+
+/* Select the compiler dependency that applies to the build pipeline. */
+static const char *declared_compiler(const CbsNode *document) {
+    const CbsNode *package;
+    size_t i, j, k;
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (i = 0; i < package->child_count; ++i) {
+        const CbsNode *requires = package->children[i];
+        if (requires->kind != CBS_NODE_REQUIRES)
+            continue;
+        for (j = 0; j < requires->child_count; ++j) {
+            const CbsNode *group = requires->children[j];
+            for (k = 0; k < group->child_count; ++k) {
+                const CbsNode *dependency = group->children[k];
+                if (strcmp(dependency->name, "compiler") == 0)
+                    return dependency->value;
+            }
+        }
+    }
+    return NULL;
+}
+
+/* Return the artifact format selected by the immutable recipe revision. */
+static const char *declared_format(const CbsNode *document) {
+    const CbsNode *package;
+    size_t index;
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_FORMAT)
+            return package->children[index]->value;
+    return NULL;
+}
 /* Compress a standalone file using the CIXPKG zstd settings. */
 int cbs_cixpkg_compress(const char *input, const char *output) {
     FILE *in = fopen(input, "rb"), *out;
@@ -161,7 +197,8 @@ int cbs_build_package(const char *recipe, const char *staged_root,
     length = (size_t)n;
     ok = cbs_lex(recipe, text, length, &tokens);
     document = ok ? cbs_parse(recipe, text, length, &tokens) : NULL;
-    ok = document != NULL && cbs_validate(document, recipe, text);
+    ok = document != NULL && cbs_validate(document, recipe, text) &&
+         strcmp(declared_format(document), "cixpkg") == 0;
     snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", staged_root);
     if (ok)
         ok = cbs_manifest_write(staged_root, manifest);
@@ -193,7 +230,7 @@ int cbs_build_standalone_with_cache_policy(
         *package_identity = NULL;
     unsigned flags = 0;
     int ok;
-    if (!recipe || !workspace || !package_path || !architecture)
+    if (!recipe || !workspace || !architecture)
         return 0;
     f = fopen(recipe, "rb");
     if (!f || fseek(f, 0, SEEK_END) || (n = ftell(f)) < 0 ||
@@ -214,6 +251,7 @@ int cbs_build_standalone_with_cache_policy(
     ok = cbs_lex(recipe, text, (size_t)n, &tokens);
     document = ok ? cbs_parse(recipe, text, (size_t)n, &tokens) : NULL;
     ok = document != NULL && cbs_validate(document, recipe, text) &&
+         strcmp(declared_format(document), "cixpkg") == 0 &&
          cbs_build_plan(document, &plan) && cbs_workspace_prepare(workspace) &&
          cbs_sources_from_document(document, &sources);
     snprintf(src, sizeof(src), "%s/src", workspace);
@@ -237,6 +275,7 @@ int cbs_build_standalone_with_cache_policy(
             context.version = identity.version;
             context.release = identity.release;
             context.arch = identity.architecture;
+            context.compiler = declared_compiler(document);
             context.src = src;
             context.build = build;
             context.dest = dest;
@@ -251,12 +290,13 @@ int cbs_build_standalone_with_cache_policy(
         if (ok)
             flags = 1;
     }
-    snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-    if (ok)
+    if (ok && package_path != NULL) {
+        snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
         ok = cbs_manifest_write(dest, manifest) &&
              cbs_cixpkg_write_tree_with_flags(manifest, dest, package_path,
                                               package_identity, flags);
-    unlink(manifest);
+        unlink(manifest);
+    }
     free(package_identity);
     cbs_source_set_destroy(&sources);
     if (document)

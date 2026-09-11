@@ -442,6 +442,13 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             timeout_ms = duration_milliseconds(item->value);
         }
     }
+    if (context->compiler != NULL) {
+        const char *base = strrchr(program, '/');
+        base = base == NULL ? program : base + 1;
+        if (strcmp(base, "make") == 0)
+            string_list_add(&arguments,
+                            environment_entry("CC", context->compiler));
+    }
     executable =
         resolve_executable(program, context->working_directory, &environment);
     if (executable == NULL) {

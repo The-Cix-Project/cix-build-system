@@ -1,6 +1,7 @@
 package "standalone-smoke" {
     version "1"
     release 1
+    format "cixpkg"
 
     build {
         mkdir "${dest}/usr/bin"

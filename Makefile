@@ -1,6 +1,8 @@
 CC := tcc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -pedantic
 CPPFLAGS := -Isrc
+CBS_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null | sed 's/^v//' || printf '0.1.23')
+CPPFLAGS += -DCBS_VERSION=\"$(CBS_VERSION)\"
 
 SOURCES := \
 	src/ast.c \
@@ -29,13 +31,27 @@ SOURCES := \
 	src/validate.c
 OBJECTS := $(SOURCES:.c=.o)
 TARGET := cbs
+LIBRARY := libcbs.a
+LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
+PREFIX ?= /usr/local
+INSTALL ?= install
 
-.PHONY: all clean test
+.PHONY: all clean test install upstream-test
 
-all: $(TARGET)
+all: $(TARGET) $(LIBRARY)
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -larchive -lzstd -ldl -o $@
+
+$(LIBRARY): $(LIB_OBJECTS)
+	ar rcs $@ $(LIB_OBJECTS)
+
+install: $(TARGET) $(LIBRARY)
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/lib \
+		$(DESTDIR)$(PREFIX)/include/cbs
+	$(INSTALL) -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/cbs
+	$(INSTALL) -m 644 $(LIBRARY) $(DESTDIR)$(PREFIX)/lib/$(LIBRARY)
+	$(INSTALL) -m 644 src/cbs.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
 
 src/%.o: src/%.c src/cbs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -139,8 +155,11 @@ test: $(TARGET)
 	./tests/policy-test
 	rm -f tests/policy-test
 
+upstream-test: $(TARGET)
+	./tests/upstream-smoke-test.sh ./$(TARGET)
+
 clean:
-	rm -f $(OBJECTS) $(TARGET) tests/exec-test tests/fs-test \
+	rm -f $(OBJECTS) $(TARGET) $(LIBRARY) tests/exec-test tests/fs-test \
 		tests/edit-assert-test
 	rm -f tests/runtime-test
 	rm -f tests/identity-test

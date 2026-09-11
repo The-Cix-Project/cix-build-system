@@ -2,6 +2,7 @@
 package "zstd" {
     version "1.5.4"
     release 1
+    format "cixpkg"
     sources {
         main "zstd" {
             url "https://github.com/facebook/zstd/archive/refs/tags/v1.5.4.tar.gz"
@@ -17,15 +18,40 @@ package "zstd" {
             tool "binutils"
         }
     }
-    prepare { require directory "${src}/zstd-1.5.4" { exists } }
+    prepare {
+        require directory "${src}/zstd/zstd-1.5.4" { exists }
+        replace "${src}/zstd/zstd-1.5.4/lib/Makefile" {
+            from "DEPFLAGS = -MT $@ -MMD -MP -MF"
+            to "DEPFLAGS ="
+            exactly 1
+        }
+        replace "${src}/zstd/zstd-1.5.4/lib/Makefile" {
+            from """
+                $(COMPILE.c) $(DEPFLAGS) $(ZSTD_DYNLIB_DIR)/$*.d $(OUTPUT_OPTION) $<
+                """
+            to """
+                $(COMPILE.c) $(OUTPUT_OPTION) $<
+                """
+            exactly 1
+        }
+        replace "${src}/zstd/zstd-1.5.4/lib/Makefile" {
+            from """
+                $(COMPILE.c) $(DEPFLAGS) $(ZSTD_STATLIB_DIR)/$*.d $(OUTPUT_OPTION) $<
+                """
+            to """
+                $(COMPILE.c) $(OUTPUT_OPTION) $<
+                """
+            exactly 1
+        }
+    }
     build {
-        cd "${src}/zstd-1.5.4" { run "make" { "-C" "lib" jobs $jobs } }
+        cd "${src}/zstd/zstd-1.5.4" { run "make" { "-C" "lib" jobs $jobs } }
     }
     check {
-        require file "${src}/zstd-1.5.4/lib/libzstd.a" { exists }
+        require file "${src}/zstd/zstd-1.5.4/lib/libzstd.a" { exists }
     }
     install {
-        cd "${src}/zstd-1.5.4" {
+        cd "${src}/zstd/zstd-1.5.4" {
             run "make" { "-C" "lib" "install" "PREFIX=/usr" "DESTDIR=${dest}" jobs $jobs }
         }
     }

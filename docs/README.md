@@ -2,6 +2,11 @@
 
 This directory contains the architecture and language documentation for:
 
+The installable static library and its embedding boundary are documented in
+[the library guide](library.md).
+
+The CPDL corpus coverage table is documented in [the corpus audit](cpdl-corpus-audit.md).
+
 The canonical [Cix Build System logo](../brand/cix-cbs-logo.svg) is maintained
 in the repository brand directory.
 
@@ -14,6 +19,7 @@ in the repository brand directory.
 - [ADR-0001: Establish CBS and CPDL](adr/0001-cbs-and-cpdl.md)
 - [ADR-0002: Bootstrap CBS and permit linked base libraries](adr/0002-cbs-bootstrap-and-libraries.md)
 - [ADR-0003: Use `.cbs` for package definition files](adr/0003-cbs-file-extension.md)
+- [ADR-0032: Use detached signatures for CIXPKG artifacts](adr/0032-cixpkg-detached-signatures.md)
 
 ADRs record decisions, their rationale, their consequences, and any questions
 that remain deliberately undecided. Once accepted, an ADR is not rewritten to
