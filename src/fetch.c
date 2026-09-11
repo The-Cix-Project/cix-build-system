@@ -33,11 +33,14 @@ enum {
 };
 
 typedef struct {
+    /* Dynamically loaded libcurl handle. */
     void *library;
+    /* Resolved libcurl entry points. */
     CurlEasyInit easy_init;
     CurlEasySetopt easy_setopt;
     CurlEasyPerform easy_perform;
     CurlEasyCleanup easy_cleanup;
+    /* Optional CA bundle selected by the embedder. */
     const char *ca_file;
 } CurlApi;
 

@@ -166,17 +166,26 @@ typedef struct {
 } CbsPackageIdentity;
 
 typedef struct {
+    /* Source kind: main or extra. */
     const char *kind;
+    /* Logical source name used by interpolation. */
     const char *name;
+    /* Candidate URLs tried in declaration order. */
     const char **urls;
+    /* Number of candidate URLs. */
     size_t url_count;
+    /* Declared lowercase SHA-256 digest. */
     const char *sha256;
+    /* Verified cache/workspace path, when preparation succeeded. */
     char *verified_path;
 } CbsSource;
 
 typedef struct {
+    /* All declared source records. */
     CbsSource *items;
+    /* Number of source records. */
     size_t count;
+    /* Interpolation bindings derived from verified sources. */
     CbsNamedSource *bindings;
 } CbsSourceSet;
 
@@ -184,7 +193,9 @@ typedef int (*CbsFetchFunction)(const char *url, const char *destination,
                                 void *user, char *error, size_t error_size);
 
 typedef struct {
+    /* Callback used to fetch one URL. */
     CbsFetchFunction fetch;
+    /* Opaque state passed to the callback. */
     void *user;
 } CbsFetchService;
 
@@ -194,13 +205,18 @@ int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
                                   size_t error_size, const char *ca_file);
 
 typedef struct {
+    /* Dependency role such as build, test, or runtime. */
     const char *role;
+    /* Dependency kind such as tool, library, or compiler. */
     const char *kind;
+    /* Declared dependency name. */
     const char *name;
 } CbsDependency;
 
 typedef struct {
+    /* Caller-owned selected dependency array. */
     CbsDependency *items;
+    /* Number of selected dependencies. */
     size_t count;
 } CbsDependencySet;
 
@@ -208,28 +224,39 @@ typedef int (*CbsPhaseEvent)(const char *event, const char *phase, int status,
                              void *user);
 
 typedef struct {
+    /* Recipe path and source used for runtime diagnostics. */
     const char *recipe_path;
     const char *recipe_source;
+    /* Canonical package fields copied from the recipe. */
     const char *name;
     const char *version;
     long release;
     const char *arch;
+    /* Confined source, build, and destination roots. */
     const char *src;
     const char *build;
     const char *dest;
     long jobs;
+    /* Working directory used when launching child processes. */
     const char *working_directory;
+    /* Verified source interpolation bindings. */
     const CbsNamedSource *sources;
     size_t source_count;
     const CbsEnvironmentBinding *environment;
     size_t environment_count;
     CbsPhaseEvent phase_event;
+    /* State passed to the phase-event callback. */
     void *phase_event_user;
     struct {
+        /* Maximum child address space in MiB; zero selects policy default. */
         long address_space_mb;
+        /* Maximum child-created file size in MiB. */
         long file_size_mb;
+        /* Maximum child CPU time in seconds. */
         long cpu_seconds;
+        /* Maximum number of simultaneously open file descriptors. */
         long open_files;
+        /* Maximum number of child processes. */
         long processes;
     } limits;
 } CbsExecutionContext;

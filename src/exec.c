@@ -16,8 +16,11 @@
 #include <unistd.h>
 
 typedef struct {
+    /* NULL-terminated child argument vector under construction. */
     char **items;
+    /* Number of initialized argument pointers. */
     size_t count;
+    /* Allocated pointer capacity. */
     size_t capacity;
 } StringList;
 

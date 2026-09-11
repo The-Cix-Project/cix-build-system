@@ -9,13 +9,21 @@
 #include <string.h>
 
 typedef struct {
+    /* Recipe path used in lexical diagnostics. */
     const char *path;
+    /* Complete source text being scanned. */
     const char *source;
+    /* Source length in bytes. */
     size_t length;
+    /* Current byte offset. */
     size_t offset;
+    /* One-based current line. */
     size_t line;
+    /* One-based current column. */
     size_t column;
+    /* Token list receiving lexer output. */
     CbsTokenList *tokens;
+    /* Set after the first fatal lexical error. */
     int failed;
 } Lexer;
 

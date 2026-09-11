@@ -7,9 +7,13 @@
 #include <string.h>
 
 typedef struct {
+    /* Recipe path used for validation diagnostics. */
     const char *path;
+    /* Recipe source used to print diagnostic context. */
     const char *source;
+    /* Package node currently being validated. */
     const CbsNode *package;
+    /* Number of semantic errors already emitted. */
     int errors;
 } Validator;
 

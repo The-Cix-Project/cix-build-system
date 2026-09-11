@@ -14,8 +14,11 @@
 #include <unistd.h>
 
 typedef struct {
+    /* Matched path strings owned by this list. */
     char **items;
+    /* Number of matched paths. */
     size_t count;
+    /* Allocated pointer capacity. */
     size_t capacity;
 } PathList;
 

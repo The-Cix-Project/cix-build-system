@@ -11,9 +11,13 @@
 #include <unistd.h>
 
 typedef struct {
+    /* Eight 32-bit working words of the SHA-256 digest state. */
     uint32_t state[8];
+    /* Number of input bits processed so far. */
     uint64_t bits;
+    /* Current 512-bit compression block. */
     unsigned char block[64];
+    /* Number of bytes currently stored in block. */
     size_t used;
 } Sha256;
 

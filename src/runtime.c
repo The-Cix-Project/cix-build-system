@@ -43,9 +43,13 @@ int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy) {
 #include <unistd.h>
 
 typedef struct {
+    /* Environment bindings visible to the current operation. */
     CbsEnvironmentBinding *items;
+    /* Number of initialized bindings. */
     size_t count;
+    /* Allocated binding capacity. */
     size_t capacity;
+    /* Prefix owned by the inherited process environment. */
     size_t inherited_count;
 } EnvironmentList;
 
