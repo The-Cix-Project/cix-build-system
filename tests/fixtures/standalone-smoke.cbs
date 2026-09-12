@@ -4,6 +4,7 @@ package "standalone-smoke" {
     format "cixpkg"
 
     build {
+        run "true" { expect exit 0 }
         mkdir "${dest}/usr/bin"
         write "${dest}/usr/bin/hello" "hello from CBS\n" chmod 0755
         require file "${dest}/usr/bin/hello" {

@@ -253,6 +253,7 @@ typedef struct {
     const char *phase;
     const char *command;
     const char *working_directory;
+    const char *log_path;
     const char *message;
     int status;
     long duration_ms;
@@ -280,6 +281,8 @@ typedef struct {
     long jobs;
     /* Working directory used when launching child processes. */
     const char *working_directory;
+    const char *log_directory;
+    const char *current_log_path;
     /* Verified source interpolation bindings. */
     const CbsNamedSource *sources;
     size_t source_count;

@@ -36,6 +36,10 @@ duration, and sequence numbers are monotonically increasing within a build.
 The `cbs_build_event_jsonl()` and `cbs_build_event_human()` sinks provide
 reusable output adapters, but presentation and transport remain cixd concerns.
 
+For opt-in command retention, set `CBS_LOG_DIR` to an existing directory. CBS
+writes one mode-0600 log per command and includes its path in command events;
+the default is no command log and unchanged child output behavior.
+
 ## Ownership
 
 cixd owns discovery, dependency/image composition, cache population, container

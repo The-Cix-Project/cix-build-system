@@ -4,6 +4,7 @@
 #include "cbs.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.phase = phase == NULL ? context->current_phase : phase;
     event.command = command;
     event.working_directory = context->working_directory;
+    event.log_path = context->current_log_path;
     event.message = message;
     event.status = status;
     event.duration_ms = duration_ms;
@@ -455,6 +457,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     struct timespec command_start;
     struct timespec command_end;
     int command_event_status;
+    int log_fd = -1;
+    char log_path[4096];
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
 
     memset(&arguments, 0, sizeof(arguments));
     memset(&environment, 0, sizeof(environment));
@@ -519,9 +524,38 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         string_list_destroy(&environment);
         return 0;
     }
+    if (context->log_directory != NULL) {
+        if (snprintf(log_path, sizeof(log_path), "%s/command-%llu.log",
+                     context->log_directory, context->event_sequence + 1) >=
+            (int)sizeof(log_path)) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "command log path is too long");
+            free(executable);
+            free(program);
+            if (capture != NULL)
+                fclose(capture);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        log_fd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (log_fd < 0) {
+            runtime_error(run, context, "CPDL-E4001", "cannot open command log");
+            free(executable);
+            free(program);
+            if (capture != NULL)
+                fclose(capture);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        mutable_context->current_log_path = log_path;
+    }
     clock_gettime(CLOCK_MONOTONIC, &command_start);
     if (!cbs_emit_build_event(context, "command-begin", NULL, program, NULL,
                               0, 0, 0, 0)) {
+        if (log_fd >= 0)
+            close(log_fd);
         free(executable);
         free(program);
         if (capture != NULL)
@@ -537,6 +571,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         snprintf(message, sizeof(message), "cannot create process; errno=%d",
                  errno);
         runtime_error(run, context, "CPDL-E4001", message);
+        if (log_fd >= 0)
+            close(log_fd);
         free(executable);
         free(program);
         string_list_destroy(&arguments);
@@ -559,6 +595,11 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                 _exit(126);
             if (capture_stdout && dup2(fileno(capture), STDOUT_FILENO) < 0)
                 _exit(126);
+            if (log_fd >= 0 && dup2(log_fd, STDERR_FILENO) < 0)
+                _exit(126);
+            if (log_fd >= 0 && !capture_stdout &&
+                dup2(log_fd, STDOUT_FILENO) < 0)
+                _exit(126);
             execve(executable, arguments.items, environment.items);
             _exit(127);
         }
@@ -567,6 +608,10 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         sigaction(SIGINT, &old_action, NULL);
     }
     active_child = 0;
+    if (log_fd >= 0) {
+        close(log_fd);
+        log_fd = -1;
+    }
     clock_gettime(CLOCK_MONOTONIC, &command_end);
     command_event_status = wait_result == 1 && WIFEXITED(status) &&
                            WEXITSTATUS(status) == expected_status ? 0 : 1;
@@ -624,6 +669,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     }
     if (capture)
         fclose(capture);
+    mutable_context->current_log_path = NULL;
     free(executable);
     free(program);
     string_list_destroy(&arguments);

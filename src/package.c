@@ -266,6 +266,7 @@ int cbs_build_standalone_with_events(
     context.recipe_source = text;
     context.event_sink = event_sink;
     context.event_sink_user = event_sink_user;
+    context.log_directory = getenv("CBS_LOG_DIR");
     if (ok && sources.count > 0)
         ok = cbs_prepare_sources_with_events(
             &sources, cache, src, fetch_service, recipe, text,

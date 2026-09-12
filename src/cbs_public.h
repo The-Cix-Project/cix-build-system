@@ -35,6 +35,7 @@ typedef struct {
     const char *phase;
     const char *command;
     const char *working_directory;
+    const char *log_path;
     const char *message;
     int status;
     long duration_ms;
@@ -57,6 +58,8 @@ typedef struct {
     const char *dest;
     long jobs;
     const char *working_directory;
+    const char *log_directory;
+    const char *current_log_path;
     const CbsNamedSource *sources;
     size_t source_count;
     const CbsEnvironmentBinding *environment;
