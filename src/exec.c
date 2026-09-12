@@ -43,6 +43,7 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          unsigned long long stderr_bytes) {
     CbsBuildEvent event;
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
+    struct timespec now;
 
     if (context == NULL || context->event_sink == NULL)
         return 1;
@@ -50,6 +51,9 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.version = 1;
     event.type = type;
     event.sequence = ++mutable_context->event_sequence;
+    if (clock_gettime(CLOCK_REALTIME, &now) == 0)
+        event.timestamp_ms = (unsigned long long)now.tv_sec * 1000ULL +
+                             (unsigned long long)now.tv_nsec / 1000000ULL;
     event.build_id = context->build_id;
     event.package_name = context->name;
     event.package_version = context->version;

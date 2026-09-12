@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <zstd.h>
 
@@ -227,6 +228,7 @@ int cbs_build_standalone_with_events(
     CbsBuildPlan plan;
     CbsPackageIdentity identity;
     CbsExecutionContext context;
+    char build_id[64];
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         *package_identity = NULL;
     unsigned flags = 0;
@@ -262,10 +264,13 @@ int cbs_build_standalone_with_events(
     if (cache_directory != NULL)
         snprintf(cache, sizeof(cache), "%s", cache_directory);
     memset(&context, 0, sizeof(context));
+    snprintf(build_id, sizeof(build_id), "%ld-%ld", (long)time(NULL),
+             (long)getpid());
     context.recipe_path = recipe;
     context.recipe_source = text;
     context.event_sink = event_sink;
     context.event_sink_user = event_sink_user;
+    context.build_id = build_id;
     context.log_directory = getenv("CBS_LOG_DIR");
     if (ok && sources.count > 0)
         ok = cbs_prepare_sources_with_events(

@@ -27,6 +27,7 @@ typedef struct {
     unsigned version;
     const char *type;
     unsigned long long sequence;
+    unsigned long long timestamp_ms;
     const char *build_id;
     const char *package_name;
     const char *package_version;

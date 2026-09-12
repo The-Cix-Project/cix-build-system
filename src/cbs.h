@@ -245,6 +245,9 @@ typedef struct {
     unsigned version;
     const char *type;
     unsigned long long sequence;
+    /* Unix epoch timestamp in milliseconds, captured at emission time. */
+    unsigned long long timestamp_ms;
+    /* Correlation identifier shared by all events in one build. */
     const char *build_id;
     const char *package_name;
     const char *package_version;

@@ -31,8 +31,8 @@ int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user) {
         return 0;
     fprintf(stream, "{\"version\":%u,\"type\":", event->version);
     json_string(stream, event->type);
-    fprintf(stream, ",\"sequence\":%llu,\"build_id\":",
-            event->sequence);
+    fprintf(stream, ",\"sequence\":%llu,\"timestamp_ms\":%llu,\"build_id\":",
+            event->sequence, event->timestamp_ms);
     json_string(stream, event->build_id);
     fputs(",\"package\":", stream);
     json_string(stream, event->package_name);
@@ -71,7 +71,12 @@ int cbs_build_event_human(const CbsBuildEvent *event, void *user) {
         fprintf(stream, "[%s] %s (%ld ms)\n", subject == NULL ? "phase" : subject,
                 event->status == 0 ? "done" : "FAILED", event->duration_ms);
     else if (strcmp(event->type, "command-begin") == 0)
-        fprintf(stream, "  run %s\n", subject == NULL ? "" : subject);
+        fprintf(stream, "  run %s%s%s%s\n", subject == NULL ? "" : subject,
+                event->log_path == NULL || event->log_path[0] == '\0' ? "" :
+                " (log: ",
+                event->log_path == NULL || event->log_path[0] == '\0' ? "" :
+                event->log_path,
+                event->log_path == NULL || event->log_path[0] == '\0' ? "" : ")");
     else if (strcmp(event->type, "command-end") == 0)
         fprintf(stream, "  %s %s (%ld ms)\n", subject == NULL ? "command" : subject,
                 event->status == 0 ? "done" : "FAILED", event->duration_ms);
