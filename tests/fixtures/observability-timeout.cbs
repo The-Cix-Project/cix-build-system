@@ -1,0 +1,12 @@
+package "observability-timeout" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    build {
+        run "sleep" {
+            "1"
+            timeout 10ms
+        }
+    }
+}

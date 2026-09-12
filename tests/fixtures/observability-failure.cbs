@@ -1,0 +1,9 @@
+package "observability-failure" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    build {
+        run "false" { expect exit 0 }
+    }
+}

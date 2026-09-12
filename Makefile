@@ -75,6 +75,7 @@ test: $(TARGET) upstream-test recipe-test
 	rm -f tests/http-server
 	./tests/cli-contract-test.sh ./$(TARGET)
 	./tests/stdout-test.sh ./$(TARGET)
+	./tests/observability-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
 		-o tests/exec-test

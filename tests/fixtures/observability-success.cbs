@@ -1,0 +1,12 @@
+package "observability-success" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    build {
+        env "CBS_SECRET_TOKEN" = "must-not-appear"
+        run "true" { expect exit 0 }
+        mkdir "${dest}/usr/share/doc"
+        write "${dest}/usr/share/doc/observability" "metrics\n"
+    }
+}
