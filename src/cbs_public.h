@@ -36,6 +36,7 @@ typedef struct {
     const char *phase;
     const char *command;
     const char *arguments;
+    const char *environment_names;
     const char *working_directory;
     const char *log_path;
     const char *message;
@@ -93,6 +94,7 @@ typedef struct {
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
+    const char *current_environment_names;
     const CbsNamedSource *sources;
     size_t source_count;
     const CbsEnvironmentBinding *environment;

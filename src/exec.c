@@ -62,6 +62,7 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.phase = phase == NULL ? context->current_phase : phase;
     event.command = command;
     event.arguments = context->current_arguments;
+    event.environment_names = context->current_environment_names;
     event.working_directory = context->working_directory;
     event.log_path = context->current_log_path;
     event.cpu_ms = context->current_cpu_ms;
@@ -480,6 +481,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     char log_path[4096];
     char command_arguments[4096];
     size_t command_arguments_length = 0;
+    char environment_names[4096];
+    size_t environment_names_length = 0;
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     struct rusage usage_before;
     struct rusage usage_after;
@@ -555,6 +558,37 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     }
     command_arguments[command_arguments_length] = '\0';
     mutable_context->current_arguments = command_arguments;
+    for (index = 0; index < environment.count; ++index) {
+        const char *separator = strchr(environment.items[index], '=');
+        size_t length = separator == NULL ? strlen(environment.items[index])
+                                          : (size_t)(separator - environment.items[index]);
+        if (environment_names_length != 0 &&
+            environment_names_length + 1 >= sizeof(environment_names)) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "environment name list exceeds event limit");
+            mutable_context->current_arguments = NULL;
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        if (environment_names_length != 0)
+            environment_names[environment_names_length++] = ',';
+        if (environment_names_length + length >= sizeof(environment_names)) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "environment name list exceeds event limit");
+            mutable_context->current_arguments = NULL;
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        memcpy(environment_names + environment_names_length,
+               environment.items[index], length);
+        environment_names_length += length;
+    }
+    environment_names[environment_names_length] = '\0';
+    mutable_context->current_environment_names = environment_names;
     executable =
         resolve_executable(program, context->working_directory, &environment);
     if (executable == NULL) {
@@ -726,6 +760,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         fclose(capture);
     mutable_context->current_log_path = NULL;
     mutable_context->current_arguments = NULL;
+    mutable_context->current_environment_names = NULL;
     mutable_context->current_cpu_ms = 0;
     mutable_context->current_max_memory_bytes = 0;
     free(executable);

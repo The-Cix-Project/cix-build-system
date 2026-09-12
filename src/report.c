@@ -46,6 +46,8 @@ int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user) {
     json_string(stream, event->command);
     fputs(",\"arguments\":", stream);
     json_string(stream, event->arguments);
+    fputs(",\"environment_names\":", stream);
+    json_string(stream, event->environment_names);
     fputs(",\"working_directory\":", stream);
     json_string(stream, event->working_directory);
     fputs(",\"log_path\":", stream);

@@ -256,6 +256,8 @@ typedef struct {
     const char *phase;
     const char *command;
     const char *arguments;
+    /* Names of selected environment variables; values are never exposed. */
+    const char *environment_names;
     const char *working_directory;
     const char *log_path;
     const char *message;
@@ -318,6 +320,7 @@ typedef struct {
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
+    const char *current_environment_names;
     /* Verified source interpolation bindings. */
     const CbsNamedSource *sources;
     size_t source_count;
