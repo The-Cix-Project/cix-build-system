@@ -66,6 +66,11 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.log_path = context->current_log_path;
     event.cpu_ms = context->current_cpu_ms;
     event.max_memory_bytes = context->current_max_memory_bytes;
+    event.source_bytes = context->current_source_bytes;
+    event.fetch_duration_ms = context->current_fetch_duration_ms;
+    event.tree_bytes = context->current_tree_bytes;
+    event.tree_files = context->current_tree_files;
+    event.artifact_bytes = context->current_artifact_bytes;
     event.message = message;
     event.status = status;
     event.duration_ms = duration_ms;

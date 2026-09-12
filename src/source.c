@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 typedef struct {
@@ -268,22 +269,32 @@ static int sources_fetch_events(
     const CbsFetchService *service, const char *recipe_path,
     const char *recipe_source, CbsLocation location,
     const CbsExecutionContext *context) {
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     size_t source_index, url_index;
     char cache_path[4096], temporary_path[4096], error[256], message[768];
     const char *last_url = "none";
     int descriptor;
+    struct timespec started, finished;
 
     if (cache_directory == NULL)
         return 0;
     for (source_index = 0; source_index < set->count; ++source_index) {
         CbsSource *source = &set->items[source_index];
         int verified = 0;
+        if (mutable_context != NULL) {
+            mutable_context->current_source_bytes = 0;
+            mutable_context->current_fetch_duration_ms = 0;
+        }
         if (snprintf(cache_path, sizeof(cache_path), "%s/%s", cache_directory,
                      source->sha256) >= (int)sizeof(cache_path))
             return 0;
         if (access(cache_path, R_OK) == 0 &&
             cbs_source_verify(source, cache_path, recipe_path, recipe_source,
                               location)) {
+            struct stat cached;
+            if (mutable_context != NULL && stat(cache_path, &cached) == 0)
+                mutable_context->current_source_bytes =
+                    (unsigned long long)cached.st_size;
             if (!cbs_emit_build_event(context, "source-cache-hit", NULL,
                                       source->name, source->sha256, 0, 0, 0,
                                       0))
@@ -313,6 +324,7 @@ static int sources_fetch_events(
                 continue;
             close(descriptor);
             error[0] = '\0';
+            clock_gettime(CLOCK_MONOTONIC, &started);
             if (service->fetch(source->urls[url_index], temporary_path,
                                service->user, error, sizeof(error)) &&
                 cbs_source_verify(source, temporary_path, recipe_path,
@@ -321,6 +333,21 @@ static int sources_fetch_events(
                 free(source->verified_path);
                 source->verified_path = cbs_duplicate(cache_path);
                 verified = 1;
+                clock_gettime(CLOCK_MONOTONIC, &finished);
+                if (mutable_context != NULL) {
+                    long long milliseconds =
+                        (long long)(finished.tv_sec - started.tv_sec) * 1000LL +
+                        (long long)(finished.tv_nsec - started.tv_nsec) /
+                            1000000LL;
+                    mutable_context->current_fetch_duration_ms =
+                        milliseconds > 0 ? (unsigned long long)milliseconds : 0;
+                }
+                if (mutable_context != NULL) {
+                    struct stat fetched;
+                    if (stat(cache_path, &fetched) == 0)
+                        mutable_context->current_source_bytes =
+                            (unsigned long long)fetched.st_size;
+                }
                 if (!cbs_emit_build_event(
                         context, "source-fetched", NULL, source->name,
                         source->urls[url_index], 0, 0, 0, 0))

@@ -53,9 +53,11 @@ int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user) {
     fputs(",\"message\":", stream);
     json_string(stream, event->message);
     fprintf(stream,
-            ",\"status\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu}\n",
+            ",\"status\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"source_bytes\":%llu,\"fetch_duration_ms\":%llu,\"tree_bytes\":%llu,\"tree_files\":%llu,\"artifact_bytes\":%llu}\n",
             event->status, event->duration_ms, event->stdout_bytes,
-            event->stderr_bytes, event->cpu_ms, event->max_memory_bytes);
+            event->stderr_bytes, event->cpu_ms, event->max_memory_bytes,
+            event->source_bytes, event->fetch_duration_ms, event->tree_bytes,
+            event->tree_files, event->artifact_bytes);
     return fflush(stream) == 0;
 }
 
@@ -109,13 +111,21 @@ int cbs_build_report_consume(const CbsBuildEvent *event, void *user) {
             report->max_memory_bytes = event->max_memory_bytes;
         report->stdout_bytes += event->stdout_bytes;
         report->stderr_bytes += event->stderr_bytes;
-    } else if (strcmp(event->type, "source-cache-hit") == 0)
+    } else if (strcmp(event->type, "source-cache-hit") == 0) {
         report->cache_hits++;
-    else if (strcmp(event->type, "source-cache-miss") == 0)
+        report->source_bytes += event->source_bytes;
+        report->fetch_duration_ms += event->fetch_duration_ms;
+    } else if (strcmp(event->type, "source-cache-miss") == 0)
         report->cache_misses++;
-    else if (strcmp(event->type, "source-fetched") == 0)
+    else if (strcmp(event->type, "source-fetched") == 0) {
         report->sources_fetched++;
+        report->source_bytes += event->source_bytes;
+        report->fetch_duration_ms += event->fetch_duration_ms;
+    }
     else if (strcmp(event->type, "artifact-finalized") == 0) {
+        report->tree_bytes = event->tree_bytes;
+        report->tree_files = event->tree_files;
+        report->artifact_bytes = event->artifact_bytes;
         strncpy(report->artifact_path, event->command == NULL ? "" : event->command,
                 sizeof(report->artifact_path) - 1);
         report->artifact_path[sizeof(report->artifact_path) - 1] = '\0';
@@ -133,10 +143,12 @@ int cbs_build_report_write_json(const CbsBuildReport *report, FILE *stream) {
     if (report == NULL || stream == NULL)
         return 0;
     fprintf(stream,
-            "{\"version\":%u,\"events\":%llu,\"phases\":%llu,\"commands\":%llu,\"cache_hits\":%llu,\"cache_misses\":%llu,\"sources_fetched\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"duration_ms\":%llu,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"status\":%d,\"artifact\":",
+            "{\"version\":%u,\"events\":%llu,\"phases\":%llu,\"commands\":%llu,\"cache_hits\":%llu,\"cache_misses\":%llu,\"sources_fetched\":%llu,\"source_bytes\":%llu,\"fetch_duration_ms\":%llu,\"tree_bytes\":%llu,\"tree_files\":%llu,\"artifact_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"duration_ms\":%llu,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"status\":%d,\"artifact\":",
             report->version, report->event_count, report->phase_count,
             report->command_count, report->cache_hits, report->cache_misses,
-            report->sources_fetched, report->cpu_ms,
+            report->sources_fetched, report->source_bytes,
+            report->fetch_duration_ms, report->tree_bytes, report->tree_files,
+            report->artifact_bytes, report->cpu_ms,
             report->max_memory_bytes, report->duration_ms, report->stdout_bytes,
             report->stderr_bytes, report->status);
     json_string(stream, report->artifact_path);

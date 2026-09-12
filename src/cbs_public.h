@@ -45,6 +45,11 @@ typedef struct {
     unsigned long long stderr_bytes;
     unsigned long long cpu_ms;
     unsigned long long max_memory_bytes;
+    unsigned long long source_bytes;
+    unsigned long long fetch_duration_ms;
+    unsigned long long tree_bytes;
+    unsigned long long tree_files;
+    unsigned long long artifact_bytes;
 } CbsBuildEvent;
 
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
@@ -57,6 +62,11 @@ typedef struct {
     unsigned long long cache_hits;
     unsigned long long cache_misses;
     unsigned long long sources_fetched;
+    unsigned long long source_bytes;
+    unsigned long long fetch_duration_ms;
+    unsigned long long tree_bytes;
+    unsigned long long tree_files;
+    unsigned long long artifact_bytes;
     unsigned long long cpu_ms;
     unsigned long long max_memory_bytes;
     unsigned long long duration_ms;
@@ -99,6 +109,11 @@ typedef struct {
     unsigned long long event_sequence;
     unsigned long long current_cpu_ms;
     unsigned long long current_max_memory_bytes;
+    unsigned long long current_source_bytes;
+    unsigned long long current_fetch_duration_ms;
+    unsigned long long current_tree_bytes;
+    unsigned long long current_tree_files;
+    unsigned long long current_artifact_bytes;
     struct {
         long address_space_mb;
         long file_size_mb;

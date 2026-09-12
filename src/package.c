@@ -229,6 +229,8 @@ int cbs_build_standalone_with_events(
     CbsPackageIdentity identity;
     CbsExecutionContext context;
     char build_id[64];
+    CbsManifestEntry *entries = NULL;
+    size_t entry_count = 0;
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         *package_identity = NULL;
     unsigned flags = 0;
@@ -305,8 +307,25 @@ int cbs_build_standalone_with_events(
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
         ok = cbs_manifest_write(dest, manifest) &&
+             cbs_manifest_collect(dest, &entries, &entry_count);
+        if (ok) {
+            size_t index;
+            context.current_tree_files = (unsigned long long)entry_count;
+            context.current_tree_bytes = 0;
+            for (index = 0; index < entry_count; ++index)
+                context.current_tree_bytes += entries[index].size;
+        }
+        ok = ok &&
              cbs_cixpkg_write_tree_with_flags(manifest, dest, package_path,
                                               package_identity, flags);
+        if (ok) {
+            struct stat artifact;
+            if (stat(package_path, &artifact) != 0)
+                ok = 0;
+            else
+                context.current_artifact_bytes =
+                    (unsigned long long)artifact.st_size;
+        }
         unlink(manifest);
         if (ok && !cbs_emit_build_event(&context, "artifact-finalized", NULL,
                                         package_path, package_identity, 0, 0,
@@ -318,6 +337,7 @@ int cbs_build_standalone_with_events(
                              ok ? NULL : "build failed", ok ? 0 : 1, 0, 0,
                              0);
     free(package_identity);
+    cbs_manifest_entries_destroy(entries, entry_count);
     cbs_source_set_destroy(&sources);
     if (document)
         cbs_node_destroy(document);
