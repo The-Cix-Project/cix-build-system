@@ -71,6 +71,8 @@ int cbs_build_event_human(const CbsBuildEvent *event, void *user) {
     else if (strcmp(event->type, "command-end") == 0)
         fprintf(stream, "  %s %s (%ld ms)\n", subject == NULL ? "command" : subject,
                 event->status == 0 ? "done" : "FAILED", event->duration_ms);
+    else if (strcmp(event->type, "artifact-finalized") == 0)
+        fprintf(stream, "artifact %s finalized\n", subject == NULL ? "" : subject);
     else
         fprintf(stream, "%s\n", event->message == NULL ? event->type : event->message);
     return fflush(stream) == 0;

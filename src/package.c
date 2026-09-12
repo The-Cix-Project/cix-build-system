@@ -302,6 +302,10 @@ int cbs_build_standalone_with_events(
              cbs_cixpkg_write_tree_with_flags(manifest, dest, package_path,
                                               package_identity, flags);
         unlink(manifest);
+        if (ok && !cbs_emit_build_event(&context, "artifact-finalized", NULL,
+                                        package_path, package_identity, 0, 0,
+                                        0, 0))
+            ok = 0;
     }
     if (context.event_sink != NULL && context.name != NULL)
         cbs_emit_build_event(&context, "build-end", NULL, NULL,

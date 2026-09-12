@@ -23,8 +23,9 @@ The container has no network requirement: source fetching is cache-first.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,
-synchronous `build-begin`, `phase-begin`, `command-begin`, `command-end`,
-`phase-end`, and `build-end` events while the build is running. This is the
+synchronous `build-begin`, source cache, `phase-begin`, `command-begin`,
+`command-end`, `phase-end`, `artifact-finalized`, and `build-end` events while
+the build is running. This is the
 preferred integration path for cixd: it can forward events to terminal or web
 UIs without scraping recipe output. `CbsPhaseEvent` remains available as a
 compatibility callback for phase-only consumers.
