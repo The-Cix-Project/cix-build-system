@@ -1,4 +1,6 @@
 /* Command-line entry point and non-executing recipe inspection commands. */
+#define _POSIX_C_SOURCE 200809L
+
 #include "cbs.h"
 
 #include <errno.h>
@@ -6,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef CBS_VERSION
 #define CBS_VERSION "unknown"
@@ -434,6 +437,9 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
+    FILE *event_stream = stderr;
+    int event_fd = -1;
+    int result;
     char fetch_error[256];
     memset(&service, 0, sizeof(service));
     if (events != NULL) {
@@ -444,6 +450,13 @@ static int build_file(const char *recipe, const char *architecture,
         else {
             fprintf(stderr, "build: --events must be human or jsonl\n");
             return 2;
+        }
+        event_fd = dup(fileno(stderr));
+        if (event_fd < 0 || (event_stream = fdopen(event_fd, "w")) == NULL) {
+            if (event_fd >= 0)
+                close(event_fd);
+            fprintf(stderr, "build: cannot initialize event reporter\n");
+            return 3;
         }
     }
     if (cache != NULL &&
@@ -459,9 +472,12 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    if (!cbs_build_standalone_with_events(
+    result = cbs_build_standalone_with_events(
             recipe, staged, output, architecture, &service, cache, NULL, NULL,
-            event_sink, stderr)) {
+            event_sink, event_stream);
+    if (event_stream != stderr)
+        fclose(event_stream);
+    if (!result) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output "
                         "was rejected\n");
         return 3;

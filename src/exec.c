@@ -57,6 +57,7 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.arch = context->arch;
     event.phase = phase == NULL ? context->current_phase : phase;
     event.command = command;
+    event.arguments = context->current_arguments;
     event.working_directory = context->working_directory;
     event.log_path = context->current_log_path;
     event.cpu_ms = context->current_cpu_ms;
@@ -468,6 +469,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     int command_event_status;
     int log_fd = -1;
     char log_path[4096];
+    char command_arguments[4096];
+    size_t command_arguments_length = 0;
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     struct rusage usage_before;
     struct rusage usage_after;
@@ -524,6 +527,25 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             string_list_add(&arguments,
                             environment_entry("CC", context->compiler));
     }
+    for (index = 0; index < arguments.count; ++index) {
+        size_t length = strlen(arguments.items[index]);
+        if (command_arguments_length != 0 &&
+            command_arguments_length + 1 < sizeof(command_arguments))
+            command_arguments[command_arguments_length++] = ' ';
+        if (command_arguments_length + length >= sizeof(command_arguments)) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "command argument list exceeds event limit");
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+        memcpy(command_arguments + command_arguments_length,
+               arguments.items[index], length);
+        command_arguments_length += length;
+    }
+    command_arguments[command_arguments_length] = '\0';
+    mutable_context->current_arguments = command_arguments;
     executable =
         resolve_executable(program, context->working_directory, &environment);
     if (executable == NULL) {
@@ -649,6 +671,13 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         rewind(capture);
         output_length = fread(output, 1, sizeof(output) - 1, capture);
         output[output_length] = '\0';
+        if (log_path[0] != '\0' && output_length > 0) {
+            int output_fd = open(log_path, O_WRONLY | O_APPEND);
+            if (output_fd >= 0) {
+                write(output_fd, output, output_length);
+                close(output_fd);
+            }
+        }
         if (output_length == sizeof(output) - 1 || fgetc(capture) != EOF) {
             runtime_error(run, context, "CPDL-E4001",
                           "process stdout exceeds the 64 KiB limit");
@@ -687,6 +716,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     if (capture)
         fclose(capture);
     mutable_context->current_log_path = NULL;
+    mutable_context->current_arguments = NULL;
     mutable_context->current_cpu_ms = 0;
     mutable_context->current_max_memory_bytes = 0;
     free(executable);

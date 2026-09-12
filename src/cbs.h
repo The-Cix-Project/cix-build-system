@@ -252,6 +252,7 @@ typedef struct {
     const char *arch;
     const char *phase;
     const char *command;
+    const char *arguments;
     const char *working_directory;
     const char *log_path;
     const char *message;
@@ -303,6 +304,7 @@ typedef struct {
     const char *working_directory;
     const char *log_directory;
     const char *current_log_path;
+    const char *current_arguments;
     /* Verified source interpolation bindings. */
     const CbsNamedSource *sources;
     size_t source_count;
