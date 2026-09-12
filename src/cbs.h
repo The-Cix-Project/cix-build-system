@@ -266,6 +266,24 @@ typedef struct {
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *user);
 
 typedef struct {
+    unsigned version;
+    unsigned long long event_count;
+    unsigned long long phase_count;
+    unsigned long long command_count;
+    unsigned long long cache_hits;
+    unsigned long long cache_misses;
+    unsigned long long sources_fetched;
+    unsigned long long cpu_ms;
+    unsigned long long max_memory_bytes;
+    unsigned long long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+    int status;
+    char artifact_path[4096];
+    char failure_message[1024];
+} CbsBuildReport;
+
+typedef struct {
     /* Recipe path and source used for runtime diagnostics. */
     const char *recipe_path;
     const char *recipe_source;
@@ -456,6 +474,9 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          unsigned long long stderr_bytes);
 int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user);
 int cbs_build_event_human(const CbsBuildEvent *event, void *user);
+void cbs_build_report_init(CbsBuildReport *report);
+int cbs_build_report_consume(const CbsBuildEvent *event, void *user);
+int cbs_build_report_write_json(const CbsBuildReport *report, FILE *stream);
 /* Convert a validated package AST into its ordered phase plan. */
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
 /* Extract build-image, toolchain, and capability metadata. */

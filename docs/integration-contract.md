@@ -40,6 +40,12 @@ For opt-in command retention, set `CBS_LOG_DIR` to an existing directory. CBS
 writes one mode-0600 log per command and includes its path in command events;
 the default is no command log and unchanged child output behavior.
 
+Callers that need a persisted summary can initialize `CbsBuildReport`, use
+`cbs_build_report_consume()` as the event sink, and serialize it after the
+build with `cbs_build_report_write_json()`. The report aggregates phase and
+command counts, cache decisions, source fetches, timings, observed resource
+use, output sizes, artifact path, and final status.
+
 ## Ownership
 
 cixd owns discovery, dependency/image composition, cache population, container

@@ -79,3 +79,62 @@ int cbs_build_event_human(const CbsBuildEvent *event, void *user) {
         fprintf(stream, "%s\n", event->message == NULL ? event->type : event->message);
     return fflush(stream) == 0;
 }
+
+void cbs_build_report_init(CbsBuildReport *report) {
+    if (report == NULL)
+        return;
+    memset(report, 0, sizeof(*report));
+    report->version = 1;
+}
+
+int cbs_build_report_consume(const CbsBuildEvent *event, void *user) {
+    CbsBuildReport *report = user;
+    if (event == NULL || report == NULL || event->version != 1)
+        return 0;
+    report->event_count++;
+    if (strcmp(event->type, "phase-end") == 0) {
+        report->phase_count++;
+        report->duration_ms += (unsigned long long)event->duration_ms;
+    } else if (strcmp(event->type, "command-end") == 0) {
+        report->command_count++;
+        report->cpu_ms += event->cpu_ms;
+        if (event->max_memory_bytes > report->max_memory_bytes)
+            report->max_memory_bytes = event->max_memory_bytes;
+        report->stdout_bytes += event->stdout_bytes;
+        report->stderr_bytes += event->stderr_bytes;
+    } else if (strcmp(event->type, "source-cache-hit") == 0)
+        report->cache_hits++;
+    else if (strcmp(event->type, "source-cache-miss") == 0)
+        report->cache_misses++;
+    else if (strcmp(event->type, "source-fetched") == 0)
+        report->sources_fetched++;
+    else if (strcmp(event->type, "artifact-finalized") == 0) {
+        strncpy(report->artifact_path, event->command == NULL ? "" : event->command,
+                sizeof(report->artifact_path) - 1);
+        report->artifact_path[sizeof(report->artifact_path) - 1] = '\0';
+    } else if (strcmp(event->type, "build-end") == 0) {
+        report->status = event->status;
+        strncpy(report->failure_message,
+                event->message == NULL ? "" : event->message,
+                sizeof(report->failure_message) - 1);
+        report->failure_message[sizeof(report->failure_message) - 1] = '\0';
+    }
+    return 1;
+}
+
+int cbs_build_report_write_json(const CbsBuildReport *report, FILE *stream) {
+    if (report == NULL || stream == NULL)
+        return 0;
+    fprintf(stream,
+            "{\"version\":%u,\"events\":%llu,\"phases\":%llu,\"commands\":%llu,\"cache_hits\":%llu,\"cache_misses\":%llu,\"sources_fetched\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"duration_ms\":%llu,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"status\":%d,\"artifact\":",
+            report->version, report->event_count, report->phase_count,
+            report->command_count, report->cache_hits, report->cache_misses,
+            report->sources_fetched, report->cpu_ms,
+            report->max_memory_bytes, report->duration_ms, report->stdout_bytes,
+            report->stderr_bytes, report->status);
+    json_string(stream, report->artifact_path);
+    fputs(",\"failure\":", stream);
+    json_string(stream, report->failure_message);
+    fputs("}\n", stream);
+    return fflush(stream) == 0;
+}

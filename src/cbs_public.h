@@ -48,6 +48,24 @@ typedef struct {
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
 
 typedef struct {
+    unsigned version;
+    unsigned long long event_count;
+    unsigned long long phase_count;
+    unsigned long long command_count;
+    unsigned long long cache_hits;
+    unsigned long long cache_misses;
+    unsigned long long sources_fetched;
+    unsigned long long cpu_ms;
+    unsigned long long max_memory_bytes;
+    unsigned long long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+    int status;
+    char artifact_path[4096];
+    char failure_message[1024];
+} CbsBuildReport;
+
+typedef struct {
     const char *recipe_path;
     const char *recipe_source;
     const char *name;
@@ -111,6 +129,9 @@ typedef int (*CbsSignatureVerifier)(const unsigned char *, size_t, void *);
 
 int cbs_build_event_jsonl(const CbsBuildEvent *, void *);
 int cbs_build_event_human(const CbsBuildEvent *, void *);
+void cbs_build_report_init(CbsBuildReport *);
+int cbs_build_report_consume(const CbsBuildEvent *, void *);
+int cbs_build_report_write_json(const CbsBuildReport *, FILE *);
 
 void *cbs_allocate(size_t);
 void *cbs_reallocate(void *, size_t);
