@@ -4,6 +4,7 @@
 /* Stable embedding surface for libcbs. Recipe-parser internals live in the
  * repository-private cbs.h and are deliberately not part of this header. */
 #include <stddef.h>
+#include <stdio.h>
 
 typedef struct CbsNode CbsNode;
 
@@ -21,6 +22,27 @@ typedef struct {
     const char *name;
     char *value;
 } CbsOutputBinding;
+
+typedef struct {
+    unsigned version;
+    const char *type;
+    unsigned long long sequence;
+    const char *build_id;
+    const char *package_name;
+    const char *package_version;
+    long package_release;
+    const char *arch;
+    const char *phase;
+    const char *command;
+    const char *working_directory;
+    const char *message;
+    int status;
+    long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+} CbsBuildEvent;
+
+typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
 
 typedef struct {
     const char *recipe_path;
@@ -44,6 +66,11 @@ typedef struct {
     size_t output_binding_capacity;
     int (*phase_event)(const char *, const char *, int, void *);
     void *phase_event_user;
+    CbsBuildEventSink event_sink;
+    void *event_sink_user;
+    const char *build_id;
+    const char *current_phase;
+    unsigned long long event_sequence;
     struct {
         long address_space_mb;
         long file_size_mb;
@@ -75,6 +102,9 @@ typedef int (*CbsFinalizePolicy)(const char *, void *);
 typedef int (*CbsDependencyObserver)(const char *, void *);
 typedef int (*CbsSignatureVerifier)(const unsigned char *, size_t, void *);
 
+int cbs_build_event_jsonl(const CbsBuildEvent *, void *);
+int cbs_build_event_human(const CbsBuildEvent *, void *);
+
 void *cbs_allocate(size_t);
 void *cbs_reallocate(void *, size_t);
 char *cbs_duplicate(const char *);
@@ -91,6 +121,10 @@ int cbs_build_standalone_with_cache(const char *, const char *, const char *,
 int cbs_build_standalone_with_cache_policy(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *);
+int cbs_build_standalone_with_events(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    CbsBuildEventSink, void *);
 int cbs_build_package(const char *, const char *, const char *);
 
 int cbs_workspace_prepare(const char *);

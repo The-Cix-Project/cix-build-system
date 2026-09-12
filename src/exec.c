@@ -27,6 +27,37 @@ typedef struct {
 static volatile sig_atomic_t active_child;
 static volatile sig_atomic_t interrupted;
 
+/* Deliver one structured event while keeping callback data synchronous. */
+int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
+                         const char *phase, const char *command,
+                         const char *message, int status, long duration_ms,
+                         unsigned long long stdout_bytes,
+                         unsigned long long stderr_bytes) {
+    CbsBuildEvent event;
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
+
+    if (context == NULL || context->event_sink == NULL)
+        return 1;
+    memset(&event, 0, sizeof(event));
+    event.version = 1;
+    event.type = type;
+    event.sequence = ++mutable_context->event_sequence;
+    event.build_id = context->build_id;
+    event.package_name = context->name;
+    event.package_version = context->version;
+    event.package_release = context->release;
+    event.arch = context->arch;
+    event.phase = phase == NULL ? context->current_phase : phase;
+    event.command = command;
+    event.working_directory = context->working_directory;
+    event.message = message;
+    event.status = status;
+    event.duration_ms = duration_ms;
+    event.stdout_bytes = stdout_bytes;
+    event.stderr_bytes = stderr_bytes;
+    return context->event_sink(&event, context->event_sink_user);
+}
+
 /* Forward SIGINT to the active child process group. */
 static void forward_interrupt(int signal_number) {
     (void)signal_number;
@@ -421,6 +452,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     char output[65537];
     size_t output_length = 0;
     int capture_stdout = 0;
+    struct timespec command_start;
+    struct timespec command_end;
+    int command_event_status;
 
     memset(&arguments, 0, sizeof(arguments));
     memset(&environment, 0, sizeof(environment));
@@ -485,6 +519,17 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         string_list_destroy(&environment);
         return 0;
     }
+    clock_gettime(CLOCK_MONOTONIC, &command_start);
+    if (!cbs_emit_build_event(context, "command-begin", NULL, program, NULL,
+                              0, 0, 0, 0)) {
+        free(executable);
+        free(program);
+        if (capture != NULL)
+            fclose(capture);
+        string_list_destroy(&arguments);
+        string_list_destroy(&environment);
+        return 0;
+    }
     string_list_terminate(&arguments);
     string_list_terminate(&environment);
     child = fork();
@@ -522,6 +567,22 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         sigaction(SIGINT, &old_action, NULL);
     }
     active_child = 0;
+    clock_gettime(CLOCK_MONOTONIC, &command_end);
+    command_event_status = wait_result == 1 && WIFEXITED(status) &&
+                           WEXITSTATUS(status) == expected_status ? 0 : 1;
+    if (!cbs_emit_build_event(
+            context, "command-end", NULL, program,
+            command_event_status == 0 ? NULL : "command failed",
+            command_event_status,
+            elapsed_milliseconds(&command_start, &command_end), 0, 0)) {
+        if (capture != NULL)
+            fclose(capture);
+        free(executable);
+        free(program);
+        string_list_destroy(&arguments);
+        string_list_destroy(&environment);
+        return 0;
+    }
     if (capture_stdout) {
         rewind(capture);
         output_length = fread(output, 1, sizeof(output) - 1, capture);

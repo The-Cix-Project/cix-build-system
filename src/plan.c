@@ -1,5 +1,8 @@
 /* Build-plan construction, metadata extraction, and phase event dispatch. */
 #include "cbs.h"
+
+#include <string.h>
+
 #include <string.h>
 
 /* Collect the five ordered phase slots from a validated package. */
@@ -47,23 +50,36 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
 /* Execute phases in order and emit optional begin/end events. */
 int cbs_execute_plan(const CbsBuildPlan *plan,
                      const CbsExecutionContext *context) {
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     size_t index;
     if (plan == NULL || context == NULL)
         return 0;
     for (index = 0; index < plan->count; ++index) {
+        mutable_context->current_phase = plan->phases[index]->name;
         if (context->phase_event != NULL &&
             !context->phase_event("phase-begin", plan->phases[index]->name, 0,
                                   context->phase_event_user))
+            return 0;
+        if (!cbs_emit_build_event(context, "phase-begin",
+                                  plan->phases[index]->name, NULL, NULL, 0, 0,
+                                  0, 0))
             return 0;
         if (!cbs_execute_block(plan->phases[index], context)) {
             if (context->phase_event != NULL)
                 context->phase_event("phase-end", plan->phases[index]->name, 1,
                                      context->phase_event_user);
+            cbs_emit_build_event(context, "phase-end",
+                                 plan->phases[index]->name, NULL,
+                                 "phase failed", 1, 0, 0, 0);
             return 0;
         }
         if (context->phase_event != NULL &&
             !context->phase_event("phase-end", plan->phases[index]->name, 0,
                                   context->phase_event_user))
+            return 0;
+        if (!cbs_emit_build_event(context, "phase-end",
+                                  plan->phases[index]->name, NULL, NULL, 0, 0,
+                                  0, 0))
             return 0;
     }
     return 1;

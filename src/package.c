@@ -213,10 +213,11 @@ int cbs_build_package(const char *recipe, const char *staged_root,
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_cache_policy(
+int cbs_build_standalone_with_events(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
-    const char *cache_directory, CbsFinalizePolicy finalize, void *user) {
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
     FILE *f;
     long n;
     char *text;
@@ -281,7 +282,11 @@ int cbs_build_standalone_with_cache_policy(
             context.dest = dest;
             context.jobs = 1;
             context.working_directory = build;
+            context.event_sink = event_sink;
+            context.event_sink_user = event_sink_user;
             ok = cbs_sources_apply_execution_context(&sources, &context) &&
+                 cbs_emit_build_event(&context, "build-begin", NULL, NULL,
+                                      NULL, 0, 0, 0, 0) &&
                  cbs_execute_plan(&plan, &context);
         }
     }
@@ -297,6 +302,10 @@ int cbs_build_standalone_with_cache_policy(
                                               package_identity, flags);
         unlink(manifest);
     }
+    if (context.event_sink != NULL && context.name != NULL)
+        cbs_emit_build_event(&context, "build-end", NULL, NULL,
+                             ok ? NULL : "build failed", ok ? 0 : 1, 0, 0,
+                             0);
     free(package_identity);
     cbs_source_set_destroy(&sources);
     if (document)
@@ -304,6 +313,14 @@ int cbs_build_standalone_with_cache_policy(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+int cbs_build_standalone_with_cache_policy(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user) {
+    return cbs_build_standalone_with_events(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, NULL, NULL);
 }
 /* Use the standalone pipeline without a finalization callback. */
 int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,

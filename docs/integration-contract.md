@@ -22,8 +22,18 @@ finalization policy, computes the typed manifest, and writes/verifies CIXPKG v2.
 The container has no network requirement: source fetching is cache-first.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
-finalizer. They can also register `CbsPhaseEvent` to receive `phase-begin` and
-`phase-end` events, with end status zero or one, without parsing recipe output.
+finalizer. They can register `CbsBuildEventSink` to receive versioned,
+synchronous `build-begin`, `phase-begin`, `command-begin`, `command-end`,
+`phase-end`, and `build-end` events while the build is running. This is the
+preferred integration path for cixd: it can forward events to terminal or web
+UIs without scraping recipe output. `CbsPhaseEvent` remains available as a
+compatibility callback for phase-only consumers.
+
+CBS event callbacks are synchronous and may reject an event; CBS then fails the
+build closed. Event strings and pointers are valid only for the callback
+duration, and sequence numbers are monotonically increasing within a build.
+The `cbs_build_event_jsonl()` and `cbs_build_event_human()` sinks provide
+reusable output adapters, but presentation and transport remain cixd concerns.
 
 ## Ownership
 

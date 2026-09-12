@@ -10,6 +10,7 @@
  */
 
 #include <stddef.h>
+#include <stdio.h>
 
 typedef struct {
     /* Source filename or logical diagnostic origin. */
@@ -240,6 +241,28 @@ typedef int (*CbsPhaseEvent)(const char *event, const char *phase, int status,
                              void *user);
 
 typedef struct {
+    /* Versioned event name: build-begin, phase-begin, command-begin, etc. */
+    unsigned version;
+    const char *type;
+    unsigned long long sequence;
+    const char *build_id;
+    const char *package_name;
+    const char *package_version;
+    long package_release;
+    const char *arch;
+    const char *phase;
+    const char *command;
+    const char *working_directory;
+    const char *message;
+    int status;
+    long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+} CbsBuildEvent;
+
+typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *user);
+
+typedef struct {
     /* Recipe path and source used for runtime diagnostics. */
     const char *recipe_path;
     const char *recipe_source;
@@ -268,6 +291,12 @@ typedef struct {
     CbsPhaseEvent phase_event;
     /* State passed to the phase-event callback. */
     void *phase_event_user;
+    CbsBuildEventSink event_sink;
+    /* State passed to the structured event sink. */
+    void *event_sink_user;
+    const char *build_id;
+    const char *current_phase;
+    unsigned long long event_sequence;
     struct {
         /* Maximum child address space in MiB; zero selects policy default. */
         long address_space_mb;
@@ -387,6 +416,11 @@ int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user);
+int cbs_build_standalone_with_events(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    CbsBuildEventSink event_sink, void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {
     /* AST nodes for phases in their declared execution order. */
@@ -408,6 +442,13 @@ typedef struct {
     /* Number of initialized capability names. */
     size_t capability_count;
 } CbsBuildMetadata;
+int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
+                         const char *phase, const char *command,
+                         const char *message, int status, long duration_ms,
+                         unsigned long long stdout_bytes,
+                         unsigned long long stderr_bytes);
+int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user);
+int cbs_build_event_human(const CbsBuildEvent *event, void *user);
 /* Convert a validated package AST into its ordered phase plan. */
 int cbs_build_plan(const CbsNode *document, CbsBuildPlan *plan);
 /* Extract build-image, toolchain, and capability metadata. */
