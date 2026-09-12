@@ -541,6 +541,11 @@ int cbs_prepare_sources(CbsSourceSet *sources, const char *cache_directory,
                         const char *source_root, const CbsFetchService *service,
                         const char *recipe_path, const char *recipe_source,
                         CbsLocation location);
+int cbs_prepare_sources_with_events(
+    CbsSourceSet *sources, const char *cache_directory, const char *source_root,
+    const CbsFetchService *service, const char *recipe_path,
+    const char *recipe_source, CbsLocation location,
+    const CbsExecutionContext *context);
 /* Compute a lowercase SHA-256 digest for a file. */
 int cbs_digest_file(const char *path, char output[65]);
 /* Compute a lowercase SHA-256 digest for a byte string. */

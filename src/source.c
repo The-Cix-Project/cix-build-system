@@ -263,9 +263,11 @@ int cbs_sources_apply_execution_context(CbsSourceSet *set,
 }
 
 /* Resolve all sources from cache or through the supplied fetch service. */
-int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
-                      const CbsFetchService *service, const char *recipe_path,
-                      const char *recipe_source, CbsLocation location) {
+static int sources_fetch_events(
+    CbsSourceSet *set, const char *cache_directory,
+    const CbsFetchService *service, const char *recipe_path,
+    const char *recipe_source, CbsLocation location,
+    const CbsExecutionContext *context) {
     size_t source_index, url_index;
     char cache_path[4096], temporary_path[4096], error[256], message[768];
     const char *last_url = "none";
@@ -281,8 +283,16 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
             return 0;
         if (access(cache_path, R_OK) == 0 &&
             cbs_source_verify(source, cache_path, recipe_path, recipe_source,
-                              location))
+                              location)) {
+            if (!cbs_emit_build_event(context, "source-cache-hit", NULL,
+                                      source->name, source->sha256, 0, 0, 0,
+                                      0))
+                return 0;
             continue;
+        }
+        if (!cbs_emit_build_event(context, "source-cache-miss", NULL,
+                                  source->name, source->sha256, 0, 0, 0, 0))
+            return 0;
         unlink(cache_path);
         if (service == NULL || service->fetch == NULL) {
             snprintf(message, sizeof(message),
@@ -311,6 +321,10 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
                 free(source->verified_path);
                 source->verified_path = cbs_duplicate(cache_path);
                 verified = 1;
+                if (!cbs_emit_build_event(
+                        context, "source-fetched", NULL, source->name,
+                        source->urls[url_index], 0, 0, 0, 0))
+                    return 0;
                 break;
             }
             unlink(temporary_path);
@@ -328,16 +342,24 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
     return 1;
 }
 
+int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
+                      const CbsFetchService *service, const char *recipe_path,
+                      const char *recipe_source, CbsLocation location) {
+    return sources_fetch_events(set, cache_directory, service, recipe_path,
+                                recipe_source, location, NULL);
+}
+
 /* Fetch and extract all sources into the build source directory. */
-int cbs_prepare_sources(CbsSourceSet *set, const char *cache_directory,
-                        const char *source_root, const CbsFetchService *service,
-                        const char *recipe_path, const char *recipe_source,
-                        CbsLocation location) {
+int cbs_prepare_sources_with_events(
+    CbsSourceSet *set, const char *cache_directory, const char *source_root,
+    const CbsFetchService *service, const char *recipe_path,
+    const char *recipe_source, CbsLocation location,
+    const CbsExecutionContext *context) {
     size_t i;
     char destination[4096];
     if (set == NULL || cache_directory == NULL || source_root == NULL ||
-        !cbs_sources_fetch(set, cache_directory, service, recipe_path,
-                           recipe_source, location))
+        !sources_fetch_events(set, cache_directory, service, recipe_path,
+                              recipe_source, location, context))
         return 0;
     for (i = 0; i < set->count; ++i) {
         CbsSource *source = &set->items[i];
@@ -352,4 +374,13 @@ int cbs_prepare_sources(CbsSourceSet *set, const char *cache_directory,
             return 0;
     }
     return 1;
+}
+
+int cbs_prepare_sources(CbsSourceSet *set, const char *cache_directory,
+                        const char *source_root, const CbsFetchService *service,
+                        const char *recipe_path, const char *recipe_source,
+                        CbsLocation location) {
+    return cbs_prepare_sources_with_events(
+        set, cache_directory, source_root, service, recipe_path, recipe_source,
+        location, NULL);
 }

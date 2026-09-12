@@ -261,17 +261,20 @@ int cbs_build_standalone_with_events(
     snprintf(cache, sizeof(cache), "%s/cache", workspace);
     if (cache_directory != NULL)
         snprintf(cache, sizeof(cache), "%s", cache_directory);
-    if (ok && sources.count > 0)
-        ok = cbs_prepare_sources(&sources, cache, src, fetch_service, recipe,
-                                 text, document->location);
     memset(&context, 0, sizeof(context));
+    context.recipe_path = recipe;
+    context.recipe_source = text;
+    context.event_sink = event_sink;
+    context.event_sink_user = event_sink_user;
+    if (ok && sources.count > 0)
+        ok = cbs_prepare_sources_with_events(
+            &sources, cache, src, fetch_service, recipe, text,
+            document->location, &context);
     if (ok) {
         if (!cbs_identity_from_document(document, architecture, &identity))
             ok = 0;
         else {
             package_identity = cbs_identity_string(&identity);
-            context.recipe_path = recipe;
-            context.recipe_source = text;
             context.name = identity.name;
             context.version = identity.version;
             context.release = identity.release;
@@ -282,8 +285,6 @@ int cbs_build_standalone_with_events(
             context.dest = dest;
             context.jobs = 1;
             context.working_directory = build;
-            context.event_sink = event_sink;
-            context.event_sink_user = event_sink_user;
             ok = cbs_sources_apply_execution_context(&sources, &context) &&
                  cbs_emit_build_event(&context, "build-begin", NULL, NULL,
                                       NULL, 0, 0, 0, 0) &&
