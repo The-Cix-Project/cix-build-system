@@ -130,7 +130,7 @@ static void usage(FILE *stream) {
         "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
-        "[--cache DIR] [--ca-file FILE]\n"
+        "[--cache DIR] [--ca-file FILE] [--events human|jsonl]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -145,6 +145,7 @@ typedef struct {
     const char *output;
     const char *cache;
     const char *ca_file;
+    const char *events;
 } CbsBuildOptions;
 
 /* Parse build options independently of their order on the command line. */
@@ -169,11 +170,14 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 8;
         else if (strncmp(argument, "--ca-file=", 10) == 0)
             value = argument + 10;
+        else if (strncmp(argument, "--events=", 9) == 0)
+            value = argument + 9;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
                  strcmp(argument, "--cache") == 0 ||
-                 strcmp(argument, "--ca-file") == 0) {
+                 strcmp(argument, "--ca-file") == 0 ||
+                 strcmp(argument, "--events") == 0) {
             if (++index >= argc) {
                 fprintf(stderr, "build: option `%s` requires a value\n",
                         argument);
@@ -201,8 +205,11 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--cache") == 0 ||
                  strncmp(argument, "--cache=", 8) == 0)
             options->cache = value;
-        else
+        else if (strcmp(argument, "--ca-file") == 0 ||
+                 strncmp(argument, "--ca-file=", 10) == 0)
             options->ca_file = value;
+        else
+            options->events = value;
     }
     if (options->architecture == NULL || options->staged == NULL) {
         fprintf(stderr, "build: --arch and --staged are required\n");
@@ -423,11 +430,22 @@ static int explain_file(const char *path, int json) {
 /* Build one recipe through the standalone package pipeline. */
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
-                      const char *ca_file) {
+                      const char *ca_file, const char *events) {
     struct stat status;
     CbsFetchService service;
+    CbsBuildEventSink event_sink = NULL;
     char fetch_error[256];
     memset(&service, 0, sizeof(service));
+    if (events != NULL) {
+        if (strcmp(events, "human") == 0)
+            event_sink = cbs_build_event_human;
+        else if (strcmp(events, "jsonl") == 0)
+            event_sink = cbs_build_event_jsonl;
+        else {
+            fprintf(stderr, "build: --events must be human or jsonl\n");
+            return 2;
+        }
+    }
     if (cache != NULL &&
         (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
         fprintf(stderr, "%s: cache directory is not accessible\n", cache);
@@ -441,8 +459,9 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    if (!cbs_build_standalone_with_cache(recipe, staged, output, architecture,
-                                         &service, cache)) {
+    if (!cbs_build_standalone_with_events(
+            recipe, staged, output, architecture, &service, cache, NULL, NULL,
+            event_sink, stderr)) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output "
                         "was rejected\n");
         return 3;
@@ -526,7 +545,8 @@ int main(int argc, char **argv) {
         if (!parse_build_options(argc, argv, &options))
             return 2;
         return build_file(options.recipe, options.architecture, options.staged,
-                          options.output, options.cache, options.ca_file);
+                          options.output, options.cache, options.ca_file,
+                          options.events);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);
