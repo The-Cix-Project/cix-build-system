@@ -41,6 +41,8 @@ typedef struct {
     long duration_ms;
     unsigned long long stdout_bytes;
     unsigned long long stderr_bytes;
+    unsigned long long cpu_ms;
+    unsigned long long max_memory_bytes;
 } CbsBuildEvent;
 
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
@@ -74,6 +76,8 @@ typedef struct {
     const char *build_id;
     const char *current_phase;
     unsigned long long event_sequence;
+    unsigned long long current_cpu_ms;
+    unsigned long long current_max_memory_bytes;
     struct {
         long address_space_mb;
         long file_size_mb;

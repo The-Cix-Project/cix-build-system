@@ -28,6 +28,13 @@ typedef struct {
 static volatile sig_atomic_t active_child;
 static volatile sig_atomic_t interrupted;
 
+static unsigned long long usage_cpu_ms(const struct rusage *usage) {
+    return (unsigned long long)usage->ru_utime.tv_sec * 1000ULL +
+           (unsigned long long)usage->ru_utime.tv_usec / 1000ULL +
+           (unsigned long long)usage->ru_stime.tv_sec * 1000ULL +
+           (unsigned long long)usage->ru_stime.tv_usec / 1000ULL;
+}
+
 /* Deliver one structured event while keeping callback data synchronous. */
 int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          const char *phase, const char *command,
@@ -52,6 +59,8 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.command = command;
     event.working_directory = context->working_directory;
     event.log_path = context->current_log_path;
+    event.cpu_ms = context->current_cpu_ms;
+    event.max_memory_bytes = context->current_max_memory_bytes;
     event.message = message;
     event.status = status;
     event.duration_ms = duration_ms;
@@ -460,6 +469,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     int log_fd = -1;
     char log_path[4096];
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
+    struct rusage usage_before;
+    struct rusage usage_after;
 
     memset(&arguments, 0, sizeof(arguments));
     memset(&environment, 0, sizeof(environment));
@@ -552,6 +563,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         mutable_context->current_log_path = log_path;
     }
     clock_gettime(CLOCK_MONOTONIC, &command_start);
+    getrusage(RUSAGE_CHILDREN, &usage_before);
     if (!cbs_emit_build_event(context, "command-begin", NULL, program, NULL,
                               0, 0, 0, 0)) {
         if (log_fd >= 0)
@@ -612,6 +624,11 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         close(log_fd);
         log_fd = -1;
     }
+    getrusage(RUSAGE_CHILDREN, &usage_after);
+    mutable_context->current_cpu_ms = usage_cpu_ms(&usage_after) -
+                                      usage_cpu_ms(&usage_before);
+    mutable_context->current_max_memory_bytes =
+        (unsigned long long)usage_after.ru_maxrss * 1024ULL;
     clock_gettime(CLOCK_MONOTONIC, &command_end);
     command_event_status = wait_result == 1 && WIFEXITED(status) &&
                            WEXITSTATUS(status) == expected_status ? 0 : 1;
@@ -670,6 +687,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     if (capture)
         fclose(capture);
     mutable_context->current_log_path = NULL;
+    mutable_context->current_cpu_ms = 0;
+    mutable_context->current_max_memory_bytes = 0;
     free(executable);
     free(program);
     string_list_destroy(&arguments);

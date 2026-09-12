@@ -51,9 +51,9 @@ int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user) {
     fputs(",\"message\":", stream);
     json_string(stream, event->message);
     fprintf(stream,
-            ",\"status\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu}\n",
+            ",\"status\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu}\n",
             event->status, event->duration_ms, event->stdout_bytes,
-            event->stderr_bytes);
+            event->stderr_bytes, event->cpu_ms, event->max_memory_bytes);
     return fflush(stream) == 0;
 }
 
