@@ -11,6 +11,12 @@ the package identity, source URLs and SHA-256 digests, dependency groups, and
 ordered phase operation counts. cixd uses those facts to select the build
 image, compose tools, resolve identity, and populate its cache.
 
+`requires` item keywords are an open, embedder-defined vocabulary. CBS carries
+each keyword through verbatim as the dependency `kind`; it does not silently
+translate or reject an unknown kind as long as the dependency name is valid.
+The `package` kind is the explicit spelling for a package identity reference,
+while `library` remains a soname/library assertion.
+
 ## Build invocation
 
 ```text

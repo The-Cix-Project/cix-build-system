@@ -15,12 +15,15 @@ package "cli-contract" {
     version "1"
     release 1
     format "cixpkg"
-    capability "CAP_ONE"
-    capability "CAP_TWO"
+    requires {
+        runtime { package "zstd" }
+    }
     metadata {
         "artifact_sha256" "deadbeef"
         "changelog" "contract metadata"
     }
+    capability "CAP_ONE"
+    capability "CAP_TWO"
     build {
         write "${dest}/hello" "hello\n" chmod 0755
         require file "${dest}/hello" { exists contains "hello" }
@@ -48,6 +51,7 @@ grep -q '"name":"build"' "$temporary_dir/explain.json"
 grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
 grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata"}' \
     "$temporary_dir/explain.json"
+grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
 
 cat >"$temporary_dir/duplicate-metadata.cbs" <<'EOF'
 package "duplicate-metadata" {
