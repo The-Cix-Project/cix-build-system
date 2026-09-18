@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #ifndef CBS_VERSION
@@ -133,7 +134,8 @@ static void usage(FILE *stream) {
         "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
-        "[--cache DIR] [--ca-file FILE] [--events human|jsonl]\n"
+        "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
+        "[--finalize-command CMD]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -149,6 +151,7 @@ typedef struct {
     const char *cache;
     const char *ca_file;
     const char *events;
+    const char *finalize_command;
 } CbsBuildOptions;
 
 /* Parse build options independently of their order on the command line. */
@@ -175,12 +178,15 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 10;
         else if (strncmp(argument, "--events=", 9) == 0)
             value = argument + 9;
+        else if (strncmp(argument, "--finalize-command=", 19) == 0)
+            value = argument + 19;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
                  strcmp(argument, "--cache") == 0 ||
                  strcmp(argument, "--ca-file") == 0 ||
-                 strcmp(argument, "--events") == 0) {
+                 strcmp(argument, "--events") == 0 ||
+                 strcmp(argument, "--finalize-command") == 0) {
             if (++index >= argc) {
                 fprintf(stderr, "build: option `%s` requires a value\n",
                         argument);
@@ -211,6 +217,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--ca-file") == 0 ||
                  strncmp(argument, "--ca-file=", 10) == 0)
             options->ca_file = value;
+        else if (strcmp(argument, "--finalize-command") == 0 ||
+                 strncmp(argument, "--finalize-command=", 19) == 0)
+            options->finalize_command = value;
         else
             options->events = value;
     }
@@ -467,10 +476,30 @@ static int explain_file(const char *path, int json) {
     return 0;
 }
 
+/* Run an explicit process-level finalizer against the staged root. */
+static int run_finalize_command(const char *staged_root, void *user) {
+    const char *command = user;
+    pid_t child;
+    int status;
+    if (command == NULL || staged_root == NULL)
+        return 0;
+    child = fork();
+    if (child < 0)
+        return 0;
+    if (child == 0) {
+        execlp(command, command, staged_root, (char *)NULL);
+        _exit(127);
+    }
+    if (waitpid(child, &status, 0) < 0)
+        return 0;
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
 /* Build one recipe through the standalone package pipeline. */
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
-                      const char *ca_file, const char *events) {
+                      const char *ca_file, const char *events,
+                      const char *finalize_command) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -510,8 +539,9 @@ static int build_file(const char *recipe, const char *architecture,
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
     result = cbs_build_standalone_with_events(
-            recipe, staged, output, architecture, &service, cache, NULL, NULL,
-            event_sink, event_stream);
+            recipe, staged, output, architecture, &service, cache,
+            finalize_command == NULL ? NULL : run_finalize_command,
+            (void *)finalize_command, event_sink, event_stream);
     if (event_stream != stderr)
         fclose(event_stream);
     if (!result) {
@@ -599,7 +629,7 @@ int main(int argc, char **argv) {
             return 2;
         return build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
-                          options.events);
+                          options.events, options.finalize_command);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);

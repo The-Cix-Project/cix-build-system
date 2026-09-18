@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+cbs=${1:?usage: cli-finalize-test.sh CBS HELPER}
+helper=${2:?usage: cli-finalize-test.sh CBS HELPER}
+temporary_dir=$(mktemp -d)
+trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
+mkdir "$temporary_dir/workspace"
+
+artifact="$temporary_dir/finalized.cixpkg"
+"$cbs" build tests/fixtures/standalone-smoke.cbs \
+    --arch x86_64 --staged "$temporary_dir/workspace" \
+    --output "$artifact" --finalize-command "$helper"
+"$cbs" extract "$artifact" --into "$temporary_dir/extracted" >/dev/null
+test -f "$temporary_dir/extracted/finalized-by-embedder"
+
+mkdir "$temporary_dir/workspace-fail"
+if "$cbs" build tests/fixtures/standalone-smoke.cbs \
+    --arch x86_64 --staged "$temporary_dir/workspace-fail" \
+    --output "$temporary_dir/rejected.cixpkg" --finalize-command false \
+    >"$temporary_dir/fail.out" 2>"$temporary_dir/fail.err"; then
+    echo 'finalizer test: rejected finalizer unexpectedly succeeded' >&2
+    exit 1
+fi
+test ! -e "$temporary_dir/rejected.cixpkg"
+grep -q 'finalize: finalization policy rejected' "$temporary_dir/fail.err"
+
+echo 'CLI finalizer tests: PASS (mutation before manifest and fail-closed policy)'

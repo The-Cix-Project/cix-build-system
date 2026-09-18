@@ -23,6 +23,11 @@ while `library` remains a soname/library assertion.
 cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output ARTIFACT --cache CACHE
 ```
 
+For process-level embedders, `cbs build` also accepts
+`--finalize-command CMD`. CBS invokes `CMD WORKSPACE/dest` after the recipe
+phases and before manifest/package creation; a non-zero exit rejects the build
+and no artifact is written. The command is executed directly, without a shell.
+
 CBS validates and plans the recipe, executes its phases, runs the embedder
 finalization policy, computes the typed manifest, and writes/verifies CIXPKG v2.
 The container has no network requirement: source fetching is cache-first.

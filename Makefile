@@ -73,6 +73,9 @@ test: $(TARGET) upstream-test recipe-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/http-server.c -o tests/http-server
 	HTTP_SERVER=./tests/http-server ./tests/cli-build-test.sh ./$(TARGET)
 	rm -f tests/http-server
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/finalize-helper.c -o tests/finalize-helper
+	./tests/cli-finalize-test.sh ./$(TARGET) ./tests/finalize-helper
+	rm -f tests/finalize-helper
 	./tests/cli-contract-test.sh ./$(TARGET)
 	./tests/stdout-test.sh ./$(TARGET)
 	./tests/observability-test.sh ./$(TARGET)
