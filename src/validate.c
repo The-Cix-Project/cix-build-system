@@ -495,6 +495,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_BUILD_IMAGE:
     case CBS_NODE_CAPABILITY:
     case CBS_NODE_TOOLCHAIN:
+    case CBS_NODE_METADATA:
         return 7;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
@@ -715,6 +716,20 @@ static void validate_package(Validator *validator) {
             if (item->value == NULL || strcmp(item->value, "kernel.org") != 0)
                 validation_error(validator, item, "CPDL-E3006",
                                  "unsupported upstream discovery provider");
+            break;
+        case CBS_NODE_METADATA:
+            for (prior = 0; prior < item->child_count; ++prior) {
+                const CbsNode *property = item->children[prior];
+                size_t earlier;
+                if (property->name == NULL || property->name[0] == '\0')
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "metadata key must not be empty");
+                for (earlier = 0; earlier < prior; ++earlier)
+                    if (strcmp(item->children[earlier]->name,
+                               property->name) == 0)
+                        validation_error(validator, property, "CPDL-E3002",
+                                         "duplicate metadata key");
+            }
             break;
         case CBS_NODE_PHASE:
             ++phases;

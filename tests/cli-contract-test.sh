@@ -17,6 +17,10 @@ package "cli-contract" {
     format "cixpkg"
     capability "CAP_ONE"
     capability "CAP_TWO"
+    metadata {
+        "artifact_sha256" "deadbeef"
+        "changelog" "contract metadata"
+    }
     build {
         write "${dest}/hello" "hello\n" chmod 0755
         require file "${dest}/hello" { exists contains "hello" }
@@ -42,6 +46,42 @@ grep -q '^1 build operations=2$' "$temporary_dir/explain.out"
 "$cbs" explain "$recipe" --json >"$temporary_dir/explain.json"
 grep -q '"name":"build"' "$temporary_dir/explain.json"
 grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
+grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata"}' \
+    "$temporary_dir/explain.json"
+
+cat >"$temporary_dir/duplicate-metadata.cbs" <<'EOF'
+package "duplicate-metadata" {
+    version "1"
+    release 1
+    format "cixpkg"
+    metadata { "key" "one" "key" "two" }
+    build { mkdir "${dest}" }
+}
+EOF
+set +e
+"$cbs" validate "$temporary_dir/duplicate-metadata.cbs" \
+    >"$temporary_dir/duplicate.out" 2>"$temporary_dir/duplicate.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q 'duplicate metadata key' "$temporary_dir/duplicate.err"
+
+cat >"$temporary_dir/non-string-metadata.cbs" <<'EOF'
+package "non-string-metadata" {
+    version "1"
+    release 1
+    format "cixpkg"
+    metadata { "key" 1 }
+    build { mkdir "${dest}" }
+}
+EOF
+set +e
+"$cbs" validate "$temporary_dir/non-string-metadata.cbs" \
+    >"$temporary_dir/non-string.out" 2>"$temporary_dir/non-string.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q 'metadata value' "$temporary_dir/non-string.err"
 
 "$cbs" inspect "$recipe" >"$temporary_dir/inspect.out"
 grep -Eq '^recipe-digest [0-9a-f]{64}$' "$temporary_dir/inspect.out"

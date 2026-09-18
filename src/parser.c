@@ -680,6 +680,30 @@ static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
     return node;
 }
 
+/* Parse an opaque package metadata block of string key/value pairs. */
+static CbsNode *parse_opaque_metadata(CbsParser *parser) {
+    CbsToken *keyword = current(parser);
+    CbsNode *node = cbs_node_create(CBS_NODE_METADATA, keyword->location);
+    advance(parser);
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        CbsToken *key = consume_kind(parser, CBS_TOKEN_STRING,
+                                     "metadata key");
+        CbsToken *value = consume_kind(parser, CBS_TOKEN_STRING,
+                                       "metadata value");
+        CbsNode *property;
+        if (key == NULL || value == NULL)
+            break;
+        property = cbs_node_create(CBS_NODE_PROPERTY, key->location);
+        property->name = cbs_duplicate(key->text);
+        property->value = cbs_duplicate(value->text);
+        cbs_node_add(node, property);
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 /* Parse the next package-level declaration or phase. */
 static CbsNode *parse_package_item(CbsParser *parser) {
     CbsToken *keyword = current(parser);
@@ -730,6 +754,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_build_metadata(parser, CBS_NODE_TOOLCHAIN);
     if (is_word(parser, "upstream"))
         return parse_build_metadata(parser, CBS_NODE_UPSTREAM);
+    if (is_word(parser, "metadata"))
+        return parse_opaque_metadata(parser);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);

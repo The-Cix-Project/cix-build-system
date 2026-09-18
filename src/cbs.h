@@ -98,7 +98,8 @@ typedef enum {
     CBS_NODE_BUILD_IMAGE,
     CBS_NODE_CAPABILITY,
     CBS_NODE_TOOLCHAIN,
-    CBS_NODE_UPSTREAM
+    CBS_NODE_UPSTREAM,
+    CBS_NODE_METADATA
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;

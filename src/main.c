@@ -420,7 +420,30 @@ static int explain_file(const char *path, int json) {
                 print_json_string(item->value);
             }
         }
-        fputs("],\"phases\":[", stdout);
+        fputs("],\"metadata\":{", stdout);
+        {
+            const CbsNode *package = document->children[0];
+            size_t metadata_index;
+            int first_metadata = 1;
+            for (metadata_index = 0; metadata_index < package->child_count;
+                 ++metadata_index) {
+                const CbsNode *item = package->children[metadata_index];
+                size_t property_index;
+                if (item->kind != CBS_NODE_METADATA)
+                    continue;
+                for (property_index = 0; property_index < item->child_count;
+                     ++property_index) {
+                    const CbsNode *property = item->children[property_index];
+                    if (!first_metadata)
+                        putchar(',');
+                    first_metadata = 0;
+                    print_json_string(property->name);
+                    putchar(':');
+                    print_json_string(property->value);
+                }
+            }
+        }
+        fputs("},\"phases\":[", stdout);
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,
