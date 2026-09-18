@@ -899,6 +899,90 @@ static int execute_edit(const CbsNode *operation,
     char message[256];
     int success = 0;
 
+    if (operation->selector_glob) {
+        PathList paths;
+        const char *pattern_root;
+        char *pattern = resolve_path(operation->name, context, &pattern_root);
+        size_t total_matches = 0;
+        size_t index;
+        memset(&paths, 0, sizeof(paths));
+        if (pattern == NULL) {
+            fs_error(operation, context, operation->name,
+                     "source edit glob resolution failed");
+            return 0;
+        }
+        collect_matches(pattern_root, pattern, &paths);
+        qsort(paths.items, paths.count, sizeof(*paths.items), compare_paths);
+        free(pattern);
+        if (paths.count == 0) {
+            errno = ENOENT;
+            fs_error(operation, context, operation->name,
+                     "source edit glob matched no paths");
+            path_list_destroy(&paths);
+            return 0;
+        }
+        needle = cbs_resolve_value(operation->value, operation->flag, context);
+        for (index = 0; index < paths.count; ++index) {
+            unsigned char *matched_content;
+            size_t matched_length;
+            mode_t matched_mode;
+            matched_content = read_regular(paths.items[index], &matched_length,
+                                           &matched_mode);
+            if (matched_content == NULL) {
+                fs_error(operation, context, paths.items[index],
+                         "source edit glob target is not a regular file");
+                path_list_destroy(&paths);
+                free(needle);
+                return 0;
+            }
+            total_matches += count_bytes(
+                matched_content, matched_length,
+                (const unsigned char *)needle, strlen(needle));
+            free(matched_content);
+        }
+        if (total_matches != (size_t)operation->number) {
+            char message[256];
+            snprintf(message, sizeof(message),
+                     "source edit expected %ld matches but found %lu",
+                     operation->number, (unsigned long)total_matches);
+            assertion_error(operation, context, message);
+            path_list_destroy(&paths);
+            free(needle);
+            return 0;
+        }
+        free(needle);
+        for (index = 0; index < paths.count; ++index) {
+            CbsNode single = *operation;
+            unsigned char *current_content;
+            size_t current_length;
+            mode_t current_mode;
+            char *current_needle;
+            single.selector_glob = 0;
+            single.name = paths.items[index];
+            current_needle =
+                cbs_resolve_value(operation->value, operation->flag, context);
+            current_content = read_regular(single.name, &current_length,
+                                           &current_mode);
+            if (current_content == NULL) {
+                free(current_needle);
+                path_list_destroy(&paths);
+                return 0;
+            }
+            single.number = (long)count_bytes(
+                current_content, current_length,
+                (const unsigned char *)current_needle,
+                strlen(current_needle));
+            free(current_content);
+            free(current_needle);
+            if (!execute_edit(&single, context)) {
+                path_list_destroy(&paths);
+                return 0;
+            }
+        }
+        path_list_destroy(&paths);
+        return 1;
+    }
+
     if (path == NULL || !safe_parents(path, root))
         goto filesystem_failure;
     content = read_regular(path, &content_length, &mode);

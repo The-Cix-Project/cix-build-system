@@ -401,7 +401,13 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
     CbsNode *node = cbs_node_create(insert ? CBS_NODE_INSERT : CBS_NODE_REPLACE,
                                     keyword->location);
 
-    path = consume_path(parser);
+    if (is_word(parser, "glob")) {
+        advance(parser);
+        path = consume_kind(parser, CBS_TOKEN_STRING, "glob string");
+        node->selector_glob = 1;
+    } else {
+        path = consume_path(parser);
+    }
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
     consume_word(parser, insert ? "after" : "from");
     first = consume_text_value(parser, "match value");

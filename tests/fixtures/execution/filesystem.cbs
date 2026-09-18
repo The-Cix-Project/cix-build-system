@@ -42,6 +42,14 @@ package "filesystem-test" {
         write "${build}/patterns/c.txt" "c" chmod 0600
         write "${build}/patterns/q.x" "q" chmod 0600
         write "${build}/patterns/literal*.txt" "star" chmod 0600
+        mkdir "${build}/bulk"
+        write "${build}/bulk/z.txt" "old"
+        write "${build}/bulk/a.txt" "old"
+        replace glob "${build}/bulk/*.txt" {
+            from "old"
+            to "new"
+            exactly 2
+        }
         chmod 0640 glob "${build}/patterns/[a-b].txt"
         chmod 0641 glob "${build}/patterns/[!a-b].txt"
         chmod 0642 glob "${build}/patterns/?.x"

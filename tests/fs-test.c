@@ -91,6 +91,11 @@ static int expect_failure(const CbsNode *operation,
     return !result && strstr(output, "CPDL-E4004") != NULL;
 }
 
+static int expect_edit_failure(const CbsNode *operation,
+                               const CbsExecutionContext *context) {
+    return !cbs_execute_edit_assertion(operation, context);
+}
+
 static int run_test(const char *recipe_path) {
     char template[] = "/tmp/cbs-fs-test-XXXXXX";
     char *base = mkdtemp(template);
@@ -142,9 +147,17 @@ static int run_test(const char *recipe_path) {
     named_source.path = path;
     context.sources = &named_source;
     context.source_count = 1;
-    for (index = 0; index < phase->child_count; ++index)
-        if (!cbs_execute_filesystem(phase->children[index], &context))
+    for (index = 0; index < phase->child_count; ++index) {
+        CbsNode *operation = phase->children[index];
+        int operation_result;
+        if (operation->kind == CBS_NODE_REPLACE ||
+            operation->kind == CBS_NODE_INSERT)
+            operation_result = cbs_execute_edit_assertion(operation, &context);
+        else
+            operation_result = cbs_execute_filesystem(operation, &context);
+        if (!operation_result)
             goto cleanup;
+    }
 
     path_join(path, sizeof(path), build, "input");
     if (lstat(path, &status) != 0 || (status.st_mode & 07777) != 0700)
@@ -189,6 +202,12 @@ static int run_test(const char *recipe_path) {
     path_join(path, sizeof(path), build, "patterns/literal*.txt");
     if (!regular_with(path, "star", 0644))
         goto cleanup;
+    path_join(path, sizeof(path), build, "bulk/a.txt");
+    if (!regular_with(path, "new", 0644))
+        goto cleanup;
+    path_join(path, sizeof(path), build, "bulk/z.txt");
+    if (!regular_with(path, "new", 0644))
+        goto cleanup;
     path_join(path, sizeof(path), build, "terminal");
     if (lstat(path, &status) == 0 || errno != ENOENT)
         goto cleanup;
@@ -203,6 +222,43 @@ static int run_test(const char *recipe_path) {
     escape.flag = CBS_TOKEN_STRING;
     if (!expect_failure(&escape, &context))
         goto cleanup;
+
+    {
+        CbsNode mismatch;
+        memset(&mismatch, 0, sizeof(mismatch));
+        mismatch.kind = CBS_NODE_REPLACE;
+        mismatch.location.path = recipe_path;
+        mismatch.location.line = 1;
+        mismatch.location.column = 1;
+        mismatch.selector_glob = 1;
+        mismatch.name = "${build}/bulk/*.txt";
+        mismatch.value = "old";
+        mismatch.flag = CBS_TOKEN_STRING;
+        mismatch.second_value = "bad";
+        mismatch.second_flag = CBS_TOKEN_STRING;
+        mismatch.number = 1;
+        if (!expect_edit_failure(&mismatch, &context)) {
+            goto cleanup;
+        }
+    }
+
+    {
+        CbsNode empty;
+        memset(&empty, 0, sizeof(empty));
+        empty.kind = CBS_NODE_REPLACE;
+        empty.location.path = recipe_path;
+        empty.location.line = 1;
+        empty.location.column = 1;
+        empty.selector_glob = 1;
+        empty.name = "${build}/bulk/*.missing";
+        empty.value = "old";
+        empty.flag = CBS_TOKEN_STRING;
+        empty.second_value = "bad";
+        empty.second_flag = CBS_TOKEN_STRING;
+        empty.number = 0;
+        if (!expect_edit_failure(&empty, &context))
+            goto cleanup;
+    }
     path_join(path, sizeof(path), outside, "escaped");
     if (lstat(path, &status) == 0)
         goto cleanup;

@@ -419,6 +419,10 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_REPLACE:
     case CBS_NODE_INSERT:
         validate_value(validator, operation, operation->name);
+        if (operation->selector_glob && operation->name != NULL &&
+            !valid_glob(operation->name))
+            validation_error(validator, operation, "CPDL-E3004",
+                             "invalid source-edit glob expression");
         validate_value(validator, operation, operation->value);
         validate_value(validator, operation, operation->second_value);
         if (operation->value == NULL || operation->value[0] == '\0')

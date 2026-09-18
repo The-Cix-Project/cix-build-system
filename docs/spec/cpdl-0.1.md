@@ -586,21 +586,25 @@ formats and additional metadata rules are decided separately.
 ### 4.6 Source edits
 
 ```ebnf
-replace-operation = "replace", path-value, "{",
+replace-operation = "replace", source-edit-target, "{",
                     "from", text-value,
                     "to", text-value,
                     "exactly", integer,
                     "}" ;
 
-insert-operation = "insert", path-value, "{",
+insert-operation = "insert", source-edit-target, "{",
                    "after", text-value,
                    "write", text-value,
                    "exactly", integer,
                    "}" ;
+
+source-edit-target = path-value | "glob", string ;
 ```
 
 `replace` counts non-overlapping byte-for-byte matches of `from`. The count must
-equal `exactly` before any mutation occurs. An empty `from` is invalid.
+equal `exactly` before any mutation occurs. For a glob target the count is the
+total across all sorted matches; zero matching paths fails. An empty `from` is
+invalid.
 
 `insert` counts non-overlapping byte-for-byte matches of `after`. The count must
 equal `exactly` before mutation. It inserts `write` immediately after every

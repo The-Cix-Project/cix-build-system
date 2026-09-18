@@ -121,6 +121,8 @@ struct CbsNode {
     int flag;
     /* Secondary boolean option. */
     int second_flag;
+    /* Whether a source-edit target is a glob selector. */
+    int selector_glob;
     /* Child nodes in source order. */
     CbsNode **children;
     /* Number of initialized child pointers. */
