@@ -25,4 +25,12 @@ trap 'rm -rf -- "$stage_dir" "$cache_dir" "$artifact" "$zstd_stage" "$zstd_artif
     --cache "$cache_dir" >/dev/null
 "$cbs" verify "$zstd_artifact" >/dev/null
 test -f "$zstd_stage/dest/usr/lib/libzstd.a"
-printf '%s\n' 'upstream smoke test: PASS (zstd build and verification)'
+
+zstd_repro_stage=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-repro-stage.XXXXXX")
+zstd_repro_artifact=$(mktemp "${TMPDIR:-/tmp}/cbs-zstd-repro-artifact.XXXXXX.cixpkg")
+trap 'rm -rf -- "$stage_dir" "$cache_dir" "$artifact" "$zstd_stage" "$zstd_artifact" "$zstd_repro_stage" "$zstd_repro_artifact"' EXIT HUP INT TERM
+"$cbs" build "$tests_dir/../recipes/zstd.cbs" \
+    --arch x86_64 --staged "$zstd_repro_stage" --output "$zstd_repro_artifact" \
+    --cache "$cache_dir" >/dev/null
+cmp -s "$zstd_artifact" "$zstd_repro_artifact"
+printf '%s\n' 'upstream smoke test: PASS (zstd build, verification, and byte-identical rebuild)'

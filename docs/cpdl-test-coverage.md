@@ -12,13 +12,14 @@ features must add focused success and failure assertions to this matrix.
 | extract, materialize, and configuration assertions | extract-test.c and extract.cbs |
 | replace, insert, and cardinality assertions | edit-assert-test.c and edit-assert.cbs |
 | Sources, mirrors, checksums, cache, and fetch failures | source-test.c and fetch-test.c |
-| CIXPKG, corruption, modes, links, and reproducibility | package, typed-package, fuzz, and repro tests |
+| CIXPKG, corruption, modes, links, round trip, and reproducibility | package, typed-package, fuzz, and repro tests; upstream-smoke-test.sh rebuilds zstd and compares bytes |
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Every in-repository migrated recipe parses and validates | make recipe-test |
 
 The CLI contract test asserts output and representative failure exit statuses.
 Focused C tests assert operation results and diagnostic codes. The zstd package
-qualification is included in make test and can use a caller-supplied
-CBS_UPSTREAM_CACHE directory. The retired migration drafts are documented in
-issue #144 rather than included as shipped fixtures.
+qualification builds zstd twice and requires byte-identical artifacts; it is
+included in make test and can use a caller-supplied CBS_UPSTREAM_CACHE
+directory. The retired migration drafts are documented in issue #144 rather
+than included as shipped fixtures.

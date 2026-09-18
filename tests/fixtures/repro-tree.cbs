@@ -1,0 +1,17 @@
+package "repro-tree" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    build {
+        mkdir "${dest}/usr/bin"
+        mkdir "${dest}/usr/lib/empty"
+        mkdir "${dest}/etc/private" chmod 0700
+        write "${dest}/usr/bin/tool" "#!/bin/sh\necho tool\n" chmod 0755
+        write "${dest}/usr/lib/libtool.so.1.0" "shared object bytes\n" chmod 0644
+        write "${dest}/etc/private/secret.conf" "key=value\n" chmod 0600
+        symlink "libtool.so.1.0" to "${dest}/usr/lib/libtool.so.1"
+        symlink "libtool.so.1" to "${dest}/usr/lib/libtool.so"
+        symlink "/usr/bin/tool" to "${dest}/usr/bin/tool-alias"
+    }
+}

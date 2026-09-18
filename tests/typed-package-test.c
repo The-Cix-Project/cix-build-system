@@ -7,11 +7,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Verify typed entries, modes, links, empty directories, and setuid rejection.
+/* Verify typed entries, modes, links, empty directories, the exact typed-tree
+ * round trip, and setuid rejection.
  */
 int main(void) {
     char root[128];
     char manifest[256], package[256], extracted[256], path[256], target[64];
+    char round_manifest[256], round_package[256];
     FILE *file;
     struct stat status;
     ssize_t length;
@@ -22,6 +24,8 @@ int main(void) {
     snprintf(manifest, sizeof(manifest), "%s.manifest", root);
     snprintf(package, sizeof(package), "%s.cixpkg", root);
     snprintf(extracted, sizeof(extracted), "%s.out", root);
+    snprintf(round_manifest, sizeof(round_manifest), "%s.out.manifest", root);
+    snprintf(round_package, sizeof(round_package), "%s.out.cixpkg", root);
     snprintf(path, sizeof(path), "%s/bin", root);
     if (mkdir(path, 0755) != 0)
         return 1;
@@ -62,6 +66,16 @@ int main(void) {
     target[length] = '\0';
     if (strcmp(target, "../empty") != 0)
         return 1;
+    /* The round trip is exact: re-manifesting the extracted tree reproduces
+     * every path, type, mode, size, digest, and link target, and re-packaging
+     * it reproduces the original artifact bytes.
+     */
+    if (!cbs_manifest_write(extracted, round_manifest) ||
+        !cbs_compare_files(manifest, round_manifest) ||
+        !cbs_cixpkg_write_tree(round_manifest, extracted, round_package,
+                               "typed-1-1-x86_64") ||
+        !cbs_compare_files(package, round_package))
+        return 1;
     snprintf(path, sizeof(path), "%s/bin/escape", root);
     if (symlink("../../outside", path) != 0 ||
         cbs_manifest_write(root, manifest))
@@ -72,6 +86,6 @@ int main(void) {
         chmod(path, 04755) != 0 || cbs_manifest_write(root, manifest))
         return 1;
     puts("typed CIXPKG tests: PASS (empty directories, modes, confined links, "
-         "and setuid rejection)");
+         "exact round trip, and setuid rejection)");
     return 0;
 }
