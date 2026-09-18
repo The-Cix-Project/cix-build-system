@@ -1,0 +1,10 @@
+package "broken" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        each "not a name" in { "a" } {
+            write "${build}/a" "a"
+        }
+    }
+}

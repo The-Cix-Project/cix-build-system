@@ -556,6 +556,177 @@ static CbsNode *parse_require(CbsParser *parser) {
     return node;
 }
 
+/* Report a located each-declaration rule violation and mark parsing failed. */
+static void parse_error(CbsParser *parser, CbsLocation location,
+                        const char *message) {
+    if (!parser->failed)
+        cbs_diagnostic(parser->path, parser->source, location, "error",
+                       "CPDL-E2003", CBS_DIAG_PARSE, message);
+    parser->failed = 1;
+}
+
+/* An each item name is an identifier: letters, digits, and underscores. */
+static int valid_item_name(const char *name) {
+    size_t index;
+    if (name == NULL || name[0] == '\0')
+        return 0;
+    for (index = 0; name[index] != '\0'; ++index) {
+        unsigned char byte = (unsigned char)name[index];
+        int alpha = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z');
+        int digit = byte >= '0' && byte <= '9';
+        if (!alpha && byte != '_' && (index == 0 || !digit))
+            return 0;
+    }
+    return 1;
+}
+
+/* Return TEXT with every PLACEHOLDER replaced by ITEM, or NULL when TEXT
+ * does not contain it. */
+static char *replace_placeholder(const char *text, const char *placeholder,
+                                 const char *item) {
+    size_t placeholder_length = strlen(placeholder);
+    size_t item_length = strlen(item);
+    size_t occurrences = 0;
+    const char *cursor;
+    char *result;
+    char *output;
+
+    for (cursor = strstr(text, placeholder); cursor != NULL;
+         cursor = strstr(cursor + placeholder_length, placeholder))
+        ++occurrences;
+    if (occurrences == 0)
+        return NULL;
+    result = cbs_allocate(strlen(text) + occurrences * item_length + 1);
+    output = result;
+    cursor = text;
+    while (*cursor != '\0') {
+        const char *next = strstr(cursor, placeholder);
+        size_t plain = next == NULL ? strlen(cursor) : (size_t)(next - cursor);
+        memcpy(output, cursor, plain);
+        output += plain;
+        if (next == NULL)
+            break;
+        memcpy(output, item, item_length);
+        output += item_length;
+        cursor = next + placeholder_length;
+    }
+    *output = '\0';
+    return result;
+}
+
+/* Bind one item throughout a cloned each body. Every quoted-string field
+ * has `${each.NAME}` replaced; block strings do not interpolate and are left
+ * alone, so the bound name behaves exactly like every other interpolation. */
+static void bind_item(CbsNode *node, const char *placeholder,
+                      const char *item) {
+    size_t index;
+    char *bound;
+
+    if (node->name != NULL &&
+        (bound = replace_placeholder(node->name, placeholder, item)) != NULL) {
+        free(node->name);
+        node->name = bound;
+    }
+    if (node->value != NULL && node->flag != CBS_TOKEN_BLOCK_STRING &&
+        (bound = replace_placeholder(node->value, placeholder, item)) != NULL) {
+        free(node->value);
+        node->value = bound;
+    }
+    if (node->second_value != NULL &&
+        node->second_flag != CBS_TOKEN_BLOCK_STRING &&
+        (bound = replace_placeholder(node->second_value, placeholder, item)) !=
+            NULL) {
+        free(node->second_value);
+        node->second_value = bound;
+    }
+    for (index = 0; index < node->child_count; ++index)
+        bind_item(node->children[index], placeholder, item);
+}
+
+/* True when an already expanded nested each inside NODE bound NAME. */
+static int binds_name(const CbsNode *node, const char *name) {
+    size_t index;
+    if (node->kind == CBS_NODE_LIST && node->name != NULL &&
+        strcmp(node->name, name) == 0)
+        return 1;
+    for (index = 0; index < node->child_count; ++index)
+        if (binds_name(node->children[index], name))
+            return 1;
+    return 0;
+}
+
+/* Parse `each "NAME" in { "item" ... } { body }` and expand it at parse time
+ * into one named block per item. The result is a list whose children are
+ * those blocks; each block records the bound name, the item, and its
+ * ordinal so a runtime failure can name them. */
+static CbsNode *parse_each(CbsParser *parser, int diagnostic_only) {
+    CbsToken *keyword = consume_word(parser, "each");
+    CbsToken *name;
+    CbsNode *items;
+    CbsNode *body;
+    CbsNode *expansion;
+    char placeholder[256];
+    size_t index;
+
+    name = consume_kind(parser, CBS_TOKEN_STRING, "each item name string");
+    consume_word(parser, "in");
+    items = cbs_node_create(CBS_NODE_LIST, keyword->location);
+    if (consume_kind(parser, CBS_TOKEN_LBRACE, "{") != NULL) {
+        while (current(parser)->kind == CBS_TOKEN_STRING)
+            cbs_node_add(items,
+                         node_from_token(CBS_NODE_ARGUMENT, advance(parser)));
+        if (current(parser)->kind != CBS_TOKEN_RBRACE)
+            expected(parser, "quoted item or }");
+        consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    }
+    body = cbs_node_create(CBS_NODE_LIST, keyword->location);
+    parse_operation_block(parser, body, diagnostic_only);
+    expansion = cbs_node_create(CBS_NODE_LIST, keyword->location);
+    if (!parser->failed) {
+        int has_operation = body->child_count > 1 ||
+                            (body->child_count == 1 &&
+                             body->children[0]->kind != CBS_NODE_ON_FAIL);
+        if (!valid_item_name(name->text))
+            parse_error(parser, name->location,
+                        "each item name must be an identifier of letters, "
+                        "digits, and underscores");
+        else if (items->child_count == 0)
+            parse_error(parser, keyword->location,
+                        "each requires at least one quoted item");
+        else if (!has_operation)
+            parse_error(parser, keyword->location,
+                        "each body must contain at least one operation");
+        else if (binds_name(body, name->text)) {
+            char message[320];
+            snprintf(message, sizeof(message),
+                     "each item name `%s` is also bound by a nested each; "
+                     "nested names must be distinct",
+                     name->text);
+            parse_error(parser, name->location, message);
+        } else if (snprintf(placeholder, sizeof(placeholder), "${each.%s}",
+                            name->text) >= (int)sizeof(placeholder))
+            parse_error(parser, name->location, "each item name is too long");
+    }
+    if (!parser->failed) {
+        for (index = 0; index < items->child_count; ++index) {
+            CbsNode *block = cbs_node_create(CBS_NODE_LIST, keyword->location);
+            size_t child;
+            block->name = cbs_duplicate(name->text);
+            block->value = cbs_duplicate(items->children[index]->value);
+            block->number = (long)index + 1;
+            for (child = 0; child < body->child_count; ++child) {
+                CbsNode *copy = clone_node(body->children[child]);
+                bind_item(copy, placeholder, block->value);
+                cbs_node_add(block, copy);
+            }
+            cbs_node_add(expansion, block);
+        }
+    }
+    cbs_node_destroy(items);
+    cbs_node_destroy(body);
+    return expansion;
+}
+
 /* Parse any operation allowed in the current block. */
 static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = current(parser);
@@ -570,6 +741,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         expected(parser, "run, require, or }");
         return NULL;
     }
+    if (is_word(parser, "each"))
+        return parse_each(parser, diagnostic_only);
     if (is_word(parser, "env"))
         return parse_env(parser);
     if (is_word(parser, "cd")) {

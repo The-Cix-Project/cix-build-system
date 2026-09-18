@@ -87,6 +87,7 @@ The complete CPDL 0.1 keyword set is:
 allow_failure  after      any           architecture  as          bootstrap
 build          cd         check         chmod       compiler       config
 configure      contains   copy          count       directory      build_image
+each           in
 capability     toolchain  upstream
 env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
@@ -364,7 +365,8 @@ operation = run-operation
           | materialize-operation
           | replace-operation
           | insert-operation
-          | require-operation ;
+          | require-operation
+          | each-operation ;
 
 on-fail = "on_fail", "{", { diagnostic-operation }, "}" ;
 
@@ -652,7 +654,9 @@ Any require operation may be followed by `for { text-value ... }`. Each value
 expands the assertion into one independent operation. A `run` may contain
 `each text-value ...` after its fixed arguments; each value similarly expands
 the command, appending that value as the final argument. Both lists must be
-non-empty, and expansion is syntactic: there are no variables or control flow.
+non-empty, and expansion is syntactic: there are no runtime variables or
+control flow. The `each` operation (§4.8) is the same mechanism with a bound
+placeholder name and a compound body.
 
 `require file` follows no final symlink and requires a regular file. `nonempty`
 requires that file to contain at least one byte.
@@ -680,6 +684,30 @@ Backslash quotes the next glob byte. An unterminated or empty class is a
 validation error. Matching is bytewise and case-sensitive. Results are sorted
 by unsigned UTF-8 byte order before an operation observes them. Hidden path
 components are not special. A glob never traverses a symlinked directory.
+
+### 4.8 Iteration
+
+```ebnf
+each-operation = "each", string, "in", "{", string, { string }, "}",
+                 operation-block ;
+```
+
+`each` binds a name to each quoted item in turn and expands its body once per
+item, in order, at parse time. Inside the body, `${each.NAME}` in any quoted
+string is replaced by the item before interpolation and validation, so the
+bound item is usable wherever a string value is: paths, `run` arguments,
+written text, `require` targets, and `env` values. Block strings do not
+interpolate and are left unchanged; the bare form `$each.NAME` is not a value.
+Items are quoted strings and may themselves interpolate.
+
+Each expansion is an independent block: an `env` binding made inside it ends
+with that item, and an `on_fail` at the end of the body runs for the item that
+failed. The first failing item stops the phase; after the operation's own
+diagnostic, `CPDL-N4002` names the bound name, the item ordinal, and the item.
+Bodies may nest `each` with distinct names. An item list and a body must be
+non-empty (`CPDL-E2003`). The bound name is a parse-time placeholder, not a
+runtime variable: `explain` counts the expanded operations, and there is no
+runtime state, condition, or loop.
 
 ## 5. Validation contract
 
@@ -795,6 +823,7 @@ The initial mandatory codes are:
 | `CPDL-E1003` | Invalid or unterminated string |
 | `CPDL-E2001` | Expected token was not present |
 | `CPDL-E2002` | Unexpected token or trailing input |
+| `CPDL-E2003` | Invalid each declaration |
 | `CPDL-E3001` | Missing required declaration |
 | `CPDL-E3002` | Duplicate declaration or option |
 | `CPDL-E3003` | Declaration appears out of order |

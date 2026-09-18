@@ -125,8 +125,15 @@ static void validate_interpolation(Validator *validator, const CbsNode *node,
                              "unterminated CBS interpolation");
             return;
         }
-        if (!known_value_name(validator, cursor + 2,
-                              (size_t)(end - (cursor + 2)))) {
+        if (end - (cursor + 2) > 5 && strncmp(cursor + 2, "each.", 5) == 0) {
+            char message[320];
+            snprintf(message, sizeof(message),
+                     "each item `%.*s` is not bound here; `${each.NAME}` is "
+                     "valid only inside an each body that binds NAME",
+                     (int)(end - (cursor + 7)), cursor + 7);
+            validation_error(validator, node, "CPDL-E3005", message);
+        } else if (!known_value_name(validator, cursor + 2,
+                                     (size_t)(end - (cursor + 2)))) {
             validation_error(validator, node, "CPDL-E3005",
                              "unknown CBS interpolation value");
         }
@@ -144,7 +151,11 @@ static void validate_bare_value(Validator *validator, const CbsNode *node,
         (!isalpha((unsigned char)value[1]) && value[1] != '_'))
         return;
     name = value + 1;
-    if (!known_value_name(validator, name, strlen(name)))
+    if (strncmp(name, "each.", 5) == 0)
+        validation_error(validator, node, "CPDL-E3005",
+                         "bare `$each.NAME` is not a value; write "
+                         "`${each.NAME}` inside a quoted string");
+    else if (!known_value_name(validator, name, strlen(name)))
         validation_error(validator, node, "CPDL-E3005", "unknown CBS value");
 }
 
@@ -345,7 +356,9 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     }
     switch (operation->kind) {
     case CBS_NODE_LIST:
-        if (operation->child_count == 0)
+        if (operation->name != NULL)
+            validate_block(validator, operation, in_on_fail);
+        else if (operation->child_count == 0)
             validation_error(validator, operation, "CPDL-E3004",
                              "list declaration must contain at least one value");
         else

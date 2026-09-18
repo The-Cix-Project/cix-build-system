@@ -1,0 +1,43 @@
+package "each-test" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    build {
+        mkdir "${dest}/usr/lib"
+        write "${build}/expected-present" "x"
+        each "lib" in { "libcap.so.2" "libcrypto.so.3" "libresolv.so.2" } {
+            write "${build}/${each.lib}" "payload for ${each.lib}\n" chmod 0644
+            copy "${build}/${each.lib}" to "${dest}/usr/lib/${each.lib}"
+            require file "${dest}/usr/lib/${each.lib}" {
+                exists
+                contains "payload for ${each.lib}"
+            }
+        }
+        each "level" in { "O0" "O2" } {
+            env "PROBE_LEVEL" = "${each.level}"
+            each "probe" in { "alpha" "beta" } {
+                write "${build}/${each.level}-${each.probe}" "${each.level}/${each.probe}\n"
+            }
+            run "printenv" { "PROBE_LEVEL" expect { stdout contains "${each.level}" } }
+        }
+        run "printenv" { "PROBE_LEVEL" expect exit 1 }
+        cd "${build}" {
+            each "name" in { "one" "two" } {
+                write "${build}/cd-${each.name}" "${each.name}"
+            }
+        }
+    }
+
+    check {
+        each "item" in { "present" "missing" "never" } {
+            write "${build}/seen-${each.item}" "seen"
+            require file "${build}/expected-${each.item}" {
+                exists
+            }
+            on_fail {
+                run "false" { "${each.item}" }
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+package "broken" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        each "x" in { "a" } {
+            write $each.x "a"
+        }
+    }
+}

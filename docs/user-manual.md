@@ -224,6 +224,24 @@ install {
 }
 ```
 
+Apply one body to each item of a literal list with `each`; the bound name
+substitutes in any quoted string inside the body:
+
+```cbs
+install {
+    each "lib" in { "libcap.so.2" "libcrypto.so.3" } {
+        copy "/usr/lib/${each.lib}" to "${dest}/usr/lib/${each.lib}"
+        require file "${dest}/usr/lib/${each.lib}" { exists }
+    }
+}
+```
+
+The body runs once per item, in order, and stops at the first failure; the
+failure names the item (`while processing each `lib` item 2
+(`libcrypto.so.3`)`). `each` may nest with distinct names, and `env` bindings
+made inside the body last for that item only. It is expanded when the recipe
+is parsed, so `explain` counts every expanded operation.
+
 `replace`, `insert`, `write`, `copy`, `move`, `remove`, `symlink`, `extract`,
 `materialize`,
 `require`, globbing, environment bindings, timeouts, expected exit status, and

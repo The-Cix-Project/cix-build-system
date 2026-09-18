@@ -11,6 +11,7 @@ features must add focused success and failure assertions to this matrix.
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, and globs | fs-test.c and filesystem.cbs |
 | extract, materialize, and configuration assertions | extract-test.c and extract.cbs |
 | replace, insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |
+| each expansion, nesting, scoped env, and item-naming failures | each-test.c, each.cbs, invalid each-* fixtures, and explain counts in cli-build-test.sh |
 | Sources, mirrors, checksums, cache, and fetch failures | source-test.c and fetch-test.c |
 | CIXPKG, corruption, modes, links, round trip, and reproducibility | package, typed-package, fuzz, and repro tests; upstream-smoke-test.sh rebuilds zstd and compares bytes |
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |

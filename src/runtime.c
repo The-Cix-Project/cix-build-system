@@ -382,6 +382,21 @@ static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context) {
     size_t index;
     if (operation->kind == CBS_NODE_LIST) {
+        if (operation->name != NULL) {
+            /* One each iteration: a block with its own environment scope and
+             * on_fail. A failure inside it names the item after the
+             * operation's own diagnostic. */
+            char message[4096 + 256];
+            if (execute_block_internal(operation, context))
+                return 1;
+            snprintf(message, sizeof(message),
+                     "while processing each `%s` item %ld (`%s`)",
+                     operation->name, operation->number, operation->value);
+            cbs_diagnostic(context->recipe_path, context->recipe_source,
+                           operation->location, "note", "CPDL-N4002",
+                           CBS_DIAG_RUNTIME, message);
+            return 0;
+        }
         for (index = 0; index < operation->child_count; ++index)
             if (!execute_operation(operation->children[index], context))
                 return 0;

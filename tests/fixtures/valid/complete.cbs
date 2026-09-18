@@ -112,5 +112,11 @@ package "example" {
             exists
             target "/usr/lib/libexample.so"
         }
+        each "lib" in { "libexample.so" "libexample.so.1" } {
+            chmod 0644 "${dest}/usr/lib/${each.lib}"
+            require file "${dest}/usr/lib/${each.lib}" {
+                exists
+            }
+        }
     }
 }

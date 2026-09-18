@@ -273,12 +273,14 @@ static void print_json_string(const char *value) {
     putchar('"');
 }
 
+/* Count expanded operations: a list (a `for` or `each` expansion) counts
+ * what it contains, recursively. */
 static size_t count_plan_operations(const CbsNode *block) {
     size_t total = 0;
     size_t index;
     for (index = 0; index < block->child_count; ++index)
         total += block->children[index]->kind == CBS_NODE_LIST
-                     ? block->children[index]->child_count
+                     ? count_plan_operations(block->children[index])
                      : 1;
     return total;
 }

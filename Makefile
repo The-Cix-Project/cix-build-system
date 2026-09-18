@@ -104,6 +104,11 @@ test: $(TARGET) upstream-test recipe-test
 		src/runtime.o src/validate.o -larchive -o tests/runtime-test
 	./tests/runtime-test tests/fixtures/execution/failure.cbs
 	rm -f tests/runtime-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/each-test.c \
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
+		src/runtime.o src/validate.o -larchive -o tests/each-test
+	./tests/each-test tests/fixtures/execution/each.cbs
+	rm -f tests/each-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/identity-test.c \
 		src/ast.o src/diag.o src/exec.o src/identity.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/identity-test
@@ -197,6 +202,7 @@ clean:
 	rm -f $(OBJECTS) $(TARGET) $(LIBRARY) tests/exec-test tests/fs-test \
 		tests/edit-assert-test tests/http-server
 	rm -f tests/runtime-test
+	rm -f tests/each-test
 	rm -f tests/identity-test
 	rm -f tests/source-test
 	rm -f tests/fetch-test
