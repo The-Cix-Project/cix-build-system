@@ -23,6 +23,7 @@ SOURCES := \
 	src/main.c \
 	src/manifest.c \
 	src/package.c \
+	src/prune.c \
 	src/plan.c \
 	src/report.c \
 	src/workspace.c \
@@ -79,6 +80,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/cli-contract-test.sh ./$(TARGET)
 	./tests/stdout-test.sh ./$(TARGET)
 	./tests/observability-test.sh ./$(TARGET)
+	./tests/prune-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
@@ -136,12 +138,12 @@ test: $(TARGET) upstream-test recipe-test
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/prune.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/package-test
 	./tests/package-test
 	rm -f tests/package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/repro-test.c src/package.o src/prune.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
 		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o src/plan.o src/workspace.o src/identity.o src/runtime.o \
 		-larchive -lzstd -o tests/repro-test
 	./tests/repro-test
@@ -169,7 +171,7 @@ test: $(TARGET) upstream-test recipe-test
 		$(filter-out src/main.o,$(OBJECTS)) -larchive -lzstd -ldl -o tests/typed-package-test
 	./tests/typed-package-test
 	rm -f tests/typed-package-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/policy-test.c src/package.o src/cixpkg.o src/source.o src/manifest.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/policy-test.c src/package.o src/prune.o src/cixpkg.o src/source.o src/manifest.o \
 		src/archive.o src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o \
 		src/plan.o src/workspace.o src/identity.o src/runtime.o -larchive -lzstd -o tests/policy-test
 	./tests/policy-test

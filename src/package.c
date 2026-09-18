@@ -238,11 +238,12 @@ int cbs_build_package(const char *recipe, const char *staged_root,
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events(
+int cbs_build_standalone_with_events_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
-    CbsBuildEventSink event_sink, void *event_sink_user) {
+    const CbsPrunePolicy *prune_policy, CbsBuildEventSink event_sink,
+    void *event_sink_user) {
     FILE *f;
     long n;
     char *text;
@@ -357,6 +358,12 @@ int cbs_build_standalone_with_events(
             pipeline_error(recipe, text, document->location, "finalize",
                            "finalization policy rejected the staged tree");
     }
+    if (ok && prune_policy != NULL &&
+        !cbs_prune_staged_tree(dest, prune_policy, &context)) {
+        pipeline_error(recipe, text, document->location, "prune",
+                       "prune policy rejected the staged tree");
+        ok = 0;
+    }
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
         ok = cbs_manifest_write_with_license(dest, manifest,
@@ -410,6 +417,16 @@ int cbs_build_standalone_with_events(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
+    return cbs_build_standalone_with_events_policy(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, NULL, event_sink, event_sink_user);
 }
 int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,

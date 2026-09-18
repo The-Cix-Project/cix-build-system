@@ -135,7 +135,7 @@ static void usage(FILE *stream) {
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
-        "[--finalize-command CMD]\n"
+        "[--finalize-command CMD] [--prune-policy FILE]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -152,6 +152,7 @@ typedef struct {
     const char *ca_file;
     const char *events;
     const char *finalize_command;
+    const char *prune_policy;
 } CbsBuildOptions;
 
 /* Parse build options independently of their order on the command line. */
@@ -180,13 +181,16 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 9;
         else if (strncmp(argument, "--finalize-command=", 19) == 0)
             value = argument + 19;
+        else if (strncmp(argument, "--prune-policy=", 15) == 0)
+            value = argument + 15;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
                  strcmp(argument, "--cache") == 0 ||
                  strcmp(argument, "--ca-file") == 0 ||
                  strcmp(argument, "--events") == 0 ||
-                 strcmp(argument, "--finalize-command") == 0) {
+                 strcmp(argument, "--finalize-command") == 0 ||
+                 strcmp(argument, "--prune-policy") == 0) {
             if (++index >= argc) {
                 fprintf(stderr, "build: option `%s` requires a value\n",
                         argument);
@@ -220,6 +224,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--finalize-command") == 0 ||
                  strncmp(argument, "--finalize-command=", 19) == 0)
             options->finalize_command = value;
+        else if (strcmp(argument, "--prune-policy") == 0 ||
+                 strncmp(argument, "--prune-policy=", 15) == 0)
+            options->prune_policy = value;
         else
             options->events = value;
     }
@@ -512,7 +519,8 @@ static int run_finalize_command(const char *staged_root, void *user) {
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
                       const char *ca_file, const char *events,
-                      const char *finalize_command) {
+                      const char *finalize_command,
+                      const char *prune_policy_path) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -520,7 +528,15 @@ static int build_file(const char *recipe, const char *architecture,
     int event_fd = -1;
     int result;
     char fetch_error[256];
+    CbsPrunePolicy prune_policy;
+    char prune_error[256];
     memset(&service, 0, sizeof(service));
+    if (prune_policy_path != NULL &&
+        !cbs_prune_policy_load(prune_policy_path, &prune_policy,
+                               prune_error, sizeof(prune_error))) {
+        fprintf(stderr, "build: %s\n", prune_error);
+        return 2;
+    }
     if (events != NULL) {
         if (strcmp(events, "human") == 0)
             event_sink = cbs_build_event_human;
@@ -551,10 +567,12 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events(
+    result = cbs_build_standalone_with_events_policy(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
-            (void *)finalize_command, event_sink, event_stream);
+            (void *)finalize_command,
+            prune_policy_path == NULL ? NULL : &prune_policy, event_sink,
+            event_stream);
     if (event_stream != stderr)
         fclose(event_stream);
     if (!result) {
@@ -653,7 +671,8 @@ int main(int argc, char **argv) {
             return 2;
         return build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
-                          options.events, options.finalize_command);
+                          options.events, options.finalize_command,
+                          options.prune_policy);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);

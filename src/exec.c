@@ -73,6 +73,9 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.tree_files = context->current_tree_files;
     event.artifact_bytes = context->current_artifact_bytes;
     event.message = message;
+    event.path = context->current_prune_path;
+    event.rule = context->current_prune_rule;
+    event.prune_bytes = context->current_prune_bytes;
     event.status = status;
     event.duration_ms = duration_ms;
     event.stdout_bytes = stdout_bytes;

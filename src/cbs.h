@@ -266,6 +266,8 @@ typedef struct {
     const char *working_directory;
     const char *log_path;
     const char *message;
+    const char *path;
+    const char *rule;
     int status;
     long duration_ms;
     unsigned long long stdout_bytes;
@@ -277,6 +279,8 @@ typedef struct {
     unsigned long long tree_bytes;
     unsigned long long tree_files;
     unsigned long long artifact_bytes;
+    unsigned long long prune_bytes;
+    unsigned long long prune_files;
 } CbsBuildEvent;
 
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *user);
@@ -299,6 +303,8 @@ typedef struct {
     unsigned long long duration_ms;
     unsigned long long stdout_bytes;
     unsigned long long stderr_bytes;
+    unsigned long long prune_files;
+    unsigned long long prune_bytes;
     int status;
     char artifact_path[4096];
     char failure_message[1024];
@@ -342,6 +348,9 @@ typedef struct {
     void *event_sink_user;
     const char *build_id;
     const char *current_phase;
+    const char *current_prune_path;
+    const char *current_prune_rule;
+    unsigned long long current_prune_bytes;
     unsigned long long event_sequence;
     unsigned long long current_cpu_ms;
     unsigned long long current_max_memory_bytes;
@@ -466,6 +475,15 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
 typedef int (*CbsFinalizePolicy)(const char *staged_root, void *user);
+typedef struct {
+    int strip_debug;
+    int drop_static_archives;
+    int drop_libtool_archives;
+} CbsPrunePolicy;
+int cbs_prune_policy_load(const char *path, CbsPrunePolicy *policy,
+                          char *error, size_t error_size);
+int cbs_prune_staged_tree(const char *root, const CbsPrunePolicy *policy,
+                          CbsExecutionContext *context);
 /* Build a package and run an embedder policy before manifest generation. */
 int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,
@@ -476,6 +494,12 @@ int cbs_build_standalone_with_events(
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     CbsBuildEventSink event_sink, void *event_sink_user);
+int cbs_build_standalone_with_events_policy(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const CbsPrunePolicy *prune_policy, CbsBuildEventSink event_sink,
+    void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {
     /* AST nodes for phases in their declared execution order. */

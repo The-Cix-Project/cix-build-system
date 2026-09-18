@@ -40,6 +40,8 @@ typedef struct {
     const char *working_directory;
     const char *log_path;
     const char *message;
+    const char *path;
+    const char *rule;
     int status;
     long duration_ms;
     unsigned long long stdout_bytes;
@@ -51,6 +53,7 @@ typedef struct {
     unsigned long long tree_bytes;
     unsigned long long tree_files;
     unsigned long long artifact_bytes;
+    unsigned long long prune_bytes;
 } CbsBuildEvent;
 
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
@@ -73,6 +76,8 @@ typedef struct {
     unsigned long long duration_ms;
     unsigned long long stdout_bytes;
     unsigned long long stderr_bytes;
+    unsigned long long prune_files;
+    unsigned long long prune_bytes;
     int status;
     char artifact_path[4096];
     char failure_message[1024];
@@ -144,6 +149,11 @@ typedef struct {
 } CbsManifestEntry;
 
 typedef int (*CbsFinalizePolicy)(const char *, void *);
+typedef struct {
+    int strip_debug;
+    int drop_static_archives;
+    int drop_libtool_archives;
+} CbsPrunePolicy;
 typedef int (*CbsDependencyObserver)(const char *, void *);
 typedef int (*CbsSignatureVerifier)(const unsigned char *, size_t, void *);
 
@@ -173,6 +183,10 @@ int cbs_build_standalone_with_events(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
     CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const CbsPrunePolicy *, CbsBuildEventSink, void *);
 int cbs_build_package(const char *, const char *, const char *);
 
 int cbs_workspace_prepare(const char *);

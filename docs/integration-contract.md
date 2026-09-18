@@ -57,6 +57,13 @@ build with `cbs_build_report_write_json()`. The report aggregates phase and
 command counts, cache decisions, source fetches, timings, observed resource
 use, output sizes, artifact path, and final status.
 
+Build callers may pass `--prune-policy FILE` (or the equivalent policy API)
+after phase execution and before manifest generation. The policy file accepts
+`strip-debug`, `drop-static-archives`, and `drop-libtool-archives`. Every
+modification or removal is emitted as a structured prune event with its path,
+rule, and recovered bytes; rules that match no paths emit an explicit
+`prune-rule` event. Reports aggregate the prune file and byte totals.
+
 ## Ownership
 
 cixd owns discovery, dependency/image composition, cache population, container
