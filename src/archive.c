@@ -6,9 +6,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+typedef struct {
+    char *path;
+    struct timespec time;
+} DirectoryTime;
 
 /* Return false when an archive member can escape its extraction root. */
 static int safe_name(const char *name) {
@@ -113,6 +119,9 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
     int header_result;
     struct stat status;
     char path[4096], message[512];
+    DirectoryTime *directories = NULL;
+    size_t directory_count = 0;
+    size_t directory_capacity = 0;
     if (reader == NULL)
         return 0;
     archive_read_support_filter_all(reader);
@@ -137,6 +146,7 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
         const char *symlink_target = archive_entry_symlink(entry);
         const char *hardlink = archive_entry_hardlink(entry);
         mode_t mode = archive_entry_mode(entry);
+        struct timespec entry_time;
         int fd;
         int is_link = archive_entry_filetype(entry) == AE_IFLNK ||
                       hardlink != NULL;
@@ -158,7 +168,20 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
         if (pass == 0 && archive_entry_filetype(entry) == AE_IFDIR) {
             if (mkdir(path, mode & 07777) != 0 && errno != EEXIST)
                 goto fail;
+            if (directory_count == directory_capacity) {
+                directory_capacity = directory_capacity == 0
+                                         ? 8
+                                         : directory_capacity * 2;
+                directories = cbs_reallocate(
+                    directories, directory_capacity * sizeof(*directories));
+            }
+            directories[directory_count].path = cbs_duplicate(path);
+            directories[directory_count].time.tv_sec = archive_entry_mtime(entry);
+            directories[directory_count].time.tv_nsec =
+                archive_entry_mtime_nsec(entry);
+            ++directory_count;
         } else if (pass == 0) {
+            struct timespec times[2];
             fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, mode & 07777);
             if (fd < 0 || archive_read_data_into_fd(reader, fd) != ARCHIVE_OK) {
                 if (fd >= 0)
@@ -166,15 +189,35 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
                 goto fail;
             }
             close(fd);
+            entry_time.tv_sec = archive_entry_mtime(entry);
+            entry_time.tv_nsec = archive_entry_mtime_nsec(entry);
+            times[0] = entry_time;
+            times[1] = entry_time;
+            if (utimensat(AT_FDCWD, path, times, 0) != 0)
+                goto fail;
         } else if (symlink_target != NULL) {
+            struct timespec times[2];
             if (symlink(symlink_target, path) != 0)
+                goto fail;
+            entry_time.tv_sec = archive_entry_mtime(entry);
+            entry_time.tv_nsec = archive_entry_mtime_nsec(entry);
+            times[0] = entry_time;
+            times[1] = entry_time;
+            if (utimensat(AT_FDCWD, path, times, AT_SYMLINK_NOFOLLOW) != 0)
                 goto fail;
         } else if (hardlink != NULL) {
             char target_path[4096];
+            struct timespec times[2];
             if (snprintf(target_path, sizeof(target_path), "%s/%s",
                          destination, hardlink) >= (int)sizeof(target_path) ||
                 lstat(target_path, &status) != 0 || !S_ISREG(status.st_mode) ||
                 link(target_path, path) != 0)
+                goto fail;
+            entry_time.tv_sec = archive_entry_mtime(entry);
+            entry_time.tv_nsec = archive_entry_mtime_nsec(entry);
+            times[0] = entry_time;
+            times[1] = entry_time;
+            if (utimensat(AT_FDCWD, path, times, 0) != 0)
                 goto fail;
         }
         } while ((header_result = archive_read_next_header(reader, &entry)) ==
@@ -182,6 +225,12 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
         if (header_result != ARCHIVE_EOF)
             goto fail;
         archive_read_close(reader);
+    }
+    for (size_t index = 0; index < directory_count; ++index) {
+        struct timespec times[2] = {directories[index].time,
+                                    directories[index].time};
+        if (utimensat(AT_FDCWD, directories[index].path, times, 0) != 0)
+            goto fail;
     }
     result = 1;
 fail:
@@ -197,5 +246,8 @@ fail:
     }
     if (reader != NULL)
         archive_read_free(reader);
+    for (size_t index = 0; index < directory_count; ++index)
+        free(directories[index].path);
+    free(directories);
     return result;
 }

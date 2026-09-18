@@ -115,7 +115,7 @@ test: $(TARGET) upstream-test recipe-test
 		src/validate.o -larchive -o tests/fetch-test
 	./tests/fetch-test tests/fixtures/execution/sources.cbs
 	rm -f tests/fetch-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/archive-test.c src/archive.o src/diag.o \
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/archive-test.c src/archive.o src/ast.o src/diag.o \
 		-larchive -o tests/archive-test
 	./tests/archive-test
 	rm -f tests/archive-test
