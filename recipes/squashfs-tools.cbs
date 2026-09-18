@@ -37,11 +37,11 @@ package "squashfs-tools" {
     }
 
     prepare {
-        require directory "${src}/squashfs-tools-4.7.5" { exists }
+        require directory "${src}/squashfs-tools/squashfs-tools-4.7.5" { exists }
     }
 
     build {
-        cd "${src}/squashfs-tools-4.7.5" {
+        cd "${src}/squashfs-tools/squashfs-tools-4.7.5" {
             run "make" {
                 "GZIP_SUPPORT=0"
                 "XZ_SUPPORT=1"
@@ -62,7 +62,7 @@ package "squashfs-tools" {
         mkdir "${build}/sqcheck/src/sub" chmod 0755
         write "${build}/sqcheck/src/hello.txt" "cix squashfs build gate\n"
         write "${build}/sqcheck/src/sub/two.txt" "second\n"
-        cd "${src}/squashfs-tools-4.7.5" {
+        cd "${src}/squashfs-tools/squashfs-tools-4.7.5" {
             run "./mksquashfs" {
                 "${build}/sqcheck/src"
                 "${build}/sqcheck/out.squashfs"
@@ -83,8 +83,8 @@ package "squashfs-tools" {
 
     install {
         mkdir "${dest}/usr/bin" chmod 0755
-        copy "${src}/squashfs-tools-4.7.5/mksquashfs" to "${dest}/usr/bin/mksquashfs"
-        copy "${src}/squashfs-tools-4.7.5/unsquashfs" to "${dest}/usr/bin/unsquashfs"
+        copy "${src}/squashfs-tools/squashfs-tools-4.7.5/mksquashfs" to "${dest}/usr/bin/mksquashfs"
+        copy "${src}/squashfs-tools/squashfs-tools-4.7.5/unsquashfs" to "${dest}/usr/bin/unsquashfs"
         symlink "/usr/bin/mksquashfs" to "${dest}/usr/bin/sqfstar"
         symlink "/usr/bin/unsquashfs" to "${dest}/usr/bin/sqfscat"
         require file "${dest}/usr/bin/mksquashfs" { exists }

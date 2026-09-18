@@ -36,13 +36,13 @@ package "cix" {
     capability "CAP_SYS_ADMIN"
 
     prepare {
-        require directory "${src}/cix-v2.57.55" {
+        require directory "${src}/cix/cix-v2.57.55" {
             exists
         }
     }
 
     build {
-        cd "${src}/cix-v2.57.55" {
+        cd "${src}/cix/cix-v2.57.55" {
             run "make" {
                 "CIX_VERSION=${version}"
                 "build/cix-init"
@@ -98,42 +98,42 @@ package "cix" {
     }
 
     check {
-        require file "${src}/cix-v2.57.55/build/cixd" {
+        require file "${src}/cix/cix-v2.57.55/build/cixd" {
             exists
         }
-        require file "${src}/cix-v2.57.55/build/cix-boot.efi" {
+        require file "${src}/cix/cix-v2.57.55/build/cix-boot.efi" {
             exists
             contains "MZ"
         }
-        require file "${src}/cix-v2.57.55/web/index.html" {
+        require file "${src}/cix/cix-v2.57.55/web/index.html" {
             exists
         }
-        require file "${src}/cix-v2.57.55/web/app.js" {
+        require file "${src}/cix/cix-v2.57.55/web/app.js" {
             exists
         }
-        require file "${src}/cix-v2.57.55/web/style.css" {
+        require file "${src}/cix/cix-v2.57.55/web/style.css" {
             exists
         }
-        require file "${src}/cix-v2.57.55/web/api.js" {
+        require file "${src}/cix/cix-v2.57.55/web/api.js" {
             exists
         }
     }
 
     install {
         mkdir "${dest}/web"
-        copy "${src}/cix-v2.57.55/build/cix-init" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cixd" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cixctl" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/mkbootroot" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cix-install" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cix-recover" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/mkinstalleriso" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cix-boot.efi" to "${dest}/"
-        copy "${src}/cix-v2.57.55/build/cix-xorriso" to "${dest}/"
-        copy "${src}/cix-v2.57.55/web/index.html" to "${dest}/web/"
-        copy "${src}/cix-v2.57.55/web/app.js" to "${dest}/web/"
-        copy "${src}/cix-v2.57.55/web/style.css" to "${dest}/web/"
-        copy "${src}/cix-v2.57.55/web/api.js" to "${dest}/web/"
+        copy "${src}/cix/cix-v2.57.55/build/cix-init" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cixd" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cixctl" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/mkbootroot" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cix-install" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cix-recover" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/mkinstalleriso" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cix-boot.efi" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/build/cix-xorriso" to "${dest}/"
+        copy "${src}/cix/cix-v2.57.55/web/index.html" to "${dest}/web/"
+        copy "${src}/cix/cix-v2.57.55/web/app.js" to "${dest}/web/"
+        copy "${src}/cix/cix-v2.57.55/web/style.css" to "${dest}/web/"
+        copy "${src}/cix/cix-v2.57.55/web/api.js" to "${dest}/web/"
         require file "${dest}/cix-boot.efi" {
             exists
             contains "MZ"
