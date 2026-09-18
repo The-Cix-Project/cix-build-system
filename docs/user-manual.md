@@ -225,12 +225,15 @@ install {
 ```
 
 Apply one body to each item of a literal list with `each`; the bound name
-substitutes in any quoted string inside the body:
+substitutes in any quoted string inside the body. `stage library` ships a
+runtime library from the build sandbox without naming the directory it lives
+in (CBS searches the image's library layout and fails, naming the library and
+every directory searched, when none holds it):
 
 ```cbs
 install {
-    each "lib" in { "libcap.so.2" "libcrypto.so.3" } {
-        copy "/usr/lib/${each.lib}" to "${dest}/usr/lib/${each.lib}"
+    each "lib" in { "libcap.so.2" "libcap.so.2.66" "libcrypto.so.3" } {
+        stage library "${each.lib}" into "${dest}/usr/lib"
         require file "${dest}/usr/lib/${each.lib}" { exists }
     }
 }
@@ -243,7 +246,7 @@ made inside the body last for that item only. It is expanded when the recipe
 is parsed, so `explain` counts every expanded operation.
 
 `replace`, `insert`, `write`, `copy`, `move`, `remove`, `symlink`, `extract`,
-`materialize`,
+`materialize`, `stage library`,
 `require`, globbing, environment bindings, timeouts, expected exit status, and
 `on_fail` diagnostics are specified in the [CPDL specification](spec/cpdl-0.1.md).
 

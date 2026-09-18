@@ -748,6 +748,25 @@ static CbsNode *parse_each(CbsParser *parser, int diagnostic_only) {
     return expansion;
 }
 
+/* Parse `stage library "NAME" into PATH`: copy one shared library out of the
+ * build sandbox's library directories into the staged tree. */
+static CbsNode *parse_stage(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "stage");
+    CbsToken *name;
+    CbsToken *destination;
+    CbsNode *node = cbs_node_create(CBS_NODE_STAGE, keyword->location);
+
+    consume_word(parser, "library");
+    name = consume_kind(parser, CBS_TOKEN_STRING, "library file name string");
+    consume_word(parser, "into");
+    destination = consume_path(parser);
+    if (name != NULL)
+        node->value = cbs_duplicate(name->text);
+    if (destination != NULL)
+        node->second_value = cbs_duplicate(destination->text);
+    return node;
+}
+
 /* Parse any operation allowed in the current block. */
 static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = current(parser);
@@ -779,6 +798,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         is_word(parser, "symlink") || is_word(parser, "write") ||
         is_word(parser, "chmod"))
         return parse_filesystem(parser);
+    if (is_word(parser, "stage"))
+        return parse_stage(parser);
     if (is_word(parser, "extract"))
         return parse_extract(parser);
     if (is_word(parser, "materialize"))

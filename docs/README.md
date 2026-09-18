@@ -89,6 +89,8 @@ hide a changed decision; a later ADR supersedes it.
 - [ADR-0035: Parse-time list iteration](adr/0035-parse-time-iteration.md)
 - [Issue #176: each — apply one body to every item of a list](reviews/issue-0176-validation.md)
 - [Issue #177: replace … until whitespace | line](reviews/issue-0177-validation.md)
+- [ADR-0036: Staging shared libraries from the build sandbox](adr/0036-stage-sandbox-libraries.md)
+- [Issue #178: stage library — ship a sandbox library without naming its directory](reviews/issue-0178-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

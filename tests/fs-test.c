@@ -70,7 +70,8 @@ static int regular_with(const char *path, const char *expected, mode_t mode) {
 }
 
 static int expect_failure(const CbsNode *operation,
-                          const CbsExecutionContext *context) {
+                          const CbsExecutionContext *context,
+                          const char *fragment) {
     FILE *capture = tmpfile();
     int saved = dup(STDERR_FILENO);
     int result;
@@ -88,7 +89,8 @@ static int expect_failure(const CbsNode *operation,
     length = fread(output, 1, sizeof(output) - 1, capture);
     output[length] = '\0';
     fclose(capture);
-    return !result && strstr(output, "CPDL-E4004") != NULL;
+    return !result && strstr(output, "CPDL-E4004") != NULL &&
+           (fragment == NULL || strstr(output, fragment) != NULL);
 }
 
 static int expect_edit_failure(const CbsNode *operation,
@@ -220,8 +222,50 @@ static int run_test(const char *recipe_path) {
     escape.value = "${dest}/../outside/escaped";
     escape.second_value = "bad";
     escape.flag = CBS_TOKEN_STRING;
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
+
+    /* stage library: the first sandbox copy of libc.so.6 is shipped with its
+     * mode, and the destination directory is created on demand. The test
+     * assumes a glibc host, as the manual already does. */
+    {
+        static const char *const candidates[] = {
+            "/usr/lib/x86_64-linux-gnu/libc.so.6",
+            "/lib/x86_64-linux-gnu/libc.so.6", "/usr/lib/libc.so.6",
+            "/lib/libc.so.6", "/usr/lib64/libc.so.6", "/lib64/libc.so.6"};
+        struct stat host;
+        CbsNode missing;
+        size_t candidate;
+        int have_host = 0;
+        for (candidate = 0; candidate < 6 && !have_host; ++candidate)
+            have_host = lstat(candidates[candidate], &host) == 0;
+        if (!have_host)
+            goto cleanup;
+        path_join(path, sizeof(path), dest, "usr/lib");
+        if (lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
+            goto cleanup;
+        path_join(path, sizeof(path), dest, "usr/lib/libc.so.6");
+        if (lstat(path, &status) != 0 ||
+            S_ISREG(status.st_mode) != S_ISREG(host.st_mode) ||
+            S_ISLNK(status.st_mode) != S_ISLNK(host.st_mode) ||
+            (status.st_mode & 07777) != (host.st_mode & 07777) ||
+            (S_ISREG(host.st_mode) && status.st_size != host.st_size))
+            goto cleanup;
+        memset(&missing, 0, sizeof(missing));
+        missing.kind = CBS_NODE_STAGE;
+        missing.location.path = recipe_path;
+        missing.location.line = 1;
+        missing.location.column = 1;
+        missing.value = "libcbs-not-here.so.9";
+        missing.second_value = "${dest}/usr/lib";
+        if (!expect_failure(&missing, &context,
+                            "library is not in the build sandbox (searched "))
+            goto cleanup;
+        missing.value = "../etc/passwd";
+        if (!expect_failure(&missing, &context,
+                            "stage library name must be a bare file name"))
+            goto cleanup;
+    }
 
     {
         CbsNode mismatch;
@@ -267,7 +311,7 @@ static int run_test(const char *recipe_path) {
     if (symlink(outside, path) != 0)
         goto cleanup;
     escape.value = "${dest}/linked-parent/escaped";
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
     path_join(path, sizeof(path), outside, "escaped");
     if (lstat(path, &status) == 0)
@@ -280,31 +324,31 @@ static int run_test(const char *recipe_path) {
     escape.kind = CBS_NODE_COPY;
     escape.value = "${build}/input";
     escape.second_value = "${dest}/directory-copy";
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
 
     escape.kind = CBS_NODE_REMOVE;
     escape.value = "${build}/input";
     escape.second_value = NULL;
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
 
     escape.value = "${build}/input/*.missing";
     escape.flag = 1;
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
 
     escape.kind = CBS_NODE_COPY;
     escape.value = "${build}/input/*.txt";
     escape.second_value = "${dest}/moved.txt";
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
 
     escape.kind = CBS_NODE_CHMOD;
     escape.value = "${dest}/copied/a-link";
     escape.second_value = "0777";
     escape.flag = 0;
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
     path_join(path, sizeof(path), dest, "copied/a.txt");
     if (!regular_with(path, "alpha", 0644))
@@ -313,7 +357,7 @@ static int run_test(const char *recipe_path) {
     escape.kind = CBS_NODE_SYMLINK;
     escape.value = "target";
     escape.second_value = "${dest}/copied/a-link";
-    if (!expect_failure(&escape, &context))
+    if (!expect_failure(&escape, &context, NULL))
         goto cleanup;
     result = 0;
 
@@ -334,6 +378,7 @@ int main(int argc, char **argv) {
         fputs("filesystem execution tests: FAIL\n", stderr);
         return 1;
     }
-    puts("filesystem execution tests: PASS (operations, globs, confinement)");
+    puts("filesystem execution tests: PASS (operations, globs, confinement, "
+         "and staged sandbox libraries)");
     return 0;
 }

@@ -1,0 +1,8 @@
+package "broken" {
+    version "1"
+    release 1
+    format "cixpkg"
+    install {
+        stage tool "make" into "${dest}/usr/bin"
+    }
+}

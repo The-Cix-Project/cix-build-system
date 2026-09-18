@@ -101,7 +101,9 @@ typedef enum {
     CBS_NODE_CAPABILITY,
     CBS_NODE_TOOLCHAIN,
     CBS_NODE_UPSTREAM,
-    CBS_NODE_METADATA
+    CBS_NODE_METADATA,
+    /* stage library "NAME" into PATH: ship a build-dependency library. */
+    CBS_NODE_STAGE
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;

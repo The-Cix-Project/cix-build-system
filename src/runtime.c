@@ -59,7 +59,8 @@ static int execute_operation(const CbsNode *operation,
 
 /* Identify operations that modify the staged filesystem. */
 static int is_filesystem(CbsNodeKind kind) {
-    return kind >= CBS_NODE_MKDIR && kind <= CBS_NODE_CHMOD;
+    return (kind >= CBS_NODE_MKDIR && kind <= CBS_NODE_CHMOD) ||
+           kind == CBS_NODE_STAGE;
 }
 
 /* Read whether a run operation explicitly permits its failure. */

@@ -412,6 +412,16 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             validation_error(validator, operation, "CPDL-E3004",
                              "invalid permission mode");
         break;
+    case CBS_NODE_STAGE:
+        validate_value(validator, operation, operation->value);
+        validate_value(validator, operation, operation->second_value);
+        if (operation->value == NULL || operation->value[0] == '\0' ||
+            strchr(operation->value, '/') != NULL ||
+            strcmp(operation->value, ".") == 0 ||
+            strcmp(operation->value, "..") == 0)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "stage library name must be a bare file name");
+        break;
     case CBS_NODE_SYMLINK:
         validate_value(validator, operation, operation->value);
         validate_value(validator, operation, operation->second_value);

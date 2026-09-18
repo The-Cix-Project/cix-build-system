@@ -58,5 +58,6 @@ package "filesystem-test" {
         write "${build}/terminal/nested/value" "terminal"
         chmod 0700 glob "${build}/terminal/**"
         remove tree "${build}/terminal"
+        stage library "libc.so.6" into "${dest}/usr/lib"
     }
 }

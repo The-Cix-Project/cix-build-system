@@ -1,0 +1,8 @@
+package "broken" {
+    version "1"
+    release 1
+    format "cixpkg"
+    install {
+        stage library "usr/lib/libc.so.6" into "${dest}/usr/lib"
+    }
+}

@@ -655,6 +655,95 @@ static int atomic_write_bytes(const char *path, const unsigned char *content,
 }
 
 /* Execute one confined filesystem operation. */
+/* Ship one shared library from the build sandbox's library directories. The
+ * candidates are the build image's layout, not a recipe path, so this is the
+ * one operation that reads outside the confined roots (ADR-0036). */
+static int stage_library(const CbsNode *operation,
+                         const CbsExecutionContext *context) {
+    static const char *const plain[] = {"/usr/lib", "/lib", "/usr/lib64",
+                                        "/lib64"};
+    char *name = cbs_resolve_value(operation->value, CBS_TOKEN_STRING, context);
+    char *triplet = cbs_resolve_value("${triplet}", CBS_TOKEN_STRING, context);
+    const char *root;
+    char *directory = NULL;
+    char searched[1024];
+    char candidate[4096];
+    struct stat status;
+    size_t index;
+    size_t searched_length = 0;
+    int found = 0;
+    int result = 0;
+
+    if (name[0] == '\0' || strchr(name, '/') != NULL ||
+        strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+        errno = EINVAL;
+        fs_error(operation, context, name,
+                 "stage library name must be a bare file name");
+        goto done;
+    }
+    searched[0] = '\0';
+    for (index = 0; index < 2 + sizeof(plain) / sizeof(plain[0]); ++index) {
+        int multiarch = index < 2;
+        if (multiarch && triplet[0] == '\0')
+            continue;
+        if (multiarch)
+            snprintf(candidate, sizeof(candidate), "%s/%s/%s",
+                     index == 0 ? "/usr/lib" : "/lib", triplet, name);
+        else
+            snprintf(candidate, sizeof(candidate), "%s/%s", plain[index - 2],
+                     name);
+        searched_length += (size_t)snprintf(
+            searched + searched_length, sizeof(searched) - searched_length,
+            "%s%.*s", searched_length == 0 ? "" : ", ",
+            (int)(strlen(candidate) - strlen(name) - 1), candidate);
+        if (searched_length >= sizeof(searched))
+            searched_length = sizeof(searched) - 1;
+        if (lstat(candidate, &status) == 0 &&
+            (S_ISREG(status.st_mode) || S_ISLNK(status.st_mode))) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        char detail[1400];
+        snprintf(detail, sizeof(detail),
+                 "library is not in the build sandbox (searched %s); declare "
+                 "the build dependency that provides it",
+                 searched);
+        errno = ENOENT;
+        fs_error(operation, context, name, detail);
+        goto done;
+    }
+    directory = resolve_path(operation->second_value, context, &root);
+    if (directory == NULL || !safe_parents(directory, root)) {
+        fs_error(operation, context, operation->second_value,
+                 "stage destination is not a confined directory");
+        goto done;
+    }
+    if (lstat(directory, &status) != 0) {
+        if (errno != ENOENT || !ensure_directories(directory, root, 0755)) {
+            fs_error(operation, context, operation->second_value,
+                     "cannot create stage destination");
+            goto done;
+        }
+    } else if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode)) {
+        errno = ENOTDIR;
+        fs_error(operation, context, operation->second_value,
+                 "stage destination is not a directory");
+        goto done;
+    }
+    if (!copy_one(candidate, directory)) {
+        fs_error(operation, context, candidate, "cannot stage library");
+        goto done;
+    }
+    result = 1;
+done:
+    free(directory);
+    free(triplet);
+    free(name);
+    return result;
+}
+
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context) {
     char *first = NULL;
@@ -682,6 +771,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
         result =
             atomic_write_bytes(first, (const unsigned char *)second,
                                strlen(second), parse_mode(mode_text, 0644));
+    } else if (operation->kind == CBS_NODE_STAGE) {
+        return stage_library(operation, context);
     } else if (operation->kind == CBS_NODE_SYMLINK) {
         first = resolve_path(operation->second_value, context, &root);
         second = cbs_resolve_value(operation->value,

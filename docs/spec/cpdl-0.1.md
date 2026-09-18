@@ -93,7 +93,7 @@ extra          extract    file          from        glob          headers
 insert         into       jobs           library     main
 mkdir          move       on_fail        package     prepare
 release        format     remove        replace     require     requires
-run            runtime    sha256         source      sources
+run            runtime    sha256         source      sources     stage
 symlink        target     test           timeout     to          tool
 tree           until      url            version     whitespace  write
 materialize    line
@@ -366,7 +366,8 @@ operation = run-operation
           | replace-operation
           | insert-operation
           | require-operation
-          | each-operation ;
+          | each-operation
+          | stage-operation ;
 
 on-fail = "on_fail", "{", { diagnostic-operation }, "}" ;
 
@@ -718,6 +719,29 @@ Bodies may nest `each` with distinct names. An item list and a body must be
 non-empty (`CPDL-E2003`). The bound name is a parse-time placeholder, not a
 runtime variable: `explain` counts the expanded operations, and there is no
 runtime state, condition, or loop.
+
+### 4.9 Staging sandbox libraries
+
+```ebnf
+stage-operation = "stage", "library", string, "into", path-value ;
+```
+
+`stage library` copies one shared library out of the build sandbox into the
+staged tree. The name is a bare file name (no `/`), such as `libresolv.so.2`.
+CBS searches, in order, `/usr/lib/TRIPLET`, `/lib/TRIPLET`, `/usr/lib`,
+`/lib`, `/usr/lib64`, and `/lib64`, where `TRIPLET` is `${triplet}` for the
+target architecture, and takes the first regular file or symbolic link found.
+The copy preserves the mode, and a symbolic link is copied as a link with its
+target text unchanged, so the soname link a recipe names is shipped as a link
+and the versioned file must be staged separately. The `into` directory must
+resolve beneath a confined root; it is created (mode 0755) when absent and
+left untouched when present. When no directory holds the library, the
+operation fails with `CPDL-E4004`, names the library and every directory
+searched, and asks for the build dependency that provides it to be declared.
+
+This is the one operation whose source lies outside the confined roots. The
+candidate directories are the build image's library layout, never a
+recipe-supplied path (ADR-0036).
 
 ## 5. Validation contract
 
