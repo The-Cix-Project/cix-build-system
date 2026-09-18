@@ -26,7 +26,11 @@ package "cli-contract" {
     capability "CAP_TWO"
     build {
         write "${dest}/hello" "hello\n" chmod 0755
-        require file "${dest}/hello" { exists contains "hello" }
+        require file "${dest}/hello" { exists contains "hello" } for {
+            "${dest}/hello"
+            "${dest}/hello"
+        }
+        run "true" { each "first" "second" }
     }
 }
 EOF
@@ -45,7 +49,7 @@ test "$("$cbs" validate "$recipe" --json)" = \
 "$cbs" explain "$recipe" >"$temporary_dir/explain.out"
 grep -q "^$recipe: CPDL 0.1 execution plan (1 phases)$" \
     "$temporary_dir/explain.out"
-grep -q '^1 build operations=2$' "$temporary_dir/explain.out"
+grep -q '^1 build operations=5$' "$temporary_dir/explain.out"
 "$cbs" explain "$recipe" --json >"$temporary_dir/explain.json"
 grep -q '"name":"build"' "$temporary_dir/explain.json"
 grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
@@ -104,6 +108,47 @@ test "$("$cbs" extract "$artifact" --into "$temporary_dir/extracted")" = \
     "extracted $temporary_dir/extracted"
 test "$(cat "$temporary_dir/extracted/hello")" = hello
 test "$(stat -c '%a' "$temporary_dir/extracted/hello")" = 755
+
+cat >"$temporary_dir/empty-list.cbs" <<'EOF'
+package "empty-list" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build { run "true" { each } }
+}
+EOF
+set +e
+"$cbs" validate "$temporary_dir/empty-list.cbs" \
+    >"$temporary_dir/empty-list.out" 2>"$temporary_dir/empty-list.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q 'list declaration must contain at least one value' \
+    "$temporary_dir/empty-list.err"
+
+cat >"$temporary_dir/failing-list.cbs" <<'EOF'
+package "failing-list" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        mkdir "${dest}"
+        require file "${dest}/missing" { exists } for {
+            "${dest}/missing"
+        }
+    }
+}
+EOF
+set +e
+mkdir -p "$temporary_dir/failing-stage"
+"$cbs" build "$temporary_dir/failing-list.cbs" --arch x86_64 \
+    --staged "$temporary_dir/failing-stage" \
+    --output "$temporary_dir/failing.cixpkg" \
+    >"$temporary_dir/failing-list.out" 2>"$temporary_dir/failing-list.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q '/missing' "$temporary_dir/failing-list.err"
 
 cp "$artifact" "$bad_artifact"
 printf 'x' | dd of="$bad_artifact" bs=1 seek=0 conv=notrunc 2>/dev/null

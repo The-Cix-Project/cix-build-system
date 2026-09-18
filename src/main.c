@@ -259,6 +259,16 @@ static void print_json_string(const char *value) {
     putchar('"');
 }
 
+static size_t count_plan_operations(const CbsNode *block) {
+    size_t total = 0;
+    size_t index;
+    for (index = 0; index < block->child_count; ++index)
+        total += block->children[index]->kind == CBS_NODE_LIST
+                     ? block->children[index]->child_count
+                     : 1;
+    return total;
+}
+
 /* Validate a recipe and print its execution metadata and plan. */
 static int explain_file(const char *path, int json) {
     char *source;
@@ -456,7 +466,7 @@ static int explain_file(const char *path, int json) {
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,
-                   plan.phases[index]->child_count);
+                   count_plan_operations(plan.phases[index]));
         puts("]}");
     } else {
         printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
@@ -468,7 +478,8 @@ static int explain_file(const char *path, int json) {
                metadata.capability_count);
         for (index = 0; index < plan.count; ++index)
             printf("%zu %s operations=%zu\n", index + 1,
-                   plan.phases[index]->name, plan.phases[index]->child_count);
+                   plan.phases[index]->name,
+                   count_plan_operations(plan.phases[index]));
     }
     cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);

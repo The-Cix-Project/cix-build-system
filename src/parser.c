@@ -94,11 +94,29 @@ static CbsNode *node_from_token(CbsNodeKind kind, const CbsToken *token) {
 static CbsNode *parse_operation_block(CbsParser *parser, CbsNode *owner,
                                       int diagnostic_only);
 
+static CbsNode *clone_node(const CbsNode *source) {
+    CbsNode *copy = cbs_node_create(source->kind, source->location);
+    size_t index;
+    copy->name = source->name == NULL ? NULL : cbs_duplicate(source->name);
+    copy->value = source->value == NULL ? NULL : cbs_duplicate(source->value);
+    copy->second_value = source->second_value == NULL
+                             ? NULL
+                             : cbs_duplicate(source->second_value);
+    copy->number = source->number;
+    copy->flag = source->flag;
+    copy->second_flag = source->second_flag;
+    copy->selector_glob = source->selector_glob;
+    for (index = 0; index < source->child_count; ++index)
+        cbs_node_add(copy, clone_node(source->children[index]));
+    return copy;
+}
+
 /* Parse a process operation and its arguments/options. */
 static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = consume_word(parser, "run");
     CbsToken *program;
     CbsNode *node;
+    CbsNode *each_values = NULL;
 
     if (keyword == NULL)
         return NULL;
@@ -119,6 +137,12 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
             advance(parser);
             item = node_from_token(CBS_NODE_ARGUMENT, token);
             item->flag = token->kind;
+        } else if (is_word(parser, "each")) {
+            advance(parser);
+            each_values = cbs_node_create(CBS_NODE_LIST, token->location);
+            while (is_text_value(current(parser)))
+                cbs_node_add(each_values,
+                             node_from_token(CBS_NODE_ARGUMENT, advance(parser)));
         } else if (is_word(parser, "env")) {
             CbsToken *name;
             CbsToken *value;
@@ -193,6 +217,18 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
             cbs_node_add(node, item);
     }
     consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    if (each_values != NULL) {
+        CbsNode *list = cbs_node_create(CBS_NODE_LIST, keyword->location);
+        size_t index;
+        for (index = 0; index < each_values->child_count; ++index) {
+            CbsNode *expanded = clone_node(node);
+            cbs_node_add(expanded, clone_node(each_values->children[index]));
+            cbs_node_add(list, expanded);
+        }
+        cbs_node_destroy(each_values);
+        cbs_node_destroy(node);
+        return list;
+    }
     return node;
 }
 
@@ -492,6 +528,28 @@ static CbsNode *parse_require(CbsParser *parser) {
         }
     }
     consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    if (is_word(parser, "for")) {
+        CbsNode *values;
+        CbsNode *list;
+        size_t index;
+        advance(parser);
+        consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+        values = cbs_node_create(CBS_NODE_LIST, keyword->location);
+        while (is_text_value(current(parser)))
+            cbs_node_add(values,
+                         node_from_token(CBS_NODE_ARGUMENT, advance(parser)));
+        consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+        list = cbs_node_create(CBS_NODE_LIST, keyword->location);
+        for (index = 0; index < values->child_count; ++index) {
+            CbsNode *expanded = clone_node(node);
+            free(expanded->value);
+            expanded->value = cbs_duplicate(values->children[index]->value);
+            cbs_node_add(list, expanded);
+        }
+        cbs_node_destroy(values);
+        cbs_node_destroy(node);
+        return list;
+    }
     return node;
 }
 

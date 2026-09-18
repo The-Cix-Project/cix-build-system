@@ -380,6 +380,13 @@ static int execute_extract(const CbsNode *operation,
 /* Dispatch one operation after applying phase runtime policy. */
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context) {
+    size_t index;
+    if (operation->kind == CBS_NODE_LIST) {
+        for (index = 0; index < operation->child_count; ++index)
+            if (!execute_operation(operation->children[index], context))
+                return 0;
+        return 1;
+    }
     if (operation->kind == CBS_NODE_RUN)
         return cbs_execute_run(operation, context);
     if (is_filesystem(operation->kind))

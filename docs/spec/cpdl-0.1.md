@@ -408,6 +408,7 @@ run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
 run-stdout-assert = "expect", "{", "stdout", "contains", string, "}" ;
 run-stdout-bind = "stdout", string ;
+run-each        = "each", { text-value } ;
 ```
 
 The first value names the executable. Each bare `text-value` in the block adds
@@ -635,6 +636,12 @@ require-glob = "require", "glob", string, "{",
                "count", integer,
                "}" ;
 ```
+
+Any require operation may be followed by `for { text-value ... }`. Each value
+expands the assertion into one independent operation. A `run` may contain
+`each text-value ...` after its fixed arguments; each value similarly expands
+the command, appending that value as the final argument. Both lists must be
+non-empty, and expansion is syntactic: there are no variables or control flow.
 
 `require file` follows no final symlink and requires a regular file. `nonempty`
 requires that file to contain at least one byte.

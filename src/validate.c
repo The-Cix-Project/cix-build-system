@@ -343,6 +343,15 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         return;
     }
     switch (operation->kind) {
+    case CBS_NODE_LIST:
+        if (operation->child_count == 0)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "list declaration must contain at least one value");
+        else
+            for (index = 0; index < operation->child_count; ++index)
+                validate_operation(validator, operation->children[index],
+                                   in_on_fail);
+        break;
     case CBS_NODE_RUN:
         validate_run(validator, operation, in_on_fail);
         break;
