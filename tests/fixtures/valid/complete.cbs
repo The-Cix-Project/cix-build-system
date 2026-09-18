@@ -108,5 +108,9 @@ package "example" {
         require glob "${dest}/usr/lib/libexample.so*" {
             count 2
         }
+        require symlink "${dest}/lib/libexample-current.so" {
+            exists
+            target "/usr/lib/libexample.so"
+        }
     }
 }

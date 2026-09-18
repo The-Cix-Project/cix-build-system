@@ -10,7 +10,7 @@ features must add focused success and failure assertions to this matrix.
 | on_fail, allow_failure, continuation, and primary errors | runtime-test.c and failure.cbs |
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, and globs | fs-test.c and filesystem.cbs |
 | extract, materialize, and configuration assertions | extract-test.c and extract.cbs |
-| replace, insert, and cardinality assertions | edit-assert-test.c and edit-assert.cbs |
+| replace, insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |
 | Sources, mirrors, checksums, cache, and fetch failures | source-test.c and fetch-test.c |
 | CIXPKG, corruption, modes, links, round trip, and reproducibility | package, typed-package, fuzz, and repro tests; upstream-smoke-test.sh rebuilds zstd and compares bytes |
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |

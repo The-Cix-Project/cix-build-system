@@ -1048,7 +1048,30 @@ static int require_glob(const CbsNode *operation,
     return success;
 }
 
-/* Evaluate existence, type, and content properties for one path. */
+/* Emit one located assertion failure naming the required path. */
+static void require_failure(const CbsNode *operation,
+                            const CbsExecutionContext *context,
+                            const char *detail) {
+    char message[4096 + 512];
+    snprintf(message, sizeof(message), "required %s `%s` %s", operation->name,
+             operation->value, detail);
+    assertion_error(operation, context, message);
+}
+
+/* Say what an existing path is when it is not what the assertion wants. */
+static const char *entry_description(const struct stat *status) {
+    if (S_ISLNK(status->st_mode))
+        return "is a symbolic link";
+    if (S_ISDIR(status->st_mode))
+        return "is a directory";
+    if (S_ISREG(status->st_mode))
+        return "is a regular file";
+    return "is neither a regular file, a directory, nor a symbolic link";
+}
+
+/* Evaluate existence, type, and content properties for one path. The
+ * failure message says what was found; "does not exist" is reserved for a
+ * path that is absent. */
 static int require_path(const CbsNode *operation,
                         const CbsExecutionContext *context) {
     const char *root;
@@ -1059,21 +1082,95 @@ static int require_path(const CbsNode *operation,
     mode_t mode;
     size_t index;
     char message[256];
+    char detail[4096 + 256];
     int success = 0;
 
-    if (path == NULL || !safe_parents(path, root) || lstat(path, &status) != 0)
-        goto failed;
+    if (path == NULL) {
+        require_failure(operation, context,
+                        "resolves outside the confined build roots");
+        goto done;
+    }
+    if (!safe_parents(path, root)) {
+        require_failure(operation, context,
+                        "has a parent that is a symbolic link or not a "
+                        "directory");
+        goto done;
+    }
+    if (lstat(path, &status) != 0) {
+        int error = errno;
+        if (error == ENOENT)
+            require_failure(operation, context, "does not exist");
+        else if (error == ENOTDIR)
+            require_failure(operation, context,
+                            "has a parent component that is not a directory");
+        else {
+            snprintf(detail, sizeof(detail), "cannot be examined: %s",
+                     strerror(error));
+            require_failure(operation, context, detail);
+        }
+        goto done;
+    }
     if (strcmp(operation->name, "directory") == 0) {
-        if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode))
-            goto failed;
+        if (!S_ISDIR(status.st_mode)) {
+            snprintf(detail, sizeof(detail),
+                     "%s; require directory matches directories only",
+                     entry_description(&status));
+            require_failure(operation, context, detail);
+            goto done;
+        }
         success = 1;
         goto done;
     }
-    if (!S_ISREG(status.st_mode) || S_ISLNK(status.st_mode))
-        goto failed;
+    if (strcmp(operation->name, "symlink") == 0) {
+        char link_target[4096];
+        ssize_t length;
+        if (!S_ISLNK(status.st_mode)) {
+            snprintf(detail, sizeof(detail),
+                     "%s; require symlink matches symbolic links only",
+                     entry_description(&status));
+            require_failure(operation, context, detail);
+            goto done;
+        }
+        length = readlink(path, link_target, sizeof(link_target) - 1);
+        if (length < 0) {
+            snprintf(detail, sizeof(detail), "cannot be read: %s",
+                     strerror(errno));
+            require_failure(operation, context, detail);
+            goto done;
+        }
+        link_target[length] = '\0';
+        for (index = 0; index < operation->child_count; ++index) {
+            const CbsNode *property = operation->children[index];
+            char *expected = cbs_resolve_value(
+                property->value, inferred_kind(property->value), context);
+            int matches = strcmp(link_target, expected) == 0;
+            if (!matches)
+                snprintf(detail, sizeof(detail),
+                         "points to `%s`, expected `%s`", link_target,
+                         expected);
+            free(expected);
+            if (!matches) {
+                require_failure(operation, context, detail);
+                goto done;
+            }
+        }
+        success = 1;
+        goto done;
+    }
+    if (!S_ISREG(status.st_mode)) {
+        snprintf(detail, sizeof(detail),
+                 "%s; require file matches regular files only",
+                 entry_description(&status));
+        require_failure(operation, context, detail);
+        goto done;
+    }
     content = read_regular(path, &content_length, &mode);
-    if (content == NULL)
-        goto failed;
+    if (content == NULL) {
+        snprintf(detail, sizeof(detail), "cannot be read: %s",
+                 strerror(errno));
+        require_failure(operation, context, detail);
+        goto done;
+    }
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
         if (strcmp(property->name, "nonempty") == 0) {
@@ -1119,12 +1216,6 @@ static int require_path(const CbsNode *operation,
         }
     }
     success = 1;
-    goto done;
-
-failed:
-    snprintf(message, sizeof(message), "required %s `%s` does not exist",
-             operation->name, operation->value);
-    assertion_error(operation, context, message);
 done:
     free(content);
     free(path);

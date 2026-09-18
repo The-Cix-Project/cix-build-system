@@ -474,7 +474,8 @@ static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *target;
     CbsNode *node = cbs_node_create(CBS_NODE_REQUIRE, keyword->location);
 
-    kind = consume_kind(parser, CBS_TOKEN_WORD, "file, directory, or glob");
+    kind = consume_kind(parser, CBS_TOKEN_WORD,
+                        "file, directory, symlink, glob, or config");
     if (kind != NULL)
         node->name = cbs_duplicate(kind->text);
     if (kind != NULL && strcmp(kind->text, "glob") == 0)
@@ -510,20 +511,22 @@ static CbsNode *parse_require(CbsParser *parser) {
     } else {
         consume_word(parser, "exists");
         while (is_word(parser, "contains") || is_word(parser, "same_as") ||
-               is_word(parser, "nonempty")) {
+               is_word(parser, "nonempty") || is_word(parser, "target")) {
             CbsToken *text;
             CbsNode *property;
-            int same_as = is_word(parser, "same_as");
-            int nonempty = is_word(parser, "nonempty");
+            const char *property_name = current(parser)->text;
+            int path_valued = strcmp(property_name, "same_as") == 0 ||
+                              strcmp(property_name, "target") == 0;
+            int nonempty = strcmp(property_name, "nonempty") == 0;
             advance(parser);
             text = nonempty ? NULL
-                            : (same_as ? consume_path(parser)
-                                       : consume_text_value(parser, "contained value"));
+                   : path_valued
+                       ? consume_path(parser)
+                       : consume_text_value(parser, "contained value");
             property = text == NULL ? cbs_node_create(CBS_NODE_PROPERTY,
                                                        keyword->location)
                                     : node_from_token(CBS_NODE_PROPERTY, text);
-            property->name = cbs_duplicate(nonempty ? "nonempty"
-                                                     : (same_as ? "same_as" : "contains"));
+            property->name = cbs_duplicate(property_name);
             cbs_node_add(node, property);
         }
     }

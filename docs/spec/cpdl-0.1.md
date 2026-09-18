@@ -94,7 +94,7 @@ insert         into       jobs           library     main
 mkdir          move       on_fail        package     prepare
 release        format     remove        replace     require     requires
 run            runtime    sha256         source      sources
-symlink        test       timeout        to          tool
+symlink        target     test           timeout     to          tool
 tree           url        version        write       materialize
 ```
 
@@ -626,6 +626,7 @@ expressions or locale-dependent text matching.
 ```ebnf
 require-operation = require-file
                   | require-directory
+                  | require-symlink
                   | require-glob ;
 
 require-file = "require", "file", path-value, "{",
@@ -636,6 +637,11 @@ require-file = "require", "file", path-value, "{",
 require-directory = "require", "directory", path-value, "{",
                     "exists",
                     "}" ;
+
+require-symlink = "require", "symlink", path-value, "{",
+                  "exists",
+                  [ "target", text-value ],
+                  "}" ;
 
 require-glob = "require", "glob", string, "{",
                "count", integer,
@@ -650,9 +656,17 @@ non-empty, and expansion is syntactic: there are no variables or control flow.
 
 `require file` follows no final symlink and requires a regular file. `nonempty`
 requires that file to contain at least one byte.
-`require directory` requires a directory. Each `contains` performs a literal
+`require directory` requires a directory and accepts no other property.
+`require symlink` requires a symbolic link and does not follow it, so a
+dangling link satisfies `exists`; `target` compares the link text literally,
+after substitution, with the value given. Each `contains` performs a literal
 byte search. `same_as` compares two confined regular files byte-for-byte.
 `require glob` requires exactly the stated number of matches.
+
+A failed `require file`, `require directory`, or `require symlink` names the
+path and what was found there: a symbolic link, a directory, a regular file,
+an unreadable entry, or a parent that is not a directory. `does not exist` is
+reported only for a path that is absent.
 
 CPDL globs recognize:
 

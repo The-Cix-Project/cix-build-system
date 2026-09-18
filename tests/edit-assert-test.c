@@ -62,9 +62,11 @@ static int file_equals(const char *path, const unsigned char *expected,
            memcmp(buffer, expected, expected_length) == 0;
 }
 
+/* Run one assertion with stderr captured; it must fail with the code and,
+ * when given, the message fragment. */
 static int expected_failure(const CbsNode *operation,
                             const CbsExecutionContext *context,
-                            const char *code) {
+                            const char *code, const char *fragment) {
     FILE *capture = tmpfile();
     int saved = dup(STDERR_FILENO);
     int executed;
@@ -82,7 +84,8 @@ static int expected_failure(const CbsNode *operation,
     length = fread(output, 1, sizeof(output) - 1, capture);
     output[length] = '\0';
     fclose(capture);
-    return !executed && strstr(output, code) != NULL;
+    return !executed && strstr(output, code) != NULL &&
+           (fragment == NULL || strstr(output, fragment) != NULL);
 }
 
 static int write_binary(const char *path) {
@@ -109,6 +112,8 @@ static int run_test(const char *recipe_path) {
     CbsNode *phase;
     CbsExecutionContext context;
     CbsNode operation;
+    CbsNode target_property;
+    CbsNode *property_list[1];
     size_t index;
     int result = 1;
 
@@ -144,7 +149,8 @@ static int run_test(const char *recipe_path) {
     for (index = 0; index < phase->child_count; ++index) {
         CbsNode *item = phase->children[index];
         int success =
-            item->kind == CBS_NODE_MKDIR || item->kind == CBS_NODE_WRITE
+            item->kind == CBS_NODE_MKDIR || item->kind == CBS_NODE_WRITE ||
+                    item->kind == CBS_NODE_SYMLINK
                 ? cbs_execute_filesystem(item, &context)
                 : cbs_execute_edit_assertion(item, &context);
         if (!success)
@@ -165,11 +171,11 @@ static int run_test(const char *recipe_path) {
     operation.flag = CBS_TOKEN_STRING;
     operation.second_flag = CBS_TOKEN_STRING;
     operation.number = 1;
-    if (!expected_failure(&operation, &context, "CPDL-E4005") ||
+    if (!expected_failure(&operation, &context, "CPDL-E4005", NULL) ||
         !file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
         goto cleanup;
     operation.number = 3;
-    if (!expected_failure(&operation, &context, "CPDL-E4005") ||
+    if (!expected_failure(&operation, &context, "CPDL-E4005", NULL) ||
         !file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
         goto cleanup;
 
@@ -189,8 +195,74 @@ static int run_test(const char *recipe_path) {
     operation.value = "${build}/matches/*";
     operation.number = 1;
     operation.flag = 0;
-    if (!expected_failure(&operation, &context, "CPDL-E4005"))
+    if (!expected_failure(&operation, &context, "CPDL-E4005", NULL))
         goto cleanup;
+
+    /* A failed require says what the path is, and "does not exist" is
+     * reserved for an absent path (#175). */
+    operation.number = 0;
+    operation.name = "file";
+    operation.value = "${build}/input-link";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "required file `${build}/input-link` is a symbolic "
+                          "link; require file matches regular files only"))
+        goto cleanup;
+    operation.value = "${build}/matches";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "is a directory; require file matches regular "
+                          "files only"))
+        goto cleanup;
+    operation.value = "${build}/absent";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "required file `${build}/absent` does not exist"))
+        goto cleanup;
+    operation.value = "${build}/input.bin/child";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "has a parent that is a symbolic link or not a "
+                          "directory"))
+        goto cleanup;
+    operation.name = "directory";
+    operation.value = "${build}/input-link";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "is a symbolic link; require directory matches "
+                          "directories only"))
+        goto cleanup;
+    operation.value = "${build}/input.bin";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "is a regular file; require directory matches "
+                          "directories only"))
+        goto cleanup;
+    operation.name = "symlink";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "is a regular file; require symlink matches "
+                          "symbolic links only"))
+        goto cleanup;
+    operation.value = "${build}/absent";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "required symlink `${build}/absent` does not exist"))
+        goto cleanup;
+    memset(&target_property, 0, sizeof(target_property));
+    target_property.kind = CBS_NODE_PROPERTY;
+    target_property.name = "target";
+    target_property.value = "wrong";
+    target_property.flag = CBS_TOKEN_STRING;
+    property_list[0] = &target_property;
+    operation.children = property_list;
+    operation.child_count = 1;
+    operation.value = "${build}/input-link";
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "points to `input.bin`, expected `wrong`"))
+        goto cleanup;
+    target_property.value = "input.bin";
+    if (!cbs_execute_edit_assertion(&operation, &context))
+        goto cleanup;
+    /* A dangling link is still a link; the target is compared, not followed. */
+    target_property.value = "missing";
+    operation.value = "${build}/dangling";
+    if (!cbs_execute_edit_assertion(&operation, &context))
+        goto cleanup;
+    operation.children = NULL;
+    operation.child_count = 0;
 
     operation.kind = CBS_NODE_REPLACE;
     operation.name = "${dest}/../outside/escaped";
@@ -198,7 +270,7 @@ static int run_test(const char *recipe_path) {
     operation.second_value = "y";
     operation.number = 1;
     operation.flag = CBS_TOKEN_STRING;
-    if (!expected_failure(&operation, &context, "CPDL-E4004"))
+    if (!expected_failure(&operation, &context, "CPDL-E4004", NULL))
         goto cleanup;
     result = 0;
 
@@ -219,6 +291,7 @@ int main(int argc, char **argv) {
         fputs("source edit and assertion tests: FAIL\n", stderr);
         return 1;
     }
-    puts("source edit and assertion tests: PASS (cardinality and atomicity)");
+    puts("source edit and assertion tests: PASS (cardinality, atomicity, and "
+         "assertion diagnostics)");
     return 0;
 }

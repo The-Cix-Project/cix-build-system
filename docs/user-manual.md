@@ -534,6 +534,10 @@ check {
         same_as "${build}/reference-output"
     }
     require directory "${dest}/usr/bin" { exists }
+    require symlink "${dest}/usr/lib/liblzma.so.5" {
+        exists
+        target "liblzma.so.5.8.3"
+    }
     require config "${build}/.config" {
         CONFIG_FEATURE = y
         CONFIG_OPTIONAL = absent
@@ -542,7 +546,13 @@ check {
 ```
 
 `contains` searches literal bytes. `same_as` compares two confined regular
-files byte-for-byte. Config assertions understand `y`, `m`, `n`, and `absent`,
+files byte-for-byte. `require file` matches regular files only, so assert on a
+shared library's soname link with `require symlink`, whose `target` compares
+the link text literally and does not require the target to exist. When an
+assertion fails, the message says what the path is (`is a symbolic link;
+require file matches regular files only`, `is a directory`, `points to
+`liblzma.so.5.8.3`, expected `liblzma.so.5``); `does not exist` means exactly
+that. Config assertions understand `y`, `m`, `n`, and `absent`,
 including Linux’s `# CONFIG_NAME is not set` spelling for `n`.
 
 ## 12. The complete authoring workflow

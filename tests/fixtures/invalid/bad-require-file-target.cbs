@@ -1,0 +1,8 @@
+package "broken" {
+    version "1"
+    release 1
+    format "cixpkg"
+    check {
+        require file "${dest}/lib/libx.so.1" { exists target "libx.so.1.0" }
+    }
+}

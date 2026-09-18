@@ -443,11 +443,12 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         if (operation->name == NULL ||
             (strcmp(operation->name, "file") != 0 &&
              strcmp(operation->name, "directory") != 0 &&
+             strcmp(operation->name, "symlink") != 0 &&
              strcmp(operation->name, "glob") != 0 &&
              strcmp(operation->name, "config") != 0)) {
-            validation_error(
-                validator, operation, "CPDL-E3004",
-                "require kind must be file, directory, glob, or config");
+            validation_error(validator, operation, "CPDL-E3004",
+                             "require kind must be file, directory, symlink, "
+                             "glob, or config");
         }
         validate_value(validator, operation, operation->value);
         if (operation->name != NULL && strcmp(operation->name, "glob") == 0 &&
@@ -469,10 +470,19 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                                      "config assertion must use CONFIG_* = y, "
                                      "m, n, or absent");
             } else {
-                if (property->name == NULL ||
-                    (strcmp(property->name, "contains") != 0 &&
-                     strcmp(property->name, "same_as") != 0 &&
-                     strcmp(property->name, "nonempty") != 0))
+                const char *kind = operation->name == NULL ? "" : operation->name;
+                const char *name = property->name == NULL ? "" : property->name;
+                int file_property = strcmp(name, "contains") == 0 ||
+                                    strcmp(name, "same_as") == 0 ||
+                                    strcmp(name, "nonempty") == 0;
+                if (strcmp(kind, "directory") == 0)
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "directory assertion accepts only exists");
+                else if (strcmp(kind, "symlink") == 0 &&
+                         strcmp(name, "target") != 0)
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "symlink assertion must use target");
+                else if (strcmp(kind, "file") == 0 && !file_property)
                     validation_error(
                         validator, property, "CPDL-E3004",
                         "file assertion must use contains, same_as, or nonempty");

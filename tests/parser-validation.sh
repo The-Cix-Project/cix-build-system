@@ -39,6 +39,12 @@ for fixture in "$tests_dir"/fixtures/invalid/*.cbs; do
         cat "$temporary_dir/$name.err" >&2
         exit 1
     fi
+    if [ -f "${fixture%.cbs}.expect" ] &&
+        ! grep -Fq "$(cat "${fixture%.cbs}.expect")" "$temporary_dir/$name.err"; then
+        echo "FAIL: expected diagnostic text not found: $name" >&2
+        cat "$temporary_dir/$name.err" >&2
+        exit 1
+    fi
     passed=$((passed + 1))
 done
 
