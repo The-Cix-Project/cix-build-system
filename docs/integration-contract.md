@@ -64,6 +64,15 @@ modification or removal is emitted as a structured prune event with its path,
 rule, and recovered bytes; rules that match no paths emit an explicit
 `prune-rule` event. Reports aggregate the prune file and byte totals.
 
+Kernel-oriented embedders may pass `--firmware-root DIR`; recipes consume the
+validated root as `${firmware}`. A recipe that uses that value without a
+caller-supplied directory fails before execution. The embedding API exposes the
+same `firmware_root` field on `CbsExecutionContext`. Curated kernel
+configuration composition is available through `cbs_kconfig_merge()`: it
+accepts only `CONFIG_*` assignments in `y`, `m`, or `n` form (including
+`# CONFIG_* is not set`), applies fragment overrides deterministically, and
+rejects arbitrary shell/configuration text.
+
 ## Ownership
 
 cixd owns discovery, dependency/image composition, cache population, container

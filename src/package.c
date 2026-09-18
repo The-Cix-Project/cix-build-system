@@ -67,6 +67,21 @@ static void pipeline_error(const char *recipe, const char *source,
     cbs_diagnostic(recipe, source, location, "error", "CPDL-E4001",
                    CBS_DIAG_RUNTIME, message);
 }
+
+static int node_uses_firmware(const CbsNode *node) {
+    size_t index;
+    if ((node->value != NULL &&
+         (strstr(node->value, "${firmware}") != NULL ||
+          strcmp(node->value, "$firmware") == 0)) ||
+        (node->name != NULL && strstr(node->name, "${firmware}") != NULL) ||
+        (node->second_value != NULL &&
+         strstr(node->second_value, "${firmware}") != NULL))
+        return 1;
+    for (index = 0; index < node->child_count; ++index)
+        if (node_uses_firmware(node->children[index]))
+            return 1;
+    return 0;
+}
 /* Compress a standalone file using the CIXPKG zstd settings. */
 int cbs_cixpkg_compress(const char *input, const char *output) {
     FILE *in = fopen(input, "rb"), *out;
@@ -242,7 +257,8 @@ int cbs_build_standalone_with_events_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
-    const CbsPrunePolicy *prune_policy, CbsBuildEventSink event_sink,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    CbsBuildEventSink event_sink,
     void *event_sink_user) {
     FILE *f;
     long n;
@@ -281,6 +297,11 @@ int cbs_build_standalone_with_events_policy(
     ok = cbs_lex(recipe, text, (size_t)n, &tokens);
     document = ok ? cbs_parse(recipe, text, (size_t)n, &tokens) : NULL;
     ok = document != NULL && cbs_validate(document, recipe, text);
+    if (ok && firmware_root == NULL && node_uses_firmware(document)) {
+        pipeline_error(recipe, text, document->location, "firmware root",
+                       "recipe uses ${firmware}, but no firmware root was supplied");
+        ok = 0;
+    }
     if (ok && strcmp(declared_format(document), "cixpkg") != 0) {
         pipeline_error(recipe, text, document->location, "format",
                        "standalone builds require cixpkg");
@@ -337,6 +358,7 @@ int cbs_build_standalone_with_events_policy(
             context.src = src;
             context.build = build;
             context.dest = dest;
+            context.firmware_root = firmware_root;
             context.jobs = 1;
             context.working_directory = build;
             ok = cbs_sources_apply_execution_context(&sources, &context);
@@ -426,7 +448,8 @@ int cbs_build_standalone_with_events(
     CbsBuildEventSink event_sink, void *event_sink_user) {
     return cbs_build_standalone_with_events_policy(
         recipe, workspace, package_path, architecture, fetch_service,
-        cache_directory, finalize, user, NULL, event_sink, event_sink_user);
+        cache_directory, finalize, user, NULL, NULL, event_sink,
+        event_sink_user);
 }
 int cbs_build_standalone_with_cache_policy(
     const char *recipe, const char *workspace, const char *package_path,

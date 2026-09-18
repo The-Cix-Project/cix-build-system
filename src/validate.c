@@ -91,7 +91,8 @@ static int known_value_name(Validator *validator, const char *name,
                             size_t length) {
     static const char *const values[] = {"name",  "version", "release",
                                          "arch",  "triplet", "src",
-                                         "build", "dest",    "jobs"};
+                                         "build", "dest",    "firmware",
+                                         "jobs"};
     size_t index;
 
     for (index = 0; index < sizeof(values) / sizeof(values[0]); ++index) {

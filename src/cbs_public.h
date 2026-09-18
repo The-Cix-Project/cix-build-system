@@ -94,6 +94,7 @@ typedef struct {
     const char *src;
     const char *build;
     const char *dest;
+    const char *firmware_root;
     long jobs;
     const char *working_directory;
     const char *log_directory;
@@ -186,8 +187,9 @@ int cbs_build_standalone_with_events(
 int cbs_build_standalone_with_events_policy(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
-    const CbsPrunePolicy *, CbsBuildEventSink, void *);
+    const char *, const CbsPrunePolicy *, CbsBuildEventSink, void *);
 int cbs_build_package(const char *, const char *, const char *);
+int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 
 int cbs_workspace_prepare(const char *);
 int cbs_manifest_collect(const char *, CbsManifestEntry **, size_t *);

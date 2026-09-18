@@ -135,7 +135,7 @@ static void usage(FILE *stream) {
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
-        "[--finalize-command CMD] [--prune-policy FILE]\n"
+        "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -153,6 +153,7 @@ typedef struct {
     const char *events;
     const char *finalize_command;
     const char *prune_policy;
+    const char *firmware_root;
 } CbsBuildOptions;
 
 /* Parse build options independently of their order on the command line. */
@@ -183,6 +184,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 19;
         else if (strncmp(argument, "--prune-policy=", 15) == 0)
             value = argument + 15;
+        else if (strncmp(argument, "--firmware-root=", 16) == 0)
+            value = argument + 16;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
@@ -190,7 +193,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--ca-file") == 0 ||
                  strcmp(argument, "--events") == 0 ||
                  strcmp(argument, "--finalize-command") == 0 ||
-                 strcmp(argument, "--prune-policy") == 0) {
+                 strcmp(argument, "--prune-policy") == 0 ||
+                 strcmp(argument, "--firmware-root") == 0) {
             if (++index >= argc) {
                 fprintf(stderr, "build: option `%s` requires a value\n",
                         argument);
@@ -227,6 +231,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--prune-policy") == 0 ||
                  strncmp(argument, "--prune-policy=", 15) == 0)
             options->prune_policy = value;
+        else if (strcmp(argument, "--firmware-root") == 0 ||
+                 strncmp(argument, "--firmware-root=", 16) == 0)
+            options->firmware_root = value;
         else
             options->events = value;
     }
@@ -520,7 +527,8 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
                       const char *ca_file, const char *events,
                       const char *finalize_command,
-                      const char *prune_policy_path) {
+                      const char *prune_policy_path,
+                      const char *firmware_root) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -530,12 +538,20 @@ static int build_file(const char *recipe, const char *architecture,
     char fetch_error[256];
     CbsPrunePolicy prune_policy;
     char prune_error[256];
+    struct stat firmware_status;
     memset(&service, 0, sizeof(service));
     if (prune_policy_path != NULL &&
         !cbs_prune_policy_load(prune_policy_path, &prune_policy,
                                prune_error, sizeof(prune_error))) {
         fprintf(stderr, "build: %s\n", prune_error);
         return 2;
+    }
+    if (firmware_root != NULL &&
+        (stat(firmware_root, &firmware_status) != 0 ||
+         !S_ISDIR(firmware_status.st_mode))) {
+        fprintf(stderr, "build: firmware root is not an accessible directory: %s\n",
+                firmware_root);
+        return 3;
     }
     if (events != NULL) {
         if (strcmp(events, "human") == 0)
@@ -571,6 +587,7 @@ static int build_file(const char *recipe, const char *architecture,
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             (void *)finalize_command,
+            firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, event_sink,
             event_stream);
     if (event_stream != stderr)
@@ -672,7 +689,7 @@ int main(int argc, char **argv) {
         return build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
                           options.events, options.finalize_command,
-                          options.prune_policy);
+                          options.prune_policy, options.firmware_root);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);

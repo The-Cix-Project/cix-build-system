@@ -325,6 +325,8 @@ typedef struct {
     const char *src;
     const char *build;
     const char *dest;
+    /* Caller-supplied, validated firmware tree for executor integrations. */
+    const char *firmware_root;
     long jobs;
     /* Working directory used when launching child processes. */
     const char *working_directory;
@@ -498,7 +500,8 @@ int cbs_build_standalone_with_events_policy(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
-    const CbsPrunePolicy *prune_policy, CbsBuildEventSink event_sink,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    CbsBuildEventSink event_sink,
     void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {
@@ -589,6 +592,9 @@ int cbs_install_atomic(const char *staged, const char *destination,
                        unsigned mode);
 /* Compare two files byte-for-byte. */
 int cbs_compare_files(const char *left, const char *right);
+/* Merge a base and fragment kconfig using only curated CONFIG_* states. */
+int cbs_kconfig_merge(const char *base, const char *fragment,
+                      const char *output, char *error, size_t error_size);
 /* Read the canonical package identity from a validated document. */
 int cbs_identity_from_document(const CbsNode *document,
                                const char *architecture,

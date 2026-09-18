@@ -22,6 +22,7 @@ SOURCES := \
 	src/lexer.c \
 	src/main.c \
 	src/manifest.c \
+	src/kconfig.c \
 	src/package.c \
 	src/prune.c \
 	src/plan.c \
@@ -81,6 +82,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/stdout-test.sh ./$(TARGET)
 	./tests/observability-test.sh ./$(TARGET)
 	./tests/prune-test.sh ./$(TARGET)
+	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
@@ -176,6 +178,9 @@ test: $(TARGET) upstream-test recipe-test
 		src/plan.o src/workspace.o src/identity.o src/runtime.o -larchive -lzstd -o tests/policy-test
 	./tests/policy-test
 	rm -f tests/policy-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/kconfig-test.c src/kconfig.o src/ast.o -o tests/kconfig-test
+	./tests/kconfig-test
+	rm -f tests/kconfig-test
 
 upstream-test: $(TARGET)
 	./tests/upstream-smoke-test.sh ./$(TARGET)
