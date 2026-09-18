@@ -448,8 +448,11 @@ current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
 ambient environment or shell behavior.
 
 `env "NAME" = value` creates or replaces one command-local environment binding.
-It does not affect later commands. Names must match `[A-Z_][A-Z0-9_]*`; duplicate
-names in one command are validation errors. Values are passed as literal bytes
+It does not affect later commands. Names are POSIX portable names in either
+case, `[A-Za-z_][A-Za-z0-9_]*` — lowercase autoconf and libtool cache
+variables such as `ac_cv_func_*` are ordinary names — and `=`, NUL, and
+punctuation are refused; duplicate names in one command are validation
+errors. Values are passed as literal bytes
 after CBS interpolation.
 
 `jobs N` declares the maximum concurrency the command may use. `N` must be

@@ -67,13 +67,17 @@ static int probe_with_environment(int argc, char **argv) {
     }
     if (environment == NULL || strcmp(environment, "literal $ * ; \" '") != 0)
         return 110;
+    /* A lowercase name (an autoconf cache variable) is exported as-is. */
+    environment = getenv("ac_cv_prog_CC");
+    if (environment == NULL || strcmp(environment, "tcc") != 0)
+        return 111;
     return 23;
 }
 
 static int probe_without_environment(int argc, char **argv) {
     if (argc != 2 || strcmp(argv[1], "--probe-without-env") != 0)
         return 120;
-    if (getenv("CBS_TEST_ENV") != NULL)
+    if (getenv("CBS_TEST_ENV") != NULL || getenv("ac_cv_prog_CC") != NULL)
         return 121;
     return 0;
 }

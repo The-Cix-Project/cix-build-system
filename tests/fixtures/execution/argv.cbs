@@ -15,6 +15,7 @@ package "argv-test" {
             ""
             "jobs=${jobs}"
             env "CBS_TEST_ENV" = "literal $ * ; \" '"
+            env "ac_cv_prog_CC" = "tcc"
             jobs $jobs
             expect exit 23
         }

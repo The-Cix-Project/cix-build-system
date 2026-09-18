@@ -3,6 +3,6 @@ package "broken" {
     release 1
     format "cixpkg"
     build {
-        env "CC=tcc" = "yes"
+        env "with-dash" = "yes"
     }
 }

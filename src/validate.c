@@ -40,14 +40,17 @@ static int valid_package_name(const char *name) {
 }
 
 /* Check whether a recipe environment name is safe and portable. */
+/* An environment name is a POSIX portable name in either case:
+ * [A-Za-z_][A-Za-z0-9_]*. Lowercase is ordinary (autoconf cache variables
+ * such as ac_cv_func_* are lowercase by convention); `=`, NUL, and
+ * punctuation are refused because execve or the shell cannot carry them. */
 static int valid_environment_name(const char *name) {
     const unsigned char *cursor = (const unsigned char *)name;
 
-    if (!(*cursor == '_' || (*cursor >= 'A' && *cursor <= 'Z')))
+    if (name == NULL || !(*cursor == '_' || isalpha(*cursor)))
         return 0;
     while (*++cursor != '\0') {
-        if (!(*cursor == '_' || (*cursor >= 'A' && *cursor <= 'Z') ||
-              isdigit(*cursor)))
+        if (!(*cursor == '_' || isalpha(*cursor) || isdigit(*cursor)))
             return 0;
     }
     return 1;
