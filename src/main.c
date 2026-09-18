@@ -406,7 +406,21 @@ static int explain_file(const char *path, int json) {
         print_json_string(metadata.toolchain);
         fputs(",\"toolchain_reason\":", stdout);
         print_json_string(metadata.toolchain_reason);
-        printf(",\"capabilities\":%zu,\"phases\":[", metadata.capability_count);
+        fputs(",\"capabilities\":[", stdout);
+        {
+            const CbsNode *package = document->children[0];
+            int first_capability = 1;
+            for (index = 0; index < package->child_count; ++index) {
+                const CbsNode *item = package->children[index];
+                if (item->kind != CBS_NODE_CAPABILITY)
+                    continue;
+                if (!first_capability)
+                    putchar(',');
+                first_capability = 0;
+                print_json_string(item->value);
+            }
+        }
+        fputs("],\"phases\":[", stdout);
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,

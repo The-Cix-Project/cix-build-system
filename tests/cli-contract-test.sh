@@ -15,6 +15,8 @@ package "cli-contract" {
     version "1"
     release 1
     format "cixpkg"
+    capability "CAP_ONE"
+    capability "CAP_TWO"
     build {
         write "${dest}/hello" "hello\n" chmod 0755
         require file "${dest}/hello" { exists contains "hello" }
@@ -39,6 +41,7 @@ grep -q "^$recipe: CPDL 0.1 execution plan (1 phases)$" \
 grep -q '^1 build operations=2$' "$temporary_dir/explain.out"
 "$cbs" explain "$recipe" --json >"$temporary_dir/explain.json"
 grep -q '"name":"build"' "$temporary_dir/explain.json"
+grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
 
 "$cbs" inspect "$recipe" >"$temporary_dir/inspect.out"
 grep -Eq '^recipe-digest [0-9a-f]{64}$' "$temporary_dir/inspect.out"
