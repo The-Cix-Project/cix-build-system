@@ -32,8 +32,17 @@ They are not silently routed to `tar`, `unzip`, or another host executable.
 ## Failure mode
 
 An unsupported or mismatched archive produces `CPDL-E6001` in the extraction
-category and names the source, declared filename, and detected format (or
-`unknown`). No destination mutation is committed on that failure.
+category and names the source and the detected format (or `unknown`). A
+rejected or unwritable member produces the same code and names the source,
+the member path, and either the policy rule (`rejected: character device`,
+`rejected: symbolic link target `../../x` leaves the archive root`) or the
+failed operation with its operating-system error (`cannot create file: No such
+file or directory`). A message never claims a member was unsafe when the
+failure was an operation. No destination mutation is committed on that failure.
+
+Archives are not required to carry directory members: parents missing from
+the archive are created with mode 0755, and directory members apply their
+mode and mtime after their contents regardless of member order.
 
 ## Consequences
 

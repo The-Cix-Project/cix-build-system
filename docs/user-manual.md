@@ -187,7 +187,12 @@ source SHA-256 verification.
 
 Cache hits do not require network access. Source archives are extracted by
 CBS's libarchive boundary; archive paths and entry types are checked before
-files are exposed to the recipe.
+files are exposed to the recipe. Archives that omit directory members (as
+`bzip2-1.0.8.tar.gz` does) extract normally: missing parents are created, and
+a directory member's mode and mtime are applied after its contents. When an
+archive is refused, the `CPDL-E6001` message names the member and the rule,
+for example ``source `bzip2`: member "dev/console": rejected: character
+device`` or ``member "lib/foo.c": cannot create file: Permission denied``.
 
 ## 6. Writing build phases
 

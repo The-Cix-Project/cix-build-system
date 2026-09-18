@@ -581,8 +581,13 @@ Configuration assertions use `require config PATH { SYMBOL = STATE ... }`.
 `# SYMBOL is not set` spelling, while `absent` requires neither form.
 
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
-and entries escaping through symlinks are runtime failures. Exact archive
-formats and additional metadata rules are decided separately.
+and entries escaping through symlinks are runtime failures. A member whose
+parent directory has no member of its own is extracted beneath implicitly
+created parents; a directory member applies its mode and modification time
+after every member beneath it has been written, whatever the archive order.
+An extraction failure names the source, the member, and the rule or
+operating-system error that stopped it. Exact archive formats and additional
+metadata rules are decided separately.
 
 ### 4.6 Source edits
 
