@@ -794,6 +794,11 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         value = consume_kind(parser, CBS_TOKEN_STRING, "artifact format");
         return value == NULL ? NULL : node_from_token(CBS_NODE_FORMAT, value);
     }
+    if (is_word(parser, "license")) {
+        advance(parser);
+        value = consume_kind(parser, CBS_TOKEN_STRING, "license string");
+        return value == NULL ? NULL : node_from_token(CBS_NODE_LICENSE, value);
+    }
     if (is_word(parser, "architecture")) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_ARCHITECTURE, keyword->location);

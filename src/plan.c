@@ -45,6 +45,8 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
             metadata->upstream = item->value;
         else if (item->kind == CBS_NODE_CAPABILITY)
             ++metadata->capability_count;
+        else if (item->kind == CBS_NODE_LICENSE)
+            metadata->license = item->value;
         else if (item->kind == CBS_NODE_TOOLCHAIN) {
             metadata->toolchain = item->value;
             if (item->child_count > 0)

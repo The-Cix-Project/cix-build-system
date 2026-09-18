@@ -46,6 +46,18 @@ static const char *declared_format(const CbsNode *document) {
     return NULL;
 }
 
+static const char *declared_license(const CbsNode *document) {
+    const CbsNode *package;
+    size_t index;
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_LICENSE)
+            return package->children[index]->value;
+    return NULL;
+}
+
 /* Report a high-level pipeline rejection that has no parser diagnostic. */
 static void pipeline_error(const char *recipe, const char *source,
                            CbsLocation location, const char *step,
@@ -213,7 +225,8 @@ int cbs_build_package(const char *recipe, const char *staged_root,
          strcmp(declared_format(document), "cixpkg") == 0;
     snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", staged_root);
     if (ok)
-        ok = cbs_manifest_write(staged_root, manifest);
+        ok = cbs_manifest_write_with_license(staged_root, manifest,
+                                              declared_license(document));
     if (ok)
         ok = cbs_cixpkg_write_tree(manifest, staged_root, package_path, "cbs");
     unlink(manifest);
@@ -346,7 +359,8 @@ int cbs_build_standalone_with_events(
     }
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-        ok = cbs_manifest_write(dest, manifest);
+        ok = cbs_manifest_write_with_license(dest, manifest,
+                                             declared_license(document));
         if (!ok)
             pipeline_error(recipe, text, document->location, "manifest",
                            "cannot write staged-tree manifest");

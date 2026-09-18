@@ -417,7 +417,9 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("},\"build_image\":", stdout);
+        fputs("},\"license\":", stdout);
+        print_json_string(metadata.license);
+        fputs(",\"build_image\":", stdout);
         print_json_string(metadata.build_image);
         fputs(",\"upstream\":", stdout);
         print_json_string(metadata.upstream);
@@ -575,6 +577,7 @@ static int inspect_file(const char *path, const char *artifact) {
     CbsTokenList tokens = {0};
     CbsNode *document;
     CbsSourceSet sources = {0};
+    CbsBuildMetadata metadata;
     size_t i;
     source = read_file(path, &length);
     if (source == NULL)
@@ -584,14 +587,24 @@ static int inspect_file(const char *path, const char *artifact) {
     document = cbs_parse(path, source, length, &tokens);
     if (document == NULL || !cbs_validate(document, path, source) ||
         !cbs_sources_from_document(document, &sources) ||
-        !cbs_digest_text(source, length, recipe_digest))
+        !cbs_digest_text(source, length, recipe_digest) ||
+        !cbs_build_metadata(document, &metadata))
         return 3;
     printf("recipe-digest %s\n", recipe_digest);
+    if (metadata.license != NULL)
+        printf("license %s\n", metadata.license);
     for (i = 0; i < sources.count; ++i)
         printf("source-digest %s %s\n", sources.items[i].name,
                sources.items[i].sha256);
     if (artifact != NULL && cbs_digest_file(artifact, artifact_digest))
         printf("artifact-digest %s\n", artifact_digest);
+    if (artifact != NULL) {
+        char license[4096];
+        if (!cbs_cixpkg_read_license(artifact, license, sizeof(license)))
+            return 3;
+        if (license[0] != '\0')
+            printf("artifact-license %s\n", license);
+    }
     cbs_source_set_destroy(&sources);
     cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);

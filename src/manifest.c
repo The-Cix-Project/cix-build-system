@@ -168,7 +168,8 @@ static int write_entry(FILE *file, const CbsManifestEntry *entry) {
 }
 
 /* Collect, sort, and write a deterministic manifest file. */
-int cbs_manifest_write(const char *root, const char *output) {
+int cbs_manifest_write_with_license(const char *root, const char *output,
+                                    const char *license) {
     CbsManifestEntry *items = NULL;
     size_t count = 0, capacity = 0, index;
     FILE *file;
@@ -178,6 +179,10 @@ int cbs_manifest_write(const char *root, const char *output) {
     file = fopen(output, "wb");
     if (file == NULL)
         goto fail;
+    if (license != NULL && fprintf(file, "m license %s\n", license) < 0) {
+        fclose(file);
+        goto fail;
+    }
     for (index = 0; index < count; ++index)
         if (!write_entry(file, &items[index])) {
             fclose(file);
@@ -190,6 +195,10 @@ int cbs_manifest_write(const char *root, const char *output) {
 fail:
     cbs_manifest_entries_destroy(items, count);
     return 0;
+}
+
+int cbs_manifest_write(const char *root, const char *output) {
+    return cbs_manifest_write_with_license(root, output, NULL);
 }
 
 int cbs_manifest_compare(const void *left, const void *right) {

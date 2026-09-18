@@ -61,6 +61,7 @@ typedef enum {
     CBS_NODE_VERSION,
     CBS_NODE_RELEASE,
     CBS_NODE_FORMAT,
+    CBS_NODE_LICENSE,
     CBS_NODE_ARCHITECTURE,
     CBS_NODE_SOURCES,
     CBS_NODE_SOURCE,
@@ -449,6 +450,8 @@ int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
 void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count);
 /* Write a deterministic typed manifest for a staged root. */
 int cbs_manifest_write(const char *root, const char *output);
+int cbs_manifest_write_with_license(const char *root, const char *output,
+                                    const char *license);
 /* Build a package from an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
@@ -493,6 +496,8 @@ typedef struct {
     const char **capabilities;
     /* Number of initialized capability names. */
     size_t capability_count;
+    /* SPDX-style package license declaration, when present. */
+    const char *license;
 } CbsBuildMetadata;
 int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          const char *phase, const char *command,
@@ -551,6 +556,8 @@ int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
 /* Verify headers, digests, paths, metadata, and payload contents. */
 int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                            size_t identity_size);
+int cbs_cixpkg_read_license(const char *package_path, char *license,
+                            size_t license_size);
 /* Verify and atomically extract a CIXPKG artifact into a new directory. */
 int cbs_cixpkg_extract(const char *package_path, const char *destination);
 /* Atomically rename a staged file after applying its final mode. */

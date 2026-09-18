@@ -15,6 +15,7 @@ package "cli-contract" {
     version "1"
     release 1
     format "cixpkg"
+    license "GPL-3.0-or-later"
     requires {
         runtime { package "zstd" }
     }
@@ -55,6 +56,7 @@ grep -q '"name":"build"' "$temporary_dir/explain.json"
 grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
 grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata"}' \
     "$temporary_dir/explain.json"
+grep -q '"license":"GPL-3.0-or-later"' "$temporary_dir/explain.json"
 grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
 
 cat >"$temporary_dir/duplicate-metadata.cbs" <<'EOF'
@@ -93,14 +95,18 @@ grep -q 'metadata value' "$temporary_dir/non-string.err"
 
 "$cbs" inspect "$recipe" >"$temporary_dir/inspect.out"
 grep -Eq '^recipe-digest [0-9a-f]{64}$' "$temporary_dir/inspect.out"
-test "$(wc -l <"$temporary_dir/inspect.out")" -eq 1
+test "$(wc -l <"$temporary_dir/inspect.out")" -eq 2
+grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect.out"
 
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"
 "$cbs" inspect "$recipe" "$artifact" >"$temporary_dir/inspect-artifact.out"
 grep -Eq '^artifact-digest [0-9a-f]{64}$' "$temporary_dir/inspect-artifact.out"
-test "$(wc -l <"$temporary_dir/inspect-artifact.out")" -eq 2
+grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect-artifact.out"
+grep -q '^artifact-license GPL-3.0-or-later$' \
+    "$temporary_dir/inspect-artifact.out"
+test "$(wc -l <"$temporary_dir/inspect-artifact.out")" -eq 4
 
 test "$("$cbs" verify "$artifact")" = \
     "$artifact: verified CIXPKG (identity=cli-contract-1-1-x86_64)"

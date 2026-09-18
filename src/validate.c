@@ -497,6 +497,8 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
         return 2;
     case CBS_NODE_FORMAT:
         return 3;
+    case CBS_NODE_LICENSE:
+        return 4;
     case CBS_NODE_UPSTREAM:
         return 4;
     case CBS_NODE_ARCHITECTURE:
@@ -696,6 +698,12 @@ static void validate_package(Validator *validator) {
                  strcmp(item->value, "tar.gz") != 0))
                 validation_error(validator, item, "CPDL-E3004",
                                  "artifact format must be cixpkg or tar.gz");
+            break;
+        case CBS_NODE_LICENSE:
+            if (item->value == NULL || item->value[0] == '\0' ||
+                strpbrk(item->value, "\r\n") != NULL)
+                validation_error(validator, item, "CPDL-E3004",
+                                 "license must be a non-empty string");
             break;
         case CBS_NODE_ARCHITECTURE:
             validation_error(validator, item, "CPDL-E3006",

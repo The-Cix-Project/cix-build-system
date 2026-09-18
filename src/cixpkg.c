@@ -380,6 +380,17 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
                     free(payload);
                     return 0;
                 }
+            } else if (type == 'm') {
+                char key[32], value[4096];
+                if (sscanf(line, "m %31s %4095[^\n]", key, value) != 2 ||
+                    strcmp(key, "license") != 0 || value[0] == '\0') {
+                    fclose(file);
+                    free(data);
+                    free(manifest);
+                    free(payload);
+                    return 0;
+                }
+                continue;
             } else {
                 fclose(file);
                 free(data);
@@ -411,6 +422,56 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     free(data);
     free(manifest);
     free(payload);
+    return 1;
+}
+
+int cbs_cixpkg_read_license(const char *package_path, char *license,
+                            size_t license_size) {
+    unsigned char *data = NULL, *manifest = NULL;
+    size_t total, manifest_size, frame, written;
+    char digest[65], line[8192], key[32], value[4096];
+    FILE *file;
+
+    if (license == NULL || license_size == 0 ||
+        !read_blob(package_path, &data, &total) || total < 352 ||
+        memcmp(data, CIXPKG_MAGIC, 8) != 0 || get64(data + 8) != 352 ||
+        get64(data + 16) > 1024ULL * 1024ULL * 1024ULL) {
+        free(data);
+        return 0;
+    }
+    manifest_size = (size_t)get64(data + 16);
+    frame = ZSTD_findFrameCompressedSize(data + 352, total - 352);
+    manifest = malloc(manifest_size + 1);
+    if (ZSTD_isError(frame) || frame > total - 352 || manifest == NULL ||
+        ZSTD_isError(written = ZSTD_decompress(manifest, manifest_size,
+                                                data + 352, frame)) ||
+        written != manifest_size ||
+        !cbs_digest_text((char *)manifest, written, digest) ||
+        memcmp(data + 32, digest, 64) != 0) {
+        free(manifest);
+        free(data);
+        return 0;
+    }
+    file = fmemopen(manifest, manifest_size, "rb");
+    if (file == NULL) {
+        free(manifest);
+        free(data);
+        return 0;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (sscanf(line, "m %31s %4095[^\n]", key, value) == 2 &&
+            strcmp(key, "license") == 0) {
+            snprintf(license, license_size, "%s", value);
+            fclose(file);
+            free(manifest);
+            free(data);
+            return 1;
+        }
+    }
+    fclose(file);
+    free(manifest);
+    free(data);
+    license[0] = '\0';
     return 1;
 }
 
@@ -573,6 +634,12 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination) {
                     goto cleanup;
                 strcpy(previous, relative);
                 have_previous = 1;
+                continue;
+            } else if (type == 'm') {
+                char key[32], value[4096];
+                if (sscanf(line, "m %31s %4095[^\n]", key, value) != 2 ||
+                    strcmp(key, "license") != 0 || value[0] == '\0')
+                    goto cleanup;
                 continue;
             } else
                 goto cleanup;
