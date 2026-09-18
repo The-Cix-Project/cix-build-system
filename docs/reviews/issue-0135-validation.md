@@ -1,9 +1,8 @@
-# Issue #135 validation: byte-identical reproducibility gate
+# Issue #135 validation: determinism is asserted everywhere and measured nowhere
 
-Validated against the gate as ADR-0033 defines it: the byte-identical
-reproducibility gate is the second CIXPKG cutover gate. The tracker entry was
-not readable from the validation session, so this record describes the
-implemented gate rather than the ticket text.
+Issue #135 was closed on 2026-09-11. ADR-0033 names the byte-identical
+reproducibility gate as the second CIXPKG cutover gate; this record is the
+measurement the title asked for.
 
 Three layers now enforce it:
 

@@ -1,9 +1,8 @@
-# Issue #128 validation: typed-tree round trip
+# Issue #128 validation: CIXPKG cannot represent a symlink, an empty directory, or file ownership
 
-Validated against the gate as ADR-0033 defines it: the typed-tree round trip
-is the first CIXPKG cutover gate. The tracker entry was not readable from the
-validation session, so this record describes the implemented gate rather than
-the ticket text.
+Issue #128 was closed on 2026-09-11 when typed entries landed. ADR-0033 names
+its typed-tree round trip as the first CIXPKG cutover gate; this record makes
+that gate exact rather than spot-checked.
 
 `tests/typed-package-test.c` stages a tree containing an empty directory, a
 0755 regular file, an absolute symlink, and a relative symlink, then writes,
