@@ -20,5 +20,5 @@ features must add focused success and failure assertions to this matrix.
 The CLI contract test asserts output and representative failure exit statuses.
 Focused C tests assert operation results and diagnostic codes. The zstd package
 qualification is included in make test and can use a caller-supplied
-CBS_UPSTREAM_CACHE directory. The TCC bootstrap is opt-in as make
-bootstrap-test; make qualification-test runs both.
+CBS_UPSTREAM_CACHE directory. The retired migration drafts are documented in
+issue #144 rather than included as shipped fixtures.

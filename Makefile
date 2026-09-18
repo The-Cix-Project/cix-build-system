@@ -38,7 +38,7 @@ LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
 PREFIX ?= /usr/local
 INSTALL ?= install
 
-.PHONY: all clean test install version-check upstream-test bootstrap-test qualification-test recipe-test
+.PHONY: all clean test install version-check upstream-test qualification-test recipe-test
 
 all: version-check $(TARGET) $(LIBRARY)
 
@@ -180,16 +180,13 @@ test: $(TARGET) upstream-test recipe-test
 upstream-test: $(TARGET)
 	./tests/upstream-smoke-test.sh ./$(TARGET)
 
-bootstrap-test: $(TARGET)
-	./tests/tcc-bootstrap-test.sh ./$(TARGET)
-
 recipe-test: $(TARGET)
 	for recipe in recipes/*.cbs; do \
 		./$(TARGET) validate "$$recipe" >/dev/null || exit 1; \
 	done
 	printf '%s\n' 'recipe corpus tests: PASS (all repository recipes validate)'
 
-qualification-test: test bootstrap-test
+qualification-test: test
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) $(LIBRARY) tests/exec-test tests/fs-test \

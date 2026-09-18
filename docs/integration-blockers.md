@@ -18,9 +18,8 @@ The standalone path is operational:
 verification, extraction, and mode-preservation tests. The real-package smoke
 test is included and requires either network access or a caller-supplied
 `CBS_UPSTREAM_CACHE` directory containing verified source files. `make
-upstream-test` runs the zstd qualification alone. The TCC bootstrap is
-deliberately opt-in as `make bootstrap-test`; `make qualification-test` runs
-both qualification layers.
+upstream-test` runs the zstd qualification alone, and `make
+qualification-test` runs the complete current gate.
 
 ## Blockers and unblock actions
 
@@ -32,19 +31,15 @@ v2 specification. The old manifest-only API and v1 reader are retired.
 Unblock action: keep the tree format as the sole production format, mark the
 legacy API deprecated, and retire it with its compatibility tests.
 
-### 2. The replacement recipe corpus is in progress
+### 2. The replacement recipe corpus is intentionally narrow
 
 The legacy shell recipes are the system CBS is replacing; they are not a CBS
 dependency and must not be executed or treated as CPDL input. This repository
-contains a staged seed set of migrated recipes, including `tcc`, `gcc`, `cix`,
-`kernel`, `squashfs-tools`, `wireless-regdb`, `zstd`, and `libarchive`. They
-validate as CPDL, but GCC and kernel remain explicitly non-building migrations.
+ships only the build-tested `zstd` qualification recipe. The retired migration
+drafts and their findings remain tracked in issue #144 and the backlog.
 
-Unblock action: define the first in-repository CPDL seed set and migrate each
-recipe deliberately, with validation and end-to-end build tests. The migration
-must preserve declared sources, checksums, dependencies, staged paths, and
-toolchain requirements without reintroducing shell execution through a side
-door.
+Unblock action: keep the qualification recipe current and track future
+migrations as explicitly tested work rather than shipping unverified drafts.
 
 ### 3. cixd integration contract defined
 
