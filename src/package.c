@@ -1,5 +1,6 @@
 /* High-level build-to-manifest-to-CIXPKG package pipelines. */
 #include "cbs.h"
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +44,16 @@ static const char *declared_format(const CbsNode *document) {
         if (package->children[index]->kind == CBS_NODE_FORMAT)
             return package->children[index]->value;
     return NULL;
+}
+
+/* Report a high-level pipeline rejection that has no parser diagnostic. */
+static void pipeline_error(const char *recipe, const char *source,
+                           CbsLocation location, const char *step,
+                           const char *detail) {
+    char message[768];
+    snprintf(message, sizeof(message), "%s: %s", step, detail);
+    cbs_diagnostic(recipe, source, location, "error", "CPDL-E4001",
+                   CBS_DIAG_RUNTIME, message);
 }
 /* Compress a standalone file using the CIXPKG zstd settings. */
 int cbs_cixpkg_compress(const char *input, const char *output) {
@@ -255,10 +266,29 @@ int cbs_build_standalone_with_events(
     text[n] = '\0';
     ok = cbs_lex(recipe, text, (size_t)n, &tokens);
     document = ok ? cbs_parse(recipe, text, (size_t)n, &tokens) : NULL;
-    ok = document != NULL && cbs_validate(document, recipe, text) &&
-         strcmp(declared_format(document), "cixpkg") == 0 &&
-         cbs_build_plan(document, &plan) && cbs_workspace_prepare(workspace) &&
-         cbs_sources_from_document(document, &sources);
+    ok = document != NULL && cbs_validate(document, recipe, text);
+    if (ok && strcmp(declared_format(document), "cixpkg") != 0) {
+        pipeline_error(recipe, text, document->location, "format",
+                       "standalone builds require cixpkg");
+        ok = 0;
+    }
+    if (ok && !cbs_build_plan(document, &plan)) {
+        pipeline_error(recipe, text, document->location, "build plan",
+                       "recipe has no executable phase plan");
+        ok = 0;
+    }
+    if (ok && !cbs_workspace_prepare(workspace)) {
+        char detail[512];
+        snprintf(detail, sizeof(detail), "cannot prepare %s: %s", workspace,
+                 strerror(errno));
+        pipeline_error(recipe, text, document->location, "workspace", detail);
+        ok = 0;
+    }
+    if (ok && !cbs_sources_from_document(document, &sources)) {
+        pipeline_error(recipe, text, document->location, "sources",
+                       "cannot construct source set");
+        ok = 0;
+    }
     snprintf(src, sizeof(src), "%s/src", workspace);
     snprintf(build, sizeof(build), "%s/build", workspace);
     snprintf(dest, sizeof(dest), "%s/dest", workspace);
@@ -279,9 +309,11 @@ int cbs_build_standalone_with_events(
             &sources, cache, src, fetch_service, recipe, text,
             document->location, &context);
     if (ok) {
-        if (!cbs_identity_from_document(document, architecture, &identity))
+        if (!cbs_identity_from_document(document, architecture, &identity)) {
+            pipeline_error(recipe, text, document->location, "identity",
+                           "cannot derive package identity");
             ok = 0;
-        else {
+        } else {
             package_identity = cbs_identity_string(&identity);
             context.name = identity.name;
             context.version = identity.version;
@@ -293,21 +325,36 @@ int cbs_build_standalone_with_events(
             context.dest = dest;
             context.jobs = 1;
             context.working_directory = build;
-            ok = cbs_sources_apply_execution_context(&sources, &context) &&
-                 cbs_emit_build_event(&context, "build-begin", NULL, NULL,
-                                      NULL, 0, 0, 0, 0) &&
-                 cbs_execute_plan(&plan, &context);
+            ok = cbs_sources_apply_execution_context(&sources, &context);
+            if (!ok)
+                pipeline_error(recipe, text, document->location, "sources",
+                               "cannot apply verified source bindings");
+            if (ok && !cbs_emit_build_event(&context, "build-begin", NULL,
+                                            NULL, NULL, 0, 0, 0, 0))
+                ok = 0;
+            if (ok && !cbs_execute_plan(&plan, &context))
+                ok = 0;
         }
     }
     if (ok && finalize != NULL) {
         ok = finalize(dest, user);
         if (ok)
             flags = 1;
+        else
+            pipeline_error(recipe, text, document->location, "finalize",
+                           "finalization policy rejected the staged tree");
     }
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-        ok = cbs_manifest_write(dest, manifest) &&
-             cbs_manifest_collect(dest, &entries, &entry_count);
+        ok = cbs_manifest_write(dest, manifest);
+        if (!ok)
+            pipeline_error(recipe, text, document->location, "manifest",
+                           "cannot write staged-tree manifest");
+        if (ok)
+            ok = cbs_manifest_collect(dest, &entries, &entry_count);
+        if (!ok && entries == NULL)
+            pipeline_error(recipe, text, document->location, "manifest",
+                           "cannot collect staged-tree entries");
         if (ok) {
             size_t index;
             context.current_tree_files = (unsigned long long)entry_count;
@@ -318,11 +365,16 @@ int cbs_build_standalone_with_events(
         ok = ok &&
              cbs_cixpkg_write_tree_with_flags(manifest, dest, package_path,
                                               package_identity, flags);
+        if (!ok)
+            pipeline_error(recipe, text, document->location, "package output",
+                           "cannot write CIXPKG output");
         if (ok) {
             struct stat artifact;
-            if (stat(package_path, &artifact) != 0)
+            if (stat(package_path, &artifact) != 0) {
+                pipeline_error(recipe, text, document->location,
+                               "package output", "cannot stat CIXPKG output");
                 ok = 0;
-            else
+            } else
                 context.current_artifact_bytes =
                     (unsigned long long)artifact.st_size;
         }
