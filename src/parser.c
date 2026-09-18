@@ -447,6 +447,27 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
     consume_word(parser, insert ? "after" : "from");
     first = consume_text_value(parser, "match value");
+    if (is_word(parser, "until")) {
+        /* The match extends from the literal prefix to a delimiter. */
+        CbsToken *until = advance(parser);
+        CbsToken *delimiter;
+        if (insert) {
+            expected(parser, "write (until applies only to replace)");
+            return node;
+        }
+        if (!is_word(parser, "whitespace") && !is_word(parser, "line")) {
+            expected(parser, "whitespace or line");
+            return node;
+        }
+        delimiter = advance(parser);
+        {
+            CbsNode *property =
+                cbs_node_create(CBS_NODE_PROPERTY, until->location);
+            property->name = cbs_duplicate("until");
+            property->value = cbs_duplicate(delimiter->text);
+            cbs_node_add(node, property);
+        }
+    }
     consume_word(parser, insert ? "write" : "to");
     second = consume_text_value(parser, "replacement value");
     consume_word(parser, "exactly");

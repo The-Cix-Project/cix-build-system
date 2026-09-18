@@ -812,8 +812,47 @@ static unsigned char *read_regular(const char *path, size_t *length,
 }
 
 /* Count non-overlapping occurrences of a byte pattern. */
-static size_t count_bytes(const unsigned char *content, size_t content_length,
-                          const unsigned char *needle, size_t needle_length) {
+/* How far a source-edit match extends past its literal prefix. */
+enum { EDIT_UNTIL_NONE, EDIT_UNTIL_WHITESPACE, EDIT_UNTIL_LINE };
+
+/* Read the operation's `until` clause, if any. */
+static int edit_until_mode(const CbsNode *operation) {
+    size_t index;
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        if (property->kind == CBS_NODE_PROPERTY && property->name != NULL &&
+            strcmp(property->name, "until") == 0 && property->value != NULL)
+            return strcmp(property->value, "line") == 0
+                       ? EDIT_UNTIL_LINE
+                       : EDIT_UNTIL_WHITESPACE;
+    }
+    return EDIT_UNTIL_NONE;
+}
+
+/* Length of the match at OFFSET whose literal prefix already matched: the
+ * prefix alone, or the prefix plus every byte before the first delimiter
+ * (or the end of the content). */
+static size_t match_extent(const unsigned char *content, size_t content_length,
+                           size_t offset, size_t needle_length, int until) {
+    size_t end = offset + needle_length;
+    if (until == EDIT_UNTIL_NONE)
+        return needle_length;
+    while (end < content_length) {
+        unsigned char byte = content[end];
+        if (byte == '\n' || byte == '\r')
+            break;
+        if (until == EDIT_UNTIL_WHITESPACE && (byte == ' ' || byte == '\t'))
+            break;
+        ++end;
+    }
+    return end - offset;
+}
+
+/* Count non-overlapping matches of a byte pattern, each extended by the
+ * until rule. */
+static size_t count_matches(const unsigned char *content,
+                            size_t content_length, const unsigned char *needle,
+                            size_t needle_length, int until) {
     size_t count = 0;
     size_t offset = 0;
 
@@ -822,12 +861,19 @@ static size_t count_bytes(const unsigned char *content, size_t content_length,
     while (offset + needle_length <= content_length) {
         if (memcmp(content + offset, needle, needle_length) == 0) {
             ++count;
-            offset += needle_length;
+            offset += match_extent(content, content_length, offset,
+                                   needle_length, until);
         } else {
             ++offset;
         }
     }
     return count;
+}
+
+static size_t count_bytes(const unsigned char *content, size_t content_length,
+                          const unsigned char *needle, size_t needle_length) {
+    return count_matches(content, content_length, needle, needle_length,
+                         EDIT_UNTIL_NONE);
 }
 
 /* Test whether a byte pattern occurs at least once. */
@@ -838,40 +884,37 @@ static int contains_bytes(const unsigned char *content, size_t content_length,
     return count_bytes(content, content_length, needle, needle_length) > 0;
 }
 
-/* Build edited file content for replace or insert operations. */
+/* Build edited file content for replace or insert operations. The result
+ * never exceeds the content plus one replacement per match. */
 static unsigned char *
 edited_content(const unsigned char *content, size_t content_length,
                const unsigned char *needle, size_t needle_length,
                const unsigned char *replacement, size_t replacement_length,
-               size_t matches, int insert, size_t *result_length) {
-    size_t addition = replacement_length + (insert ? needle_length : 0);
-    size_t removal = insert ? needle_length : needle_length;
-    size_t final_length;
+               size_t matches, int insert, int until, size_t *result_length) {
+    size_t bound;
     unsigned char *result;
     size_t source_offset = 0;
     size_t result_offset = 0;
 
-    if (addition >= removal) {
-        size_t growth = addition - removal;
-        if (growth != 0 && matches > (((size_t)-1) - content_length) / growth) {
-            errno = EOVERFLOW;
-            return NULL;
-        }
-        final_length = content_length + matches * growth;
-    } else {
-        final_length = content_length - matches * (removal - addition);
+    if (replacement_length != 0 &&
+        matches > (((size_t)-1) - content_length - 1) / replacement_length) {
+        errno = EOVERFLOW;
+        return NULL;
     }
-    result = cbs_allocate(final_length + 1);
+    bound = content_length + matches * replacement_length + 1;
+    result = cbs_allocate(bound);
     while (source_offset < content_length) {
         if (source_offset + needle_length <= content_length &&
             memcmp(content + source_offset, needle, needle_length) == 0) {
+            size_t extent = match_extent(content, content_length,
+                                         source_offset, needle_length, until);
             if (insert) {
                 memcpy(result + result_offset, needle, needle_length);
                 result_offset += needle_length;
             }
             memcpy(result + result_offset, replacement, replacement_length);
             result_offset += replacement_length;
-            source_offset += needle_length;
+            source_offset += extent;
         } else {
             result[result_offset++] = content[source_offset++];
         }
@@ -897,6 +940,7 @@ static int execute_edit(const CbsNode *operation,
     size_t matches;
     mode_t mode = 0;
     char message[256];
+    int until = edit_until_mode(operation);
     int success = 0;
 
     if (operation->selector_glob) {
@@ -935,9 +979,9 @@ static int execute_edit(const CbsNode *operation,
                 free(needle);
                 return 0;
             }
-            total_matches += count_bytes(
+            total_matches += count_matches(
                 matched_content, matched_length,
-                (const unsigned char *)needle, strlen(needle));
+                (const unsigned char *)needle, strlen(needle), until);
             free(matched_content);
         }
         if (total_matches != (size_t)operation->number) {
@@ -968,10 +1012,10 @@ static int execute_edit(const CbsNode *operation,
                 path_list_destroy(&paths);
                 return 0;
             }
-            single.number = (long)count_bytes(
+            single.number = (long)count_matches(
                 current_content, current_length,
                 (const unsigned char *)current_needle,
-                strlen(current_needle));
+                strlen(current_needle), until);
             free(current_content);
             free(current_needle);
             if (!execute_edit(&single, context)) {
@@ -988,8 +1032,9 @@ static int execute_edit(const CbsNode *operation,
     content = read_regular(path, &content_length, &mode);
     if (content == NULL)
         goto filesystem_failure;
-    matches = count_bytes(content, content_length,
-                          (const unsigned char *)needle, strlen(needle));
+    matches = count_matches(content, content_length,
+                            (const unsigned char *)needle, strlen(needle),
+                            until);
     if (matches != (size_t)operation->number) {
         snprintf(message, sizeof(message),
                  "source edit expected %ld matches but found %lu",
@@ -1000,7 +1045,7 @@ static int execute_edit(const CbsNode *operation,
     result = edited_content(
         content, content_length, (const unsigned char *)needle, strlen(needle),
         (const unsigned char *)replacement, strlen(replacement), matches,
-        operation->kind == CBS_NODE_INSERT, &result_length);
+        operation->kind == CBS_NODE_INSERT, until, &result_length);
     if (result == NULL)
         goto filesystem_failure;
     if (!atomic_write_bytes(path, result, result_length, mode))

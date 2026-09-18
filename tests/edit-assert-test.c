@@ -88,6 +88,17 @@ static int expected_failure(const CbsNode *operation,
            (fragment == NULL || strstr(output, fragment) != NULL);
 }
 
+static int write_text(const char *path, const char *text) {
+    FILE *file = fopen(path, "wb");
+    if (file == NULL)
+        return 0;
+    if (fputs(text, file) < 0) {
+        fclose(file);
+        return 0;
+    }
+    return fclose(file) == 0 && chmod(path, 0644) == 0;
+}
+
 static int write_binary(const char *path) {
     static const unsigned char bytes[] = {'A', 0, 'o', 'l', 'd', 'Z'};
     FILE *file = fopen(path, "wb");
@@ -113,6 +124,7 @@ static int run_test(const char *recipe_path) {
     CbsExecutionContext context;
     CbsNode operation;
     CbsNode target_property;
+    CbsNode until_property;
     CbsNode *property_list[1];
     size_t index;
     int result = 1;
@@ -260,6 +272,37 @@ static int run_test(const char *recipe_path) {
     target_property.value = "missing";
     operation.value = "${build}/dangling";
     if (!cbs_execute_edit_assertion(&operation, &context))
+        goto cleanup;
+    operation.children = NULL;
+    operation.child_count = 0;
+
+    /* until whitespace: the match runs to end of file when no delimiter
+     * follows, and an unexpected count still fails before mutation (#177). */
+    join(path, sizeof(path), build, "eof.mk");
+    if (!write_text(path, "X=-Wl,--version-script=a.map"))
+        goto cleanup;
+    memset(&until_property, 0, sizeof(until_property));
+    until_property.kind = CBS_NODE_PROPERTY;
+    until_property.name = "until";
+    until_property.value = "whitespace";
+    property_list[0] = &until_property;
+    operation.kind = CBS_NODE_REPLACE;
+    operation.name = "${build}/eof.mk";
+    operation.value = "-Wl,--version-script=";
+    operation.second_value = "";
+    operation.flag = CBS_TOKEN_STRING;
+    operation.second_flag = CBS_TOKEN_STRING;
+    operation.children = property_list;
+    operation.child_count = 1;
+    operation.number = 2;
+    if (!expected_failure(&operation, &context, "CPDL-E4005",
+                          "source edit expected 2 matches but found 1") ||
+        !file_equals(path, (const unsigned char *)"X=-Wl,--version-script=a.map",
+                     28, 0644))
+        goto cleanup;
+    operation.number = 1;
+    if (!cbs_execute_edit_assertion(&operation, &context) ||
+        !file_equals(path, (const unsigned char *)"X=", 2, 0644))
         goto cleanup;
     operation.children = NULL;
     operation.child_count = 0;

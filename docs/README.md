@@ -88,6 +88,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #175: assertion failures name what they found; require symlink](reviews/issue-0175-validation.md)
 - [ADR-0035: Parse-time list iteration](adr/0035-parse-time-iteration.md)
 - [Issue #176: each — apply one body to every item of a list](reviews/issue-0176-validation.md)
+- [Issue #177: replace … until whitespace | line](reviews/issue-0177-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

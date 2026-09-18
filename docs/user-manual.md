@@ -542,6 +542,21 @@ prepare {
 }
 ```
 
+`until whitespace` (or `until line`) extends each match from the literal
+`from` prefix to the next delimiter, so a flag and its argument go together
+when the argument differs at every site:
+
+```cbs
+prepare {
+    replace glob "${src}/libmnl-1.0.5/**/Makefile" {
+        from "-Wl,--version-script="
+        until whitespace
+        to ""
+        exactly 2
+    }
+}
+```
+
 An empty match and an unexpected count fail before mutation. Assertions include:
 
 ```cbs

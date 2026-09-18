@@ -451,6 +451,23 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         if (operation->value == NULL || operation->value[0] == '\0')
             validation_error(validator, operation, "CPDL-E3004",
                              "source-edit match value must not be empty");
+        for (index = 0; index < operation->child_count; ++index) {
+            const CbsNode *property = operation->children[index];
+            if (property->name == NULL || strcmp(property->name, "until") != 0)
+                validation_error(validator, property, "CPDL-E3004",
+                                 "source edits accept only an until clause");
+            else if (operation->kind == CBS_NODE_INSERT)
+                validation_error(validator, property, "CPDL-E3004",
+                                 "until applies only to replace");
+            else if (index != 0)
+                validation_error(validator, property, "CPDL-E3002",
+                                 "duplicate until clause");
+            else if (property->value == NULL ||
+                     (strcmp(property->value, "whitespace") != 0 &&
+                      strcmp(property->value, "line") != 0))
+                validation_error(validator, property, "CPDL-E3004",
+                                 "until must be whitespace or line");
+        }
         break;
     case CBS_NODE_REQUIRE:
         if (operation->name == NULL ||

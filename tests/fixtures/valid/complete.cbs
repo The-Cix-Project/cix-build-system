@@ -30,6 +30,12 @@ package "example" {
     }
 
     prepare {
+        replace "${src}/example-1.2.3/Makefile" {
+            from "-Wl,--version-script="
+            until whitespace
+            to ""
+            exactly 1
+        }
         env "CFLAGS" = "-O2"
         mkdir $build chmod 0755
         extract $source.support into $src as "support"

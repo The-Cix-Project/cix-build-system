@@ -87,8 +87,7 @@ The complete CPDL 0.1 keyword set is:
 allow_failure  after      any           architecture  as          bootstrap
 build          cd         check         chmod       compiler       config
 configure      contains   copy          count       directory      build_image
-each           in
-capability     toolchain  upstream
+capability     toolchain  upstream      each        in
 env            exactly    exit          exists      expect
 extra          extract    file          from        glob          headers
 insert         into       jobs           library     main
@@ -96,7 +95,8 @@ mkdir          move       on_fail        package     prepare
 release        format     remove        replace     require     requires
 run            runtime    sha256         source      sources
 symlink        target     test           timeout     to          tool
-tree           url        version        write       materialize
+tree           until      url            version     whitespace  write
+materialize    line
 ```
 
 Keywords reserved for later versions are not silently accepted. An unknown
@@ -596,6 +596,7 @@ metadata rules are decided separately.
 ```ebnf
 replace-operation = "replace", source-edit-target, "{",
                     "from", text-value,
+                    [ "until", ( "whitespace" | "line" ) ],
                     "to", text-value,
                     "exactly", integer,
                     "}" ;
@@ -613,6 +614,15 @@ source-edit-target = path-value | "glob", string ;
 equal `exactly` before any mutation occurs. For a glob target the count is the
 total across all sorted matches; zero matching paths fails. An empty `from` is
 invalid.
+
+With `until`, each match is the literal `from` plus every following byte up
+to, but not including, the first delimiter or the end of the file: `until
+whitespace` stops at a space, tab, CR, or LF; `until line` stops at CR or LF.
+This removes or rewrites a flag together with its argument
+(`from "-Wl,--version-script=" until whitespace to ""`) without a pattern
+language; the delimiter is never part of the match and the count rule is
+unchanged, so an edit that matches nothing still fails. `insert` has no
+`until`.
 
 `insert` counts non-overlapping byte-for-byte matches of `after`. The count must
 equal `exactly` before mutation. It inserts `write` immediately after every

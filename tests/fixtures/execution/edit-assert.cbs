@@ -32,6 +32,28 @@ package "edit-assert-test" {
         require glob "${build}/matches/*.missing" {
             count 0
         }
+        write "${build}/link.mk" "LDFLAGS = -Wl,--version-script=libfoo.map -shared\nLDFLAGS2 = -Wl,--version-script=lib/bar.map\n"
+        replace "${build}/link.mk" {
+            from "-Wl,--version-script="
+            until whitespace
+            to ""
+            exactly 2
+        }
+        require file "${build}/link.mk" {
+            exists
+            contains "LDFLAGS =  -shared\nLDFLAGS2 = \n"
+        }
+        write "${build}/line.mk" "CFLAGS += -O2 -g\nKEEP = 1\n"
+        replace "${build}/line.mk" {
+            from "CFLAGS +="
+            until line
+            to "CFLAGS += -O0"
+            exactly 1
+        }
+        require file "${build}/line.mk" {
+            exists
+            contains "CFLAGS += -O0\nKEEP = 1\n"
+        }
         symlink "input.bin" to "${build}/input-link"
         symlink "missing" to "${build}/dangling"
         require symlink "${build}/input-link" {
