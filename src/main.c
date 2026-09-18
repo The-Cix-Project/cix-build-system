@@ -325,6 +325,7 @@ static int explain_file(const char *path, int json) {
         const CbsNode *package = document->children[0];
         size_t item_index, child_index;
         const char *version = NULL;
+        const char *format = NULL;
         long release = 0;
         fputs("{\"name\":", stdout);
         print_json_string(package->value);
@@ -333,10 +334,14 @@ static int explain_file(const char *path, int json) {
                 version = package->children[item_index]->value;
             if (package->children[item_index]->kind == CBS_NODE_RELEASE)
                 release = package->children[item_index]->number;
+            if (package->children[item_index]->kind == CBS_NODE_FORMAT)
+                format = package->children[item_index]->value;
         }
         fputs(",\"version\":", stdout);
         print_json_string(version);
-        printf(",\"release\":%ld,\"architecture\":null,\"sources\":[", release);
+        printf(",\"release\":%ld,\"format\":", release);
+        print_json_string(format);
+        fputs(",\"architecture\":null,\"sources\":[", stdout);
         {
             int first_source = 1;
             for (item_index = 0; item_index < package->child_count;
