@@ -27,8 +27,11 @@ Applicable issues: #20, #78, #97, #110.
 
 Status: structured diagnostics, phase-aware failure reporting, explain output,
 bounded job policy, child resource limits, and interrupt cleanup are
-implemented. Additional machine-readable operation modes remain optional CLI
-work.
+implemented. `--events jsonl`, `--prune-policy`, `--finalize-command`, and
+`--firmware-root` are implemented and documented in the user manual. As of
+2026-09-18 every extraction and assertion failure names the member or path and
+the rule that rejected it. Additional machine-readable operation modes remain
+optional CLI work.
 
 ## Workstream 3: dependencies and trust
 
@@ -56,6 +59,14 @@ These require inputs not present in this repository: a versioned cixd protocol,
 production sandbox and repository services, and the first authoritative CPDL
 recipe corpus. Legacy shell recipes are the replacement target, not a CBS
 runtime dependency. See [the integration blocker register](integration-blockers.md).
+
+## Language completeness (2026-09-18)
+
+The CPDL gaps the recipe-corpus audit recorded are closed: `each` iteration
+(ADR-0035), `replace ... until`, `stage library` (ADR-0036), `require
+symlink`, and portable-case environment names. What remains for the corpus is
+GCC's source layout and toolchain model, and declaring the executor
+capabilities a build image must provide.
 
 ## Recommended order
 

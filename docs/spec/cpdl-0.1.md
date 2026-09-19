@@ -176,7 +176,7 @@ Quoted strings, but not block strings, support explicit CBS interpolation:
 ```text
 ${name}       ${version}    ${release}    ${arch}
 ${src}        ${build}      ${dest}       ${jobs}       ${triplet}
-${source.gmp}
+${firmware}   ${source.gmp} ${stdout.NAME}
 ```
 
 Only the exact `${...}` form interpolates. `$`, `$name`, `$(command)`, shell
@@ -191,7 +191,7 @@ result contains spaces.
 
 ```ebnf
 cbs-value = "$name" | "$version" | "$release" | "$arch" | "$triplet"
-          | "$src" | "$build" | "$dest" | "$jobs"
+          | "$src" | "$build" | "$dest" | "$jobs" | "$firmware"
           | "$source.", identifier ;
 value     = string | block-string | cbs-value | integer ;
 text-value = string | block-string | cbs-value ;
@@ -201,7 +201,9 @@ path-value = string | cbs-value ;
 A bare CBS value is a typed value, not shell syntax. `$release` and `$jobs` are
 integers; the other supplied values are strings. `$triplet` is a target value
 derived from `$arch` using CBS's platform mapping; it is empty when the target
-architecture has no registered libc mapping. `$source.NAME` is valid only when
+architecture has no registered libc mapping. `$firmware` is the caller-supplied
+firmware tree from `--firmware-root`; it is empty when the caller supplied
+none, so a recipe that needs it must assert on it. `$source.NAME` is valid only when
 `NAME` names a source declared in the same package.
 
 ## 3. Document grammar
@@ -218,12 +220,14 @@ package-declaration = "package", string, "{",
 package-item = version-declaration
              | release-declaration
              | format-declaration
+             | license-declaration
              | sources-declaration
              | requires-declaration
              | build-image-declaration
              | capability-declaration
              | toolchain-declaration
              | upstream-declaration
+             | metadata-declaration
              | prepare-phase
              | configure-phase
              | build-phase
@@ -233,10 +237,12 @@ package-item = version-declaration
 version-declaration      = "version", string ;
 release-declaration      = "release", integer ;
 format-declaration       = "format", string ;
+license-declaration      = "license", string ;
 build-image-declaration  = "build_image", string ;
 capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
 upstream-declaration     = "upstream", string ;
+metadata-declaration     = "metadata", "{", { string, string }, "}" ;
 ```
 
 `build_image` and `capability` are execution metadata consumed by the build
@@ -250,6 +256,12 @@ remain the immutable build input until a resolver selects a new release.
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
+
+`license` is an optional SPDX expression carried into the artifact manifest as
+an `m license <expression>` line; it must be a non-empty single-line string.
+`metadata { "key" "value" ... }` is an optional block of opaque string pairs
+that CBS carries but never interprets: no key is reserved and no value affects
+validation, execution, or identity.
 
 The package name, version, release, and artifact format are required. CBS supplies the build
 target architecture; a CPDL 0.1 recipe cannot select or override it. The
@@ -387,8 +399,9 @@ is reported as a note attached to the original failure.
 The environment at package start is constructed by CBS policy, not inherited
 implicitly from the invoking process. A phase receives a copy of that environment.
 CBS creates `$src`, `$build`, and `$dest` before phase execution. Every phase
-begins with `$src` as its directory context; recipes select an out-of-tree build
-directory explicitly with `cd $build { ... }`.
+begins with `$build` as its directory context, so an out-of-tree build is the
+default; a recipe that must work inside the extracted tree selects it
+explicitly with `cd "${src}/NAME" { ... }`.
 
 ### 4.2 `run`
 
@@ -918,12 +931,15 @@ silently or continue with a partial package.
 ```text
 0   requested operation completed successfully
 2   invalid CBS command-line usage
-3   recipe I/O, lexical, parse, or validation failure
-4   build/runtime operation failure
-5   source, dependency, or policy preparation failure
-6   package creation, verification, or installation failure
-70  CBS internal invariant failure
+3   recipe, source-preparation, or build/runtime failure
+4   artifact verification or extraction failure
 ```
+
+These are the statuses ADR-0008 fixes and `tests/cli-contract-test.sh`
+asserts. A recipe failure and a phase failure share status 3: the category is
+carried by the diagnostic code, not the process status. Statuses 5, 6, and 70
+appeared in an earlier draft of this section and were never implemented; they
+are not reserved and must not be assumed.
 
 CBS returns the category status, not the raw child status. The raw exit status
 or signal remains present in the structured diagnostic and build record.
@@ -936,9 +952,15 @@ CPDL 0.1 has no:
 - pipelines, redirections, command substitution, or shell operators;
 - user-defined functions, types, classes, or modules;
 - imports or includes;
-- general variables or assignment;
+- general variables or assignment — `${each.NAME}` (§4.8) and `${stdout.NAME}`
+  (§4.2) are not variables: the first is a parse-time placeholder substituted
+  into the expanded body, and the second is an immutable binding of one
+  captured command result;
 - arithmetic or boolean expressions;
-- conditionals, loops, or arbitrary control flow;
+- conditionals, loops, or arbitrary control flow — `each` (§4.8) expands its
+  body once per literal item while the recipe is parsed, so the operation list
+  is fixed before execution and `explain` can count it; there is no runtime
+  iteration, test, or branch;
 - regular expressions;
 - version-constraint expressions or dependency solver syntax;
 - package feature/options matrix;

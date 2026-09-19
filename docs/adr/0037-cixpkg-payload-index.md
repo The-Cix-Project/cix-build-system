@@ -1,4 +1,4 @@
-# ADR-0012: CIXPKG staged-payload indexing
+# ADR-0037: CIXPKG staged-payload indexing
 
 ## Decision
 
@@ -21,3 +21,10 @@ This permits bounded, deterministic extraction and makes corruption detectable
 before destination mutation. It requires the package API to accept a staged
 root (rather than only a manifest path) and requires verifier tests for overlap,
 overflow, truncated payloads, and per-file digest mismatches.
+
+## Numbering
+
+Recorded as ADR-0012 on 2026-08-31 and renumbered to 0037 on 2026-09-19:
+ADR-0012 was already taken by the stage-zero build entry point, decided on
+2026-08-28 and cross-referenced as 0012 by the issue #29 validation record.
+The decision itself is unchanged.

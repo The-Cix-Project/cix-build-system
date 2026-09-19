@@ -36,7 +36,8 @@ legacy API deprecated, and retire it with its compatibility tests.
 The legacy shell recipes are the system CBS is replacing; they are not a CBS
 dependency and must not be executed or treated as CPDL input. This repository
 ships only the build-tested `zstd` qualification recipe. The retired migration
-drafts and their findings remain tracked in issue #144 and the backlog.
+drafts were not shipped as fixtures; their findings are recorded in the corpus
+audit, and the CPDL gaps they identified were closed on 2026-09-18.
 
 Unblock action: keep the qualification recipe current and track future
 migrations as explicitly tested work rather than shipping unverified drafts.

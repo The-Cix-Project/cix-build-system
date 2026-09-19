@@ -49,7 +49,8 @@ make test
 CPDL is declarative. A recipe declares package identity and a fixed sequence of
 optional phases: `prepare`, `configure`, `build`, `check`, and `install`.
 Filesystem effects must use CBS-provided roots such as `$src`, `$build`, and
-`$dest`.
+`$dest`. Every phase starts in `$build`, so an out-of-tree build needs no
+`cd`; enter the extracted source tree explicitly when a build requires it.
 
 Create `hello.cbs`:
 
@@ -184,6 +185,22 @@ For an internal HTTPS endpoint with a private CA, add that CA explicitly:
 
 This preserves peer and hostname verification and does not replace CBS's
 source SHA-256 verification.
+
+The remaining build options are for callers embedding CBS in a larger system:
+
+```text
+--events human|jsonl      stream build progress; jsonl is one JSON object per
+                          line, for a parent process to consume
+--prune-policy FILE       apply a staged-tree prune policy (strip-debug,
+                          drop-static-archives, drop-libtool-archives, one
+                          per line) before the manifest is generated
+--finalize-command CMD    run CMD with the staged root as its only argument
+                          after the phases and before the manifest; a
+                          non-zero status fails the build and the artifact
+                          records that a finalization policy completed
+--firmware-root DIR       bind `${firmware}` to DIR for recipes that install
+                          firmware; unset leaves `${firmware}` empty
+```
 
 Cache hits do not require network access. Source archives are extracted by
 CBS's libarchive boundary; archive paths and entry types are checked before
@@ -339,10 +356,16 @@ package "name" {
 }
 ```
 
-Package items must appear in this order: identity, upstream, sources,
-requirements, execution metadata, then phases. Each phase is optional and may
-appear once. Empty phases are allowed syntactically but are rarely useful.
-Phase order is always `prepare`, `configure`, `build`, `check`, `install`.
+Package items must appear in this order: identity (`version`, `release`,
+`format`, optional `license`), `upstream`, `sources`, `requires`, execution
+metadata (`build_image`, `capability`, `toolchain`, `metadata`), then phases.
+Each phase is optional and may appear once. Empty phases are allowed
+syntactically but are rarely useful. Phase order is always `prepare`,
+`configure`, `build`, `check`, `install`.
+
+`license` is an optional SPDX expression recorded in the artifact manifest.
+`metadata { "key" "value" }` carries opaque string pairs that CBS never
+interprets; both appear in `explain --json`.
 
 `upstream` names a release-discovery provider. It does not replace the pinned
 source URL or digest in CPDL 0.1. `kernel.org` is currently the registered
@@ -369,7 +392,7 @@ values:
 ```text
 $name       $version       $release       $arch
 $triplet    $src           $build         $dest        $jobs
-$source.NAME
+$firmware   $source.NAME   $stdout.NAME
 ```
 
 The `${...}` form can be embedded in a quoted string. Interpolation produces
