@@ -4,6 +4,8 @@
 #include "cbs.h"
 #include <archive.h>
 #include <archive_entry.h>
+#include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -235,47 +237,183 @@ done:
     return ok;
 }
 
-/* Run one extraction with stderr captured and return whether the diagnostic
- * contains every expected fragment. The extraction itself must fail. */
-static int rejects_with(const char *archive, const char *destination,
-                        const char *source_name, CbsLocation location,
-                        const char *first, const char *second) {
-    char diagnostics[2048];
-    FILE *capture = tmpfile();
-    int saved = dup(STDERR_FILENO);
+/* Every failure says which check failed and where, because a silent exit
+ * code cannot be diagnosed from a build log. */
+static int failures;
+
+static void report(int line, const char *what, const char *detail) {
+    fprintf(stderr, "archive-test: FAILED at line %d: %s%s%s\n", line, what,
+            detail == NULL ? "" : ": ", detail == NULL ? "" : detail);
+    ++failures;
+}
+
+#define CHECK(condition, what)                                               \
+    do {                                                                     \
+        if (!(condition)) {                                                  \
+            report(__LINE__, (what), NULL);                                  \
+            goto cleanup;                                                    \
+        }                                                                    \
+    } while (0)
+
+#define CHECK_ERRNO(condition, what)                                         \
+    do {                                                                     \
+        if (!(condition)) {                                                  \
+            report(__LINE__, (what), strerror(errno));                       \
+            goto cleanup;                                                    \
+        }                                                                    \
+    } while (0)
+
+/* The directory this test may write in: TMPDIR when set, so the suite runs
+ * on an image without /tmp. */
+static const char *temporary_directory(void) {
+    const char *directory = getenv("TMPDIR");
+    return directory != NULL && directory[0] == '/' ? directory : "/tmp";
+}
+
+/* Remove the test's own temporary tree so a suite run does not leave roots
+ * behind and exhaust a small /tmp for the tests that follow. */
+static void remove_tree(const char *path) {
+    DIR *directory;
+    struct dirent *entry;
+    char child[4096];
+    struct stat status;
+
+    /* The extracted corpus contains a 0555 directory on purpose, and its
+     * entries cannot be unlinked until it is writable again. */
+    chmod(path, 0700);
+    directory = opendir(path);
+    if (directory != NULL) {
+        while ((entry = readdir(directory)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 ||
+                strcmp(entry->d_name, "..") == 0)
+                continue;
+            if (snprintf(child, sizeof(child), "%s/%s", path, entry->d_name) >=
+                (int)sizeof(child))
+                continue;
+            if (lstat(child, &status) == 0 && S_ISDIR(status.st_mode))
+                remove_tree(child);
+            else
+                unlink(child);
+        }
+        closedir(directory);
+    }
+    rmdir(path);
+}
+
+/* Outcome of one rejection check, so a harness failure is never reported as
+ * a failed assertion. */
+typedef enum {
+    REJECTED_AS_EXPECTED,
+    REJECTION_MISMATCH,
+    CAPTURE_UNAVAILABLE
+} RejectionResult;
+
+/* Run one extraction with stderr captured to a file inside the test's own
+ * root. tmpfile() is deliberately not used: it opens in /tmp whatever TMPDIR
+ * says, so it fails on an image without /tmp or with a full one, and that
+ * failure is not an assertion failure. */
+static RejectionResult rejects_with(const char *archive,
+                                    const char *destination,
+                                    const char *source_name,
+                                    CbsLocation location, const char *root,
+                                    const char *first, const char *second,
+                                    char *diagnostics, size_t size) {
+    char capture_path[4096];
+    FILE *capture;
+    int saved;
     int extracted;
     size_t length;
-    if (capture == NULL || saved < 0 ||
-        dup2(fileno(capture), STDERR_FILENO) < 0)
-        return 0;
+
+    if (snprintf(capture_path, sizeof(capture_path), "%s/diagnostics", root) >=
+        (int)sizeof(capture_path))
+        return CAPTURE_UNAVAILABLE;
+    capture = fopen(capture_path, "w+b");
+    if (capture == NULL)
+        return CAPTURE_UNAVAILABLE;
+    saved = dup(STDERR_FILENO);
+    if (saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0) {
+        if (saved >= 0)
+            close(saved);
+        fclose(capture);
+        unlink(capture_path);
+        return CAPTURE_UNAVAILABLE;
+    }
     extracted = cbs_extract_archive(archive, destination, source_name,
                                     location.path, NULL, location);
     fflush(stderr);
-    dup2(saved, STDERR_FILENO);
+    if (dup2(saved, STDERR_FILENO) < 0) {
+        close(saved);
+        fclose(capture);
+        unlink(capture_path);
+        return CAPTURE_UNAVAILABLE;
+    }
     close(saved);
     rewind(capture);
-    length = fread(diagnostics, 1, sizeof(diagnostics) - 1, capture);
+    length = fread(diagnostics, 1, size - 1, capture);
     diagnostics[length] = '\0';
     fclose(capture);
-    return !extracted && strstr(diagnostics, "error[CPDL-E6001]") != NULL &&
-           strstr(diagnostics, first) != NULL &&
-           strstr(diagnostics, second) != NULL;
+    unlink(capture_path);
+    if (extracted)
+        return REJECTION_MISMATCH;
+    return strstr(diagnostics, "error[CPDL-E6001]") != NULL &&
+                   strstr(diagnostics, first) != NULL &&
+                   strstr(diagnostics, second) != NULL
+               ? REJECTED_AS_EXPECTED
+               : REJECTION_MISMATCH;
 }
+
+/* Assert one rejection, naming the fragment that was missing when it fails. */
+#define CHECK_REJECTED(archive, name, first, second)                         \
+    do {                                                                     \
+        RejectionResult outcome =                                            \
+            rejects_with((archive), destination, (name), location, root,     \
+                         (first), (second), diagnostics, sizeof(diagnostics)); \
+        if (outcome == CAPTURE_UNAVAILABLE) {                                \
+            report(__LINE__, "cannot capture stderr for `" name "`",         \
+                   strerror(errno));                                         \
+            goto cleanup;                                                    \
+        }                                                                    \
+        if (outcome != REJECTED_AS_EXPECTED) {                               \
+            fprintf(stderr,                                                  \
+                    "archive-test: expected `%s` and `%s`; diagnostic was: "  \
+                    "%s\n",                                                  \
+                    (first), (second),                                       \
+                    diagnostics[0] == '\0' ? "(extraction succeeded)"        \
+                                           : diagnostics);                   \
+            report(__LINE__, "`" name "` was not rejected as specified",     \
+                   NULL);                                                    \
+            goto cleanup;                                                    \
+        }                                                                    \
+    } while (0)
 
 /* Exercise safe archive extraction and hostile-entry rejection. */
 int main(void) {
-    char root[] = "/tmp/cbs-archive-XXXXXX";
-    char destination[256], unsafe[256], links[256], timestamps[256];
-    char implicit[256], device[256];
-    char target[256], hard[256], link[256], tree[256], early[256], late[256],
-        timestamp_link[256];
-    char implicit_file[256], implicit_link[256], implicit_dir[256],
-        implicit_parent[256], readonly[256], readonly_file[256];
+    char root[4096];
+    char destination[4160], unsafe[4160], links[4160], timestamps[4160];
+    char implicit[4160], device[4160];
+    char target[4160], hard[4160], link[4160], tree[4160], early[4160],
+        late[4160], timestamp_link[4160];
+    char implicit_file[4160], implicit_link[4160], implicit_dir[4160],
+        implicit_parent[4160], readonly[4160], readonly_file[4160];
     char link_target[64];
+    char diagnostics[2048];
     struct stat status;
     CbsLocation location = {"archive-test", 1, 1, 0};
-    if (mkdtemp(root) == NULL)
+    ssize_t length;
+
+    if (snprintf(root, sizeof(root), "%s/cbs-archive-XXXXXX",
+                 temporary_directory()) >= (int)sizeof(root)) {
+        fprintf(stderr, "archive-test: FAILED: TMPDIR path is too long: %s\n",
+                temporary_directory());
         return 1;
+    }
+    if (mkdtemp(root) == NULL) {
+        fprintf(stderr,
+                "archive-test: FAILED: cannot create a temporary directory "
+                "under %s: %s\n",
+                temporary_directory(), strerror(errno));
+        return 1;
+    }
     snprintf(destination, sizeof(destination), "%s/out", root);
     snprintf(unsafe, sizeof(unsafe), "%s/unsafe.tar", root);
     snprintf(links, sizeof(links), "%s/links.tar", root);
@@ -291,63 +429,102 @@ int main(void) {
     snprintf(timestamp_link, sizeof(timestamp_link), "%s/out/tree/link", root);
     snprintf(implicit_file, sizeof(implicit_file), "%s/out/pkg-1.0/lib/file.c",
              root);
-    snprintf(implicit_link, sizeof(implicit_link),
-             "%s/out/pkg-1.0/links/file.c", root);
+    snprintf(implicit_link, sizeof(implicit_link), "%s/out/pkg-1.0/links/file.c",
+             root);
     snprintf(implicit_dir, sizeof(implicit_dir), "%s/out/pkg-1.0/lib", root);
     snprintf(implicit_parent, sizeof(implicit_parent), "%s/out/pkg-1.0", root);
     snprintf(readonly, sizeof(readonly), "%s/out/readonly", root);
-    snprintf(readonly_file, sizeof(readonly_file), "%s/out/readonly/file",
-             root);
-    mkdir(destination, 0700);
+    snprintf(readonly_file, sizeof(readonly_file), "%s/out/readonly/file", root);
     memset(link_target, 0, sizeof(link_target));
-    if (!rejects_with("/dev/null", destination, "empty", location,
-                      "source `empty`: ", "archive contains no members") ||
-        !make_unsafe_archive(unsafe, 0) ||
-        !rejects_with(unsafe, destination, "traversal", location,
-                      "member \"../escape\": rejected: ", "unsafe path") ||
-        !make_unsafe_archive(unsafe, 1) ||
-        !rejects_with(unsafe, destination, "symlink", location,
-                      "member \"link\": rejected: ",
-                      "symbolic link target `/outside`") ||
-        !make_link_archive(links, 0) ||
-        !cbs_extract_archive(links, destination, "links", location.path, NULL,
-                             location) ||
-        readlink(link, link_target, sizeof(link_target) - 1) < 0 ||
-        strcmp(link_target, "../target") != 0 ||
-        lstat(target, &status) != 0 || !S_ISREG(status.st_mode) ||
-        lstat(hard, &status) != 0 || !S_ISREG(status.st_mode) ||
-        !make_link_archive(unsafe, 1) ||
-        !rejects_with(unsafe, destination, "unsafe-link", location,
-                      "member \"dir/link\": rejected: ",
-                      "symbolic link target `../../outside`") ||
-        !make_timestamp_archive(timestamps) ||
-        !cbs_extract_archive(timestamps, destination, "timestamps",
-                             location.path, NULL, location) ||
-        stat(early, &status) != 0 || status.st_mtime != 200 ||
-        stat(late, &status) != 0 || status.st_mtime != 300 ||
-        stat(tree, &status) != 0 || status.st_mtime != 100 ||
-        lstat(timestamp_link, &status) != 0 || status.st_mtime != 400)
-        return 1;
+    CHECK_ERRNO(mkdir(destination, 0700) == 0, "cannot create the output root");
+
+    CHECK_REJECTED("/dev/null", "empty", "source `empty`: ",
+                   "archive contains no members");
+    CHECK(make_unsafe_archive(unsafe, 0), "cannot write the traversal archive");
+    CHECK_REJECTED(unsafe, "traversal", "member \"../escape\": rejected: ",
+                   "unsafe path");
+    CHECK(make_unsafe_archive(unsafe, 1), "cannot write the symlink archive");
+    CHECK_REJECTED(unsafe, "symlink", "member \"link\": rejected: ",
+                   "symbolic link target `/outside`");
+
+    CHECK(make_link_archive(links, 0), "cannot write the link archive");
+    CHECK(cbs_extract_archive(links, destination, "links", location.path, NULL,
+                              location),
+          "a safe link archive was rejected");
+    length = readlink(link, link_target, sizeof(link_target) - 1);
+    CHECK_ERRNO(length >= 0, "the extracted symbolic link is missing");
+    link_target[length] = '\0';
+    CHECK(strcmp(link_target, "../target") == 0,
+          "the symbolic link target was not preserved");
+    CHECK_ERRNO(lstat(target, &status) == 0, "the link target file is missing");
+    CHECK(S_ISREG(status.st_mode), "the link target is not a regular file");
+    CHECK_ERRNO(lstat(hard, &status) == 0, "the hard link is missing");
+    CHECK(S_ISREG(status.st_mode), "the hard link is not a regular file");
+
+    CHECK(make_link_archive(unsafe, 1),
+          "cannot write the climbing-link archive");
+    CHECK_REJECTED(unsafe, "unsafe-link", "member \"dir/link\": rejected: ",
+                   "symbolic link target `../../outside`");
+
+    CHECK(make_timestamp_archive(timestamps),
+          "cannot write the timestamp archive");
+    CHECK(cbs_extract_archive(timestamps, destination, "timestamps",
+                              location.path, NULL, location),
+          "the timestamp archive was rejected");
+    CHECK_ERRNO(stat(early, &status) == 0, "tree/early is missing");
+    CHECK(status.st_mtime == 200, "tree/early kept the wrong mtime");
+    CHECK_ERRNO(stat(late, &status) == 0, "tree/late is missing");
+    CHECK(status.st_mtime == 300, "tree/late kept the wrong mtime");
+    CHECK_ERRNO(stat(tree, &status) == 0, "tree/ is missing");
+    CHECK(status.st_mtime == 100, "the directory kept the wrong mtime");
+    CHECK_ERRNO(lstat(timestamp_link, &status) == 0, "tree/link is missing");
+    CHECK(status.st_mtime == 400, "the symbolic link kept the wrong mtime");
+
     /* Missing parents are created; a directory member applies its mode and
      * mtime after its contents are written, in either order. */
-    if (!make_implicit_archive(implicit) ||
-        !cbs_extract_archive(implicit, destination, "implicit", location.path,
-                             NULL, location) ||
-        stat(implicit_file, &status) != 0 || !S_ISREG(status.st_mode) ||
-        lstat(implicit_link, &status) != 0 || !S_ISLNK(status.st_mode) ||
-        stat(implicit_dir, &status) != 0 || !S_ISDIR(status.st_mode) ||
-        (status.st_mode & 07777) != 0755 ||
-        stat(implicit_parent, &status) != 0 ||
-        (status.st_mode & 07777) != 0700 || status.st_mtime != 500 ||
-        stat(readonly, &status) != 0 || (status.st_mode & 07777) != 0555 ||
-        status.st_mtime != 600 || stat(readonly_file, &status) != 0 ||
-        !S_ISREG(status.st_mode))
+    CHECK(make_implicit_archive(implicit),
+          "cannot write the directory-less archive");
+    CHECK(cbs_extract_archive(implicit, destination, "implicit", location.path,
+                              NULL, location),
+          "the directory-less archive was rejected");
+    CHECK_ERRNO(stat(implicit_file, &status) == 0,
+                "the file under implicit parents is missing");
+    CHECK(S_ISREG(status.st_mode), "the implicit-parent entry is not a file");
+    CHECK_ERRNO(lstat(implicit_link, &status) == 0,
+                "the link in a symlink-only directory is missing");
+    CHECK(S_ISLNK(status.st_mode), "the symlink-only entry is not a link");
+    CHECK_ERRNO(stat(implicit_dir, &status) == 0,
+                "the implicitly created parent is missing");
+    CHECK(S_ISDIR(status.st_mode) && (status.st_mode & 07777) == 0755,
+          "an implicitly created parent has the wrong mode");
+    CHECK_ERRNO(stat(implicit_parent, &status) == 0,
+                "the late directory member is missing");
+    CHECK((status.st_mode & 07777) == 0700,
+          "a directory member listed after its contents lost its mode");
+    CHECK(status.st_mtime == 500,
+          "a directory member listed after its contents lost its mtime");
+    CHECK_ERRNO(stat(readonly, &status) == 0,
+                "the read-only directory member is missing");
+    CHECK((status.st_mode & 07777) == 0555,
+          "the read-only directory member lost its mode");
+    CHECK(status.st_mtime == 600,
+          "the read-only directory member lost its mtime");
+    CHECK_ERRNO(stat(readonly_file, &status) == 0,
+                "a file under a read-only directory member is missing");
+    CHECK(S_ISREG(status.st_mode),
+          "the entry under a read-only directory is not a file");
+
+    CHECK(make_device_archive(device), "cannot write the device archive");
+    CHECK_REJECTED(device, "device", "member \"dev/console\": rejected: ",
+                   "character device");
+
+cleanup:
+    remove_tree(root);
+    if (failures != 0) {
+        fprintf(stderr, "archive-test: %d check(s) failed under %s\n", failures,
+                root);
         return 1;
-    if (!make_device_archive(device) ||
-        !rejects_with(device, destination, "device", location,
-                      "member \"dev/console\": rejected: ",
-                      "character device"))
-        return 1;
+    }
     puts("archive extraction tests: PASS (safe links, mtimes, implicit "
          "parents, deferred directory modes, hostile entries, and named "
          "diagnostics)");
