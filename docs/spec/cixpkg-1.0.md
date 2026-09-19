@@ -15,11 +15,12 @@ with eight bytes `CIXPKG\0\2`, followed by `u64 header_size`, `u64
 manifest_size`, and `u64 payload_size`. Bytes 32–95 contain the lowercase
 ASCII SHA-256 digest of the uncompressed manifest; bytes 96–159 contain the
 lowercase ASCII SHA-256 digest of the uncompressed regular-file payload. Bytes
-160–286 contain the UTF-8 canonical package identity, NUL-padded. Byte 224 is
-a u8 metadata-flags field; bit 0 (`CBS_CIXPKG_FLAG_FINALIZED`) records that an
-embedder-supplied finalization policy completed before manifest generation.
-Unknown flag bits are invalid. All other header bytes are reserved and
-zero-filled.
+160–223 contain the UTF-8 canonical package identity, NUL-padded; an identity
+longer than 64 bytes cannot be represented and is a write failure, never a
+truncation. Byte 224 is a u8 metadata-flags field; bit 0
+(`CBS_CIXPKG_FLAG_FINALIZED`) records that an embedder-supplied finalization
+policy completed before manifest generation. Unknown flag bits are invalid.
+All other header bytes are reserved and zero-filled.
 
 The manifest is UTF-8 text, sorted by unique path. Every entry carries an
 octal mode and normalized ownership (`uid=0 gid=0`):

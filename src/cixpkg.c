@@ -15,6 +15,8 @@
 #include <zstd.h>
 
 #define CIXPKG_MAGIC "CIXPKG\0\2"
+/* Identity occupies header bytes 160-223; byte 224 is the metadata flags. */
+#define CIXPKG_IDENTITY_MAX 64
 #define CIXPKG_FLAG_FINALIZED CBS_CIXPKG_FLAG_FINALIZED
 
 /* Parse an octal mode and reject setuid/setgid bits. */
@@ -228,9 +230,13 @@ int cbs_cixpkg_write_tree_with_flags(const char *manifest, const char *root,
     if (flags & ~CIXPKG_FLAG_FINALIZED)
         goto cleanup;
     header[224] = (unsigned char)flags;
+    /* Identity occupies bytes 160-223. Truncating a longer identity would
+     * make two packages share one name, and writing it past 223 would
+     * overwrite the flags byte and produce an artifact this reader rejects,
+     * so an identity that does not fit is a write failure. */
     identity_length = strlen(identity);
-    if (identity_length > 127)
-        identity_length = 127;
+    if (identity_length > CIXPKG_IDENTITY_MAX)
+        goto cleanup;
     memcpy(header + 160, identity, identity_length);
     file = fopen(package_path, "wb");
     if (file != NULL &&
@@ -313,8 +319,8 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
     }
     if (identity != NULL && identity_size != 0) {
         size_t copy = identity_size - 1;
-        if (copy > 127)
-            copy = 127;
+        if (copy > CIXPKG_IDENTITY_MAX)
+            copy = CIXPKG_IDENTITY_MAX;
         memcpy(identity, data + 160, copy);
         identity[copy] = '\0';
     }

@@ -2,6 +2,7 @@
 /* Regression tests for CIXPKG creation, verification, and corruption gates. */
 #include "cbs.h"
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 static int flip_byte(const char *path, long offset) {
@@ -63,6 +64,32 @@ int main(void) {
     if (!truncate_file("/tmp/cixpkg-build", 351) ||
         cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0))
         return 1;
-    puts("CIXPKG tests: PASS (writer, reader, pipeline, corruption gates)");
+
+    /* Identity occupies bytes 160-223 and must never reach the flags byte at
+     * 224: a 64-byte identity round trips, and a longer one is refused at
+     * write time rather than silently truncated or written over the flags. */
+    {
+        char manifest[] = "/tmp/cixpkg-identity-manifest";
+        char package[] = "/tmp/cixpkg-identity";
+        char longest[65];
+        char excessive[66];
+        char read_back[129];
+        memset(longest, 'i', sizeof(longest) - 1);
+        longest[sizeof(longest) - 1] = '\0';
+        memset(excessive, 'i', sizeof(excessive) - 1);
+        excessive[sizeof(excessive) - 1] = '\0';
+        if (!cbs_manifest_write("tests/fixtures/execution", manifest))
+            return 1;
+        if (!cbs_cixpkg_write_tree(manifest, "tests/fixtures/execution",
+                                   package, longest) ||
+            !cbs_cixpkg_verify_tree(package, read_back, sizeof(read_back)) ||
+            strcmp(read_back, longest) != 0)
+            return 1;
+        if (cbs_cixpkg_write_tree(manifest, "tests/fixtures/execution",
+                                  package, excessive))
+            return 1;
+    }
+    puts("CIXPKG tests: PASS (writer, reader, pipeline, identity bounds, and "
+         "corruption gates)");
     return 0;
 }
