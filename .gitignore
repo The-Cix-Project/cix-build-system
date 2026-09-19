@@ -1,9 +1,6 @@
 /cbs
+/libcbs.a
 /src/*.o
-/tests/exec-test
-/tests/fs-test
-/tests/edit-assert-test
-/tests/runtime-test
-/tests/identity-test
-/tests/source-test
-/tests/dependency-test
+/tests/*-test
+/tests/http-server
+/tests/finalize-helper
