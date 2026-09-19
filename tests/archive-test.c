@@ -319,11 +319,17 @@ static RejectionResult rejects_with(const char *archive,
     unlink(capture_path);
     if (extracted)
         return REJECTION_MISMATCH;
-    return strstr(diagnostics, "error[CPDL-E6001]") != NULL &&
-                   strstr(diagnostics, first) != NULL &&
-                   strstr(diagnostics, second) != NULL
-               ? REJECTED_AS_EXPECTED
-               : REJECTION_MISMATCH;
+    /* The located form is always required. A fragment is optional so a check
+     * can assert the behaviour without naming a libarchive-supplied string,
+     * which differs between libarchive versions. */
+    if (strstr(diagnostics, "error[CPDL-E6001]: source: ") == NULL ||
+        strstr(diagnostics, location.path) == NULL)
+        return REJECTION_MISMATCH;
+    if (first != NULL && strstr(diagnostics, first) == NULL)
+        return REJECTION_MISMATCH;
+    if (second != NULL && strstr(diagnostics, second) == NULL)
+        return REJECTION_MISMATCH;
+    return REJECTED_AS_EXPECTED;
 }
 
 /* Assert one rejection, naming the fragment that was missing when it fails. */
@@ -391,8 +397,11 @@ int main(void) {
     memset(link_target, 0, sizeof(link_target));
     CHECK_ERRNO(mkdir(destination, 0700) == 0, "cannot create the output root");
 
-    CHECK_REJECTED("/dev/null", "empty", "source `empty`: ",
-                   "archive contains no members");
+    /* An empty archive is refused with a located CPDL-E6001 naming the
+     * source. Which libarchive rejects it at open and which at the first
+     * header read is a libarchive detail, and its wording is libarchive's,
+     * so the check names neither. */
+    CHECK_REJECTED("/dev/null", "empty", "source `empty`: ", NULL);
     CHECK(make_unsafe_archive(unsafe, 0), "cannot write the traversal archive");
     CHECK_REJECTED(unsafe, "traversal", "member \"../escape\": rejected: ",
                    "unsafe path");
