@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Regression test for embedder finalization before manifest generation. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,16 +22,13 @@ static int finalized(const char *root, void *user) {
 }
 
 /* Verify finalization runs before manifest generation and is recorded. */
-int main(void) {
-    char workspace_template[] = "/tmp/cbs-policy-XXXXXX";
-    char artifact[4096];
-    char extracted[4096];
-    char *workspace;
+static int run_test(const char *workspace) {
+    char artifact[4160];
+    char extracted[4160];
     FILE *file;
     int flag;
 
-    workspace = mkdtemp(workspace_template);
-    if (workspace == NULL ||
+    if (
         snprintf(artifact, sizeof(artifact), "%s/artifact.cixpkg", workspace) >=
             (int)sizeof(artifact) ||
         snprintf(extracted, sizeof(extracted), "%s/extracted", workspace) >=
@@ -53,6 +51,19 @@ int main(void) {
             access(marker, F_OK) != 0)
             return 1;
     }
+    return 0;
+}
+
+/* Run the finalization checks under a private workspace and remove it. */
+int main(void) {
+    char workspace[4096];
+    int result;
+    if (!test_temp_root(workspace, sizeof(workspace), "cbs-policy"))
+        return 1;
+    result = run_test(workspace);
+    test_remove_tree(workspace);
+    if (result != 0)
+        return result;
     puts("policy tests: PASS (embedder finalizer runs before manifest and is "
          "recorded)");
     return 0;

@@ -3,6 +3,7 @@
  * string field, nesting, per-item environment scope, and item-naming
  * failures. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,32 +69,26 @@ static int regular_with(const char *path, const char *expected) {
     return memcmp(content, expected, length) == 0;
 }
 
+/* The test root, and the stderr capture file written under it. Both are
+ * file scope so main can remove the root after run_test returns. */
+static char base[4096];
+static const char *capture_root;
+
 /* Run a block with stderr captured; return the captured text. */
 static int run_captured(const CbsNode *block, const CbsExecutionContext *context,
                         char *output, size_t size) {
-    FILE *capture = tmpfile();
-    int saved = dup(STDERR_FILENO);
+    TestCapture capture;
     int result;
-    size_t length;
 
-    if (capture == NULL || saved < 0 ||
-        dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (!test_capture_begin(&capture, capture_root))
         return -1;
     result = cbs_execute_block(block, context);
-    fflush(stderr);
-    dup2(saved, STDERR_FILENO);
-    close(saved);
-    rewind(capture);
-    length = fread(output, 1, size - 1, capture);
-    output[length] = '\0';
-    fclose(capture);
+    test_capture_end(&capture, output, size);
     return result;
 }
 
 static int run_test(const char *recipe_path) {
-    char template[] = "/tmp/cbs-each-test-XXXXXX";
-    char *base = mkdtemp(template);
-    char src[512], build[512], dest[512], path[512];
+    char src[4160], build[4160], dest[4160], path[4160];
     char output[4096];
     char *source;
     size_t source_length;
@@ -109,7 +104,10 @@ static int run_test(const char *recipe_path) {
     int result = 1;
 
     memset(&tokens, 0, sizeof(tokens));
-    if (base == NULL || !path_join(src, sizeof(src), base, "src") ||
+    if (!test_temp_root(base, sizeof(base), "cbs-each-test"))
+        return 1;
+    capture_root = base;
+    if (!path_join(src, sizeof(src), base, "src") ||
         !path_join(build, sizeof(build), base, "build") ||
         !path_join(dest, sizeof(dest), base, "dest") ||
         mkdir(src, 0755) != 0 || mkdir(build, 0755) != 0 ||
@@ -198,8 +196,11 @@ int main(int argc, char **argv) {
         fputs("usage: each-test RECIPE\n", stderr);
         return 2;
     }
-    if (run_test(argv[1]) != 0)
+    if (run_test(argv[1]) != 0) {
+        test_remove_tree(base);
         return 1;
+    }
+    test_remove_tree(base);
     puts("each expansion tests: PASS (bound items, nesting, scoped env, cd, "
          "on_fail, and item-naming failure)");
     return 0;

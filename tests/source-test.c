@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Regression tests for named sources, digests, and interpolation bindings. */
 #include "cbs.h"
+#include "temp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,26 +33,22 @@ static int write_value(const char *path, const char *value) {
 
 /* Verify named sources, mirrors, digests, and execution bindings. */
 int main(int argc, char **argv) {
-    char template[] = "/tmp/cbs-source-test-XXXXXX", good[512], empty[512],
-         bad[512];
-    char *base, *text, *resolved;
+    char base[4096], good[4160], empty[4160], bad[4160];
+    char *text, *resolved;
     size_t length;
     CbsTokenList tokens;
     CbsNode *doc;
     CbsSourceSet set;
     CbsExecutionContext context;
-    FILE *capture;
-    int saved;
+    TestCapture capture;
     char diagnostic[2048];
-    size_t n;
     int ok = 1;
     memset(&tokens, 0, sizeof(tokens));
     memset(&set, 0, sizeof(set));
     memset(&context, 0, sizeof(context));
     if (argc != 2)
         return 2;
-    base = mkdtemp(template);
-    if (!base)
+    if (!test_temp_root(base, sizeof(base), "cbs-source-test"))
         return 1;
     snprintf(good, sizeof(good), "%s/good", base);
     snprintf(empty, sizeof(empty), "%s/empty", base);
@@ -77,19 +74,10 @@ int main(int argc, char **argv) {
         ok = 0;
     if (ok && cbs_sources_apply_execution_context(&set, &context))
         ok = 0;
-    capture = tmpfile();
-    saved = dup(STDERR_FILENO);
-    if (ok && capture && saved >= 0 &&
-        dup2(fileno(capture), STDERR_FILENO) >= 0) {
+    if (ok && test_capture_begin(&capture, base)) {
         if (cbs_source_verify(&set.items[1], bad, argv[1], text, doc->location))
             ok = 0;
-        fflush(stderr);
-        dup2(saved, STDERR_FILENO);
-        close(saved);
-        rewind(capture);
-        n = fread(diagnostic, 1, sizeof(diagnostic) - 1, capture);
-        diagnostic[n] = '\0';
-        fclose(capture);
+        test_capture_end(&capture, diagnostic, sizeof(diagnostic));
         if (!strstr(diagnostic, "CPDL-E5001") ||
             !strstr(diagnostic, "source `empty`") ||
             !strstr(diagnostic, "expected e3b0") ||
@@ -112,6 +100,7 @@ int main(int argc, char **argv) {
     cbs_node_destroy(doc);
     cbs_token_list_destroy(&tokens);
     free(text);
+    test_remove_tree(base);
     if (!ok) {
         fputs("named source tests: FAIL\n", stderr);
         return 1;

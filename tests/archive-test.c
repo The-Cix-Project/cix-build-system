@@ -2,6 +2,7 @@
 /* Regression tests for archive format, traversal, link rejection, implicit
  * parent directories, deferred directory metadata, and named diagnostics. */
 #include "cbs.h"
+#include "temp.h"
 #include <archive.h>
 #include <archive_entry.h>
 #include <dirent.h>
@@ -263,43 +264,6 @@ static void report(int line, const char *what, const char *detail) {
         }                                                                    \
     } while (0)
 
-/* The directory this test may write in: TMPDIR when set, so the suite runs
- * on an image without /tmp. */
-static const char *temporary_directory(void) {
-    const char *directory = getenv("TMPDIR");
-    return directory != NULL && directory[0] == '/' ? directory : "/tmp";
-}
-
-/* Remove the test's own temporary tree so a suite run does not leave roots
- * behind and exhaust a small /tmp for the tests that follow. */
-static void remove_tree(const char *path) {
-    DIR *directory;
-    struct dirent *entry;
-    char child[4096];
-    struct stat status;
-
-    /* The extracted corpus contains a 0555 directory on purpose, and its
-     * entries cannot be unlinked until it is writable again. */
-    chmod(path, 0700);
-    directory = opendir(path);
-    if (directory != NULL) {
-        while ((entry = readdir(directory)) != NULL) {
-            if (strcmp(entry->d_name, ".") == 0 ||
-                strcmp(entry->d_name, "..") == 0)
-                continue;
-            if (snprintf(child, sizeof(child), "%s/%s", path, entry->d_name) >=
-                (int)sizeof(child))
-                continue;
-            if (lstat(child, &status) == 0 && S_ISDIR(status.st_mode))
-                remove_tree(child);
-            else
-                unlink(child);
-        }
-        closedir(directory);
-    }
-    rmdir(path);
-}
-
 /* Outcome of one rejection check, so a harness failure is never reported as
  * a failed assertion. */
 typedef enum {
@@ -401,19 +365,8 @@ int main(void) {
     CbsLocation location = {"archive-test", 1, 1, 0};
     ssize_t length;
 
-    if (snprintf(root, sizeof(root), "%s/cbs-archive-XXXXXX",
-                 temporary_directory()) >= (int)sizeof(root)) {
-        fprintf(stderr, "archive-test: FAILED: TMPDIR path is too long: %s\n",
-                temporary_directory());
+    if (!test_temp_root(root, sizeof(root), "cbs-archive"))
         return 1;
-    }
-    if (mkdtemp(root) == NULL) {
-        fprintf(stderr,
-                "archive-test: FAILED: cannot create a temporary directory "
-                "under %s: %s\n",
-                temporary_directory(), strerror(errno));
-        return 1;
-    }
     snprintf(destination, sizeof(destination), "%s/out", root);
     snprintf(unsafe, sizeof(unsafe), "%s/unsafe.tar", root);
     snprintf(links, sizeof(links), "%s/links.tar", root);
@@ -519,7 +472,7 @@ int main(void) {
                    "character device");
 
 cleanup:
-    remove_tree(root);
+    test_remove_tree(root);
     if (failures != 0) {
         fprintf(stderr, "archive-test: %d check(s) failed under %s\n", failures,
                 root);

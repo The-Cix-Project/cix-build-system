@@ -3,6 +3,7 @@ set -eu
 
 cbs=${1:?usage: observability-test.sh CBS}
 root=$(mktemp -d)
+trap 'chmod -R u+w -- "$root" 2>/dev/null || true; rm -rf -- "$root"' EXIT HUP INT TERM
 stage="$root/stage"
 logs="$root/logs"
 mkdir "$stage" "$logs"

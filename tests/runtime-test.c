@@ -2,6 +2,7 @@
 
 /* Regression tests for failure attribution and diagnostic notes. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -92,11 +93,12 @@ static int probe(int argc, char **argv) {
     return -1;
 }
 
+/* The test root, at file scope so main can remove it after run_parent. */
+static char base[4096];
+
 static int run_parent(const char *recipe_path, const char *self) {
-    char template[] = "/tmp/cbs-runtime-test-XXXXXX";
-    char *base = mkdtemp(template);
-    char src[512], build[512], dest[512], executable[512];
-    char continued[512], stopped[512], success_diagnostic[512];
+    char src[4160], build[4160], dest[4160], executable[4160];
+    char continued[4160], stopped[4160], success_diagnostic[4160];
     char *source = NULL;
     size_t source_length = 0;
     CbsTokenList tokens;
@@ -104,18 +106,18 @@ static int run_parent(const char *recipe_path, const char *self) {
     CbsNode *build_phase;
     CbsNode *check_phase;
     CbsExecutionContext context;
-    FILE *capture = NULL;
-    int saved = -1;
+    TestCapture capture;
+    int captured = 0;
     char diagnostics[8192];
-    size_t diagnostic_length;
     const char *primary;
     const char *allowed_note;
     const char *stopping_note;
     int result = 1;
 
     memset(&tokens, 0, sizeof(tokens));
-    if (base == NULL ||
-        snprintf(src, sizeof(src), "%s/src", base) >= (int)sizeof(src) ||
+    if (!test_temp_root(base, sizeof(base), "cbs-runtime-test"))
+        return 1;
+    if (snprintf(src, sizeof(src), "%s/src", base) >= (int)sizeof(src) ||
         snprintf(build, sizeof(build), "%s/build", base) >=
             (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", base) >= (int)sizeof(dest) ||
@@ -150,20 +152,13 @@ static int run_parent(const char *recipe_path, const char *self) {
     context.dest = dest;
     context.jobs = 1;
     context.working_directory = src;
-    capture = tmpfile();
-    saved = dup(STDERR_FILENO);
-    if (capture == NULL || saved < 0 ||
-        dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (!test_capture_begin(&capture, base))
         goto cleanup;
+    captured = 1;
     if (cbs_execute_block(build_phase, &context))
         goto restore;
-    fflush(stderr);
-    dup2(saved, STDERR_FILENO);
-    close(saved);
-    saved = -1;
-    rewind(capture);
-    diagnostic_length = fread(diagnostics, 1, sizeof(diagnostics) - 1, capture);
-    diagnostics[diagnostic_length] = '\0';
+    test_capture_end(&capture, diagnostics, sizeof(diagnostics));
+    captured = 0;
     primary = strstr(diagnostics, "error[CPDL-E4001]");
     allowed_note = strstr(diagnostics, "note[CPDL-N4001]");
     stopping_note = allowed_note == NULL
@@ -184,18 +179,9 @@ static int run_parent(const char *recipe_path, const char *self) {
     goto cleanup;
 
 restore:
-    fflush(stderr);
-    dup2(saved, STDERR_FILENO);
-    close(saved);
-    saved = -1;
 cleanup:
-    if (saved >= 0) {
-        fflush(stderr);
-        dup2(saved, STDERR_FILENO);
-        close(saved);
-    }
-    if (capture != NULL)
-        fclose(capture);
+    if (captured)
+        test_capture_end(&capture, NULL, 0);
     cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
     free(source);
@@ -213,8 +199,10 @@ int main(int argc, char **argv) {
     }
     if (run_parent(argv[1], argv[0]) != 0) {
         fputs("failure orchestration tests: FAIL\n", stderr);
+        test_remove_tree(base);
         return 1;
     }
+    test_remove_tree(base);
     puts("failure orchestration tests: PASS (primary cause and subordinate "
          "notes)");
     return 0;

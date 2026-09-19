@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Regression tests for CIXPKG creation, verification, and corruption gates. */
 #include "cbs.h"
+#include "temp.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -32,48 +33,53 @@ static int truncate_file(const char *path, off_t length) {
 }
 
 /* Verify package creation, round trips, and corruption gates. */
-int main(void) {
-    char in[] = "/tmp/cixpkg-in", out[] = "/tmp/cixpkg-out";
-    char round[] = "/tmp/cixpkg-round";
-    char extracted[64], extracted_file[128];
+static int run_test(const char *root) {
+    char in[4160], out[4160], round[4160], build[4160];
+    char extracted[4160], extracted_file[4256];
     char identity[32];
-    FILE *file = fopen(in, "wb");
+    FILE *file;
+
+    snprintf(in, sizeof(in), "%s/in", root);
+    snprintf(out, sizeof(out), "%s/out", root);
+    snprintf(round, sizeof(round), "%s/round", root);
+    snprintf(build, sizeof(build), "%s/build.cixpkg", root);
+    snprintf(extracted, sizeof(extracted), "%s/extracted", root);
+    file = fopen(in, "wb");
     if (file == NULL)
         return 1;
     fputs("payload", file);
     fclose(file);
-    snprintf(extracted, sizeof(extracted), "/tmp/cixpkg-extracted-%ld",
-             (long)getpid());
     if (!cbs_cixpkg_compress(in, out) || !cbs_cixpkg_decompress(out, round) ||
         !cbs_build_package("cbs.cbs", "tests/fixtures/execution",
-                           "/tmp/cixpkg-build") ||
-        !cbs_cixpkg_verify_tree("/tmp/cixpkg-build", identity,
+                           build) ||
+        !cbs_cixpkg_verify_tree(build, identity,
                                 sizeof(identity)) ||
-        !cbs_cixpkg_extract("/tmp/cixpkg-build", extracted) ||
+        !cbs_cixpkg_extract(build, extracted) ||
         snprintf(extracted_file, sizeof(extracted_file), "%s/argv.cbs",
                  extracted) >= (int)sizeof(extracted_file) ||
         access(extracted_file, F_OK) != 0)
         return 1;
-    if (!flip_byte("/tmp/cixpkg-build", 32) ||
-        cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0))
+    if (!flip_byte(build, 32) ||
+        cbs_cixpkg_verify_tree(build, NULL, 0))
         return 1;
-    if (!flip_byte("/tmp/cixpkg-build", 32) ||
-        !flip_byte("/tmp/cixpkg-build", 400) ||
-        cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0))
+    if (!flip_byte(build, 32) ||
+        !flip_byte(build, 400) ||
+        cbs_cixpkg_verify_tree(build, NULL, 0))
         return 1;
-    if (!truncate_file("/tmp/cixpkg-build", 351) ||
-        cbs_cixpkg_verify_tree("/tmp/cixpkg-build", NULL, 0))
+    if (!truncate_file(build, 351) ||
+        cbs_cixpkg_verify_tree(build, NULL, 0))
         return 1;
 
     /* Identity occupies bytes 160-223 and must never reach the flags byte at
      * 224: a 64-byte identity round trips, and a longer one is refused at
      * write time rather than silently truncated or written over the flags. */
     {
-        char manifest[] = "/tmp/cixpkg-identity-manifest";
-        char package[] = "/tmp/cixpkg-identity";
+        char manifest[4256], package[4256];
         char longest[65];
         char excessive[66];
         char read_back[129];
+        snprintf(manifest, sizeof(manifest), "%s/identity.manifest", root);
+        snprintf(package, sizeof(package), "%s/identity.cixpkg", root);
         memset(longest, 'i', sizeof(longest) - 1);
         longest[sizeof(longest) - 1] = '\0';
         memset(excessive, 'i', sizeof(excessive) - 1);
@@ -89,6 +95,19 @@ int main(void) {
                                   package, excessive))
             return 1;
     }
+    return 0;
+}
+
+/* Run the CIXPKG checks under a private root and remove it either way. */
+int main(void) {
+    char root[4096];
+    int result;
+    if (!test_temp_root(root, sizeof(root), "cbs-cixpkg"))
+        return 1;
+    result = run_test(root);
+    test_remove_tree(root);
+    if (result != 0)
+        return result;
     puts("CIXPKG tests: PASS (writer, reader, pipeline, identity bounds, and "
          "corruption gates)");
     return 0;

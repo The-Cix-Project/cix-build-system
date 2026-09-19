@@ -2,6 +2,7 @@
 
 /* Regression tests for ELF DT_NEEDED dependency observation. */
 #include "cbs.h"
+#include "temp.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,9 +17,14 @@ static int collect(const char *name, void *user) {
 }
 /* Verify ELF dependency discovery and invalid-input rejection. */
 int main(void) {
-    char junk_path[] = "/tmp/cbs-observe-junk-XXXXXX";
+    char junk_path[4096];
     const char junk[] = "not an ELF\n";
-    int junk_fd = mkstemp(junk_path);
+    int junk_fd;
+
+    if (snprintf(junk_path, sizeof(junk_path), "%s/cbs-observe-junk-XXXXXX",
+                 test_temp_dir()) >= (int)sizeof(junk_path))
+        return 1;
+    junk_fd = mkstemp(junk_path);
     int elf_ok;
     int junk_rejected;
 

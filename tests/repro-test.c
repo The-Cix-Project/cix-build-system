@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Regression tests for the byte-identical reproducibility gate. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -20,13 +21,11 @@ static int write_text(const char *path, const char *text) {
 /* Verify the comparison gate rejects every kind of difference and that two
  * independent standalone builds of one recipe produce identical artifacts.
  */
-int main(void) {
-    char root[128], left[192], right[192];
-    char workspace_a[192], workspace_b[192], artifact_a[192], artifact_b[192];
+static int run_test(const char *root) {
+    char left[4160], right[4160];
+    char workspace_a[4160], workspace_b[4160], artifact_a[4160],
+        artifact_b[4160];
 
-    snprintf(root, sizeof(root), "/tmp/cbs-repro-%ld", (long)getpid());
-    if (mkdir(root, 0700) != 0)
-        return 1;
     snprintf(left, sizeof(left), "%s/left", root);
     snprintf(right, sizeof(right), "%s/right", root);
     /* Equal bytes pass; a changed byte, a shorter or longer file, and a
@@ -63,6 +62,19 @@ int main(void) {
         !cbs_cixpkg_verify_tree(artifact_a, NULL, 0) ||
         !cbs_compare_files(artifact_a, artifact_b))
         return 1;
+    return 0;
+}
+
+/* Run the reproducibility checks under a private root and remove it. */
+int main(void) {
+    char root[4096];
+    int result;
+    if (!test_temp_root(root, sizeof(root), "cbs-repro"))
+        return 1;
+    result = run_test(root);
+    test_remove_tree(root);
+    if (result != 0)
+        return result;
     puts("reproducibility tests: PASS (byte mismatch gate and identical "
          "independent builds)");
     return 0;

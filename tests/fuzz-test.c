@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Hostile-input corpus for CIXPKG verification and extraction. */
 #include "cbs.h"
+#include "temp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,24 +31,26 @@ static int copy_file(const char *from, const char *to) {
 }
 
 /* Mutate valid package bytes and require safe rejection. */
-int main(void) {
-    char root[128], source[160], manifest[160], good[160], bad[160],
-        extracted[160];
+static int run_test(const char *root) {
+    char tree[4160], source[4160], manifest[4160], good[4160], bad[4160],
+        extracted[4160];
     FILE *file;
     struct stat status;
     unsigned char *bytes;
     long length;
     size_t i;
-    snprintf(root, sizeof(root), "/tmp/cbs-fuzz-%ld", (long)getpid());
-    snprintf(source, sizeof(source), "%s/file", root);
-    snprintf(manifest, sizeof(manifest), "%s.manifest", root);
-    snprintf(good, sizeof(good), "%s.cixpkg", root);
-    snprintf(bad, sizeof(bad), "%s.bad", root);
-    snprintf(extracted, sizeof(extracted), "%s.out", root);
-    if (mkdir(root, 0700) != 0 || (file = fopen(source, "wb")) == NULL ||
+    /* The staged tree is a directory inside the root so every file this
+     * test writes is removed with the root. */
+    snprintf(tree, sizeof(tree), "%s/tree", root);
+    snprintf(source, sizeof(source), "%s/file", tree);
+    snprintf(manifest, sizeof(manifest), "%s/manifest", root);
+    snprintf(good, sizeof(good), "%s/good.cixpkg", root);
+    snprintf(bad, sizeof(bad), "%s/bad.cixpkg", root);
+    snprintf(extracted, sizeof(extracted), "%s/extracted", root);
+    if (mkdir(tree, 0700) != 0 || (file = fopen(source, "wb")) == NULL ||
         fputs("fuzz corpus", file) < 0 || fclose(file) != 0 ||
-        !cbs_manifest_write(root, manifest) ||
-        !cbs_cixpkg_write_tree(manifest, root, good, "fuzz-1-1-x86_64") ||
+        !cbs_manifest_write(tree, manifest) ||
+        !cbs_cixpkg_write_tree(manifest, tree, good, "fuzz-1-1-x86_64") ||
         !cbs_cixpkg_verify_tree(good, NULL, 0))
         return 1;
     file = fopen(good, "rb");
@@ -77,6 +80,19 @@ int main(void) {
     }
     (void)status;
     free(bytes);
+    return 0;
+}
+
+/* Run the mutation corpus under a private root and remove it either way. */
+int main(void) {
+    char root[4096];
+    int result;
+    if (!test_temp_root(root, sizeof(root), "cbs-fuzz"))
+        return 1;
+    result = run_test(root);
+    test_remove_tree(root);
+    if (result != 0)
+        return result;
     puts("hostile CIXPKG corpus tests: PASS (mutated readers reject safely)");
     return 0;
 }

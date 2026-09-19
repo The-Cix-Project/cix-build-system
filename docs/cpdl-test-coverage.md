@@ -16,6 +16,7 @@ features must add focused success and failure assertions to this matrix.
 | CIXPKG, corruption, modes, links, round trip, and reproducibility | package, typed-package, fuzz, and repro tests; upstream-smoke-test.sh rebuilds zstd and compares bytes |
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
+| Every test writes under its own TMPDIR-aware root and removes it | tests/temp.h, used by every C test; shell tests clean up with a trap |
 | Every in-repository migrated recipe parses and validates | make recipe-test |
 | The self-hosting pin names one release, matches its archive tag, and never runs ahead of VERSION | recipe-metadata-test.sh on cbs.cbs |
 

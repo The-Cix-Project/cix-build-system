@@ -2,6 +2,7 @@
 
 /* Regression tests for source edits, cardinality, and atomicity. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,26 +65,22 @@ static int file_equals(const char *path, const unsigned char *expected,
 
 /* Run one assertion with stderr captured; it must fail with the code and,
  * when given, the message fragment. */
+/* The test root, and the stderr capture file written under it. Both are
+ * file scope so main can remove the root after run_test returns. */
+static char base[4096];
+static const char *capture_root;
+
 static int expected_failure(const CbsNode *operation,
                             const CbsExecutionContext *context,
                             const char *code, const char *fragment) {
-    FILE *capture = tmpfile();
-    int saved = dup(STDERR_FILENO);
+    TestCapture capture;
     int executed;
     char output[2048];
-    size_t length;
 
-    if (capture == NULL || saved < 0 ||
-        dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (!test_capture_begin(&capture, capture_root))
         return 0;
     executed = cbs_execute_edit_assertion(operation, context);
-    fflush(stderr);
-    dup2(saved, STDERR_FILENO);
-    close(saved);
-    rewind(capture);
-    length = fread(output, 1, sizeof(output) - 1, capture);
-    output[length] = '\0';
-    fclose(capture);
+    test_capture_end(&capture, output, sizeof(output));
     return !executed && strstr(output, code) != NULL &&
            (fragment == NULL || strstr(output, fragment) != NULL);
 }
@@ -113,9 +110,7 @@ static int write_binary(const char *path) {
 
 static int run_test(const char *recipe_path) {
     static const unsigned char edited_binary[] = {'A', 0, 'n', 'e', 'w', 'Z'};
-    char template[] = "/tmp/cbs-edit-test-XXXXXX";
-    char *base = mkdtemp(template);
-    char src[512], build[512], dest[512], path[512], outside[512];
+    char src[4160], build[4160], dest[4160], path[4160], outside[4160];
     char *source = NULL;
     size_t source_length = 0;
     CbsTokenList tokens;
@@ -130,7 +125,10 @@ static int run_test(const char *recipe_path) {
     int result = 1;
 
     memset(&tokens, 0, sizeof(tokens));
-    if (base == NULL || !join(src, sizeof(src), base, "src") ||
+    if (!test_temp_root(base, sizeof(base), "cbs-edit-test"))
+        return 1;
+    capture_root = base;
+    if (!join(src, sizeof(src), base, "src") ||
         !join(build, sizeof(build), base, "build") ||
         !join(dest, sizeof(dest), base, "dest") ||
         !join(outside, sizeof(outside), base, "outside") ||
@@ -332,8 +330,10 @@ int main(int argc, char **argv) {
     }
     if (run_test(argv[1]) != 0) {
         fputs("source edit and assertion tests: FAIL\n", stderr);
+        test_remove_tree(base);
         return 1;
     }
+    test_remove_tree(base);
     puts("source edit and assertion tests: PASS (cardinality, atomicity, and "
          "assertion diagnostics)");
     return 0;

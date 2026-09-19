@@ -1,17 +1,15 @@
 #define _POSIX_C_SOURCE 200809L
 #include "cbs.h"
+#include "temp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-int main(void) {
-    char root[] = "/tmp/cbs-kconfig-XXXXXX";
-    char base[256], fragment[256], output[256], error[256], line[256];
+static int run_test(const char *root) {
+    char base[4160], fragment[4160], output[4160], error[256], line[256];
     FILE *file;
-    if (mkdtemp(root) == NULL)
-        return 1;
     snprintf(base, sizeof(base), "%s/base", root);
     snprintf(fragment, sizeof(fragment), "%s/fragment", root);
     snprintf(output, sizeof(output), "%s/output", root);
@@ -37,6 +35,20 @@ int main(void) {
         strcmp(line, "CONFIG_NEW=n\n") != 0)
         return 1;
     fclose(file);
-    puts("kconfig merge tests: PASS (curated y/m/n states and deterministic order)");
+    return 0;
+}
+
+/* Run the merge checks under a private root and remove it either way. */
+int main(void) {
+    char root[4096];
+    int result;
+    if (!test_temp_root(root, sizeof(root), "cbs-kconfig"))
+        return 1;
+    result = run_test(root);
+    test_remove_tree(root);
+    if (result != 0)
+        return result;
+    puts("kconfig merge tests: PASS (curated y/m/n states and deterministic "
+         "order)");
     return 0;
 }

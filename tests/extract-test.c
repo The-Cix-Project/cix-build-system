@@ -2,6 +2,7 @@
 
 /* Regression tests for named-source extraction and path confinement. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -70,9 +71,9 @@ done:
 
 /* Exercise named-source extraction and destination confinement. */
 int main(int argc, char **argv) {
-    char root[] = "/tmp/cbs-extract-XXXXXX";
-    char archive_path[512], config_path[512], src[512], build[512], dest[512],
-        result[512];
+    char root[4096];
+    char archive_path[4160], config_path[4160], src[4160], build[4160],
+        dest[4160], result[4160];
     char *source, *data;
     size_t length;
     CbsTokenList tokens = {0};
@@ -84,7 +85,7 @@ int main(int argc, char **argv) {
     size_t index;
     int ok = 0;
 
-    if (argc != 2 || mkdtemp(root) == NULL ||
+    if (argc != 2 || !test_temp_root(root, sizeof(root), "cbs-extract") ||
         snprintf(archive_path, sizeof(archive_path), "%s/support.tar", root) >=
             (int)sizeof(archive_path) ||
         snprintf(src, sizeof(src), "%s/src", root) >= (int)sizeof(src) ||
@@ -154,6 +155,7 @@ done:
     if (document != NULL)
         cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
+    test_remove_tree(root);
     if (!ok) {
         fputs("extract execution test: FAIL\n", stderr);
         return 1;

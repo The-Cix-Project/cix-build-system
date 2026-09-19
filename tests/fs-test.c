@@ -2,6 +2,7 @@
 
 /* Regression tests for confined filesystem operations and glob handling. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -69,26 +70,22 @@ static int regular_with(const char *path, const char *expected, mode_t mode) {
     return memcmp(content, expected, length) == 0;
 }
 
+/* The test root, and the stderr capture file written under it. Both are
+ * file scope so main can remove the root after run_test returns. */
+static char base[4096];
+static const char *capture_root;
+
 static int expect_failure(const CbsNode *operation,
                           const CbsExecutionContext *context,
                           const char *fragment) {
-    FILE *capture = tmpfile();
-    int saved = dup(STDERR_FILENO);
+    TestCapture capture;
     int result;
     char output[2048];
-    size_t length;
 
-    if (capture == NULL || saved < 0 ||
-        dup2(fileno(capture), STDERR_FILENO) < 0)
+    if (!test_capture_begin(&capture, capture_root))
         return 0;
     result = cbs_execute_filesystem(operation, context);
-    fflush(stderr);
-    dup2(saved, STDERR_FILENO);
-    close(saved);
-    rewind(capture);
-    length = fread(output, 1, sizeof(output) - 1, capture);
-    output[length] = '\0';
-    fclose(capture);
+    test_capture_end(&capture, output, sizeof(output));
     return !result && strstr(output, "CPDL-E4004") != NULL &&
            (fragment == NULL || strstr(output, fragment) != NULL);
 }
@@ -99,9 +96,8 @@ static int expect_edit_failure(const CbsNode *operation,
 }
 
 static int run_test(const char *recipe_path) {
-    char template[] = "/tmp/cbs-fs-test-XXXXXX";
-    char *base = mkdtemp(template);
-    char src[512], build[512], dest[512], outside[512], path[512], target[64];
+    char src[4160], build[4160], dest[4160], outside[4160], path[4160],
+        target[64];
     char *source;
     size_t source_length;
     CbsTokenList tokens;
@@ -116,7 +112,10 @@ static int run_test(const char *recipe_path) {
     int result = 1;
 
     memset(&tokens, 0, sizeof(tokens));
-    if (base == NULL || !path_join(src, sizeof(src), base, "src") ||
+    if (!test_temp_root(base, sizeof(base), "cbs-fs-test"))
+        return 1;
+    capture_root = base;
+    if (!path_join(src, sizeof(src), base, "src") ||
         !path_join(build, sizeof(build), base, "build") ||
         !path_join(dest, sizeof(dest), base, "dest") ||
         !path_join(outside, sizeof(outside), base, "outside") ||
@@ -376,8 +375,10 @@ int main(int argc, char **argv) {
     }
     if (run_test(argv[1]) != 0) {
         fputs("filesystem execution tests: FAIL\n", stderr);
+        test_remove_tree(base);
         return 1;
     }
+    test_remove_tree(base);
     puts("filesystem execution tests: PASS (operations, globs, confinement, "
          "and staged sandbox libraries)");
     return 0;

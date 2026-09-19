@@ -2,6 +2,7 @@
 
 /* Regression tests for argv fidelity, limits, signals, and timeouts. */
 #include "cbs.h"
+#include "temp.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -82,32 +83,21 @@ static int probe_without_environment(int argc, char **argv) {
     return 0;
 }
 
+/* The test root, at file scope so main can remove it, and the root the
+ * stderr capture file is written under. */
+static char base[4096];
+
 static int expected_runtime_failure(const CbsNode *run,
                                     const CbsExecutionContext *context,
                                     const char *code) {
-    FILE *capture = tmpfile();
-    int saved_stderr;
+    TestCapture capture;
     int executed;
     char output[4096];
-    size_t length;
 
-    if (capture == NULL)
+    if (!test_capture_begin(&capture, base))
         return 0;
-    saved_stderr = dup(STDERR_FILENO);
-    if (saved_stderr < 0 || dup2(fileno(capture), STDERR_FILENO) < 0) {
-        if (saved_stderr >= 0)
-            close(saved_stderr);
-        fclose(capture);
-        return 0;
-    }
     executed = cbs_execute_run(run, context);
-    fflush(stderr);
-    dup2(saved_stderr, STDERR_FILENO);
-    close(saved_stderr);
-    rewind(capture);
-    length = fread(output, 1, sizeof(output) - 1, capture);
-    output[length] = '\0';
-    fclose(capture);
+    test_capture_end(&capture, output, sizeof(output));
     return !executed && strstr(output, code) != NULL;
 }
 
@@ -168,7 +158,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     context.arch = "x86_64";
     context.src = current_directory;
     context.build = build_directory;
-    context.dest = "/tmp";
+    context.dest = base;
     context.jobs = 3;
     context.working_directory = current_directory;
     context.limits.address_space_mb = 256;
@@ -237,10 +227,14 @@ int main(int argc, char **argv) {
         fputs("usage: exec-test RECIPE.cbs\n", stderr);
         return 2;
     }
+    if (!test_temp_root(base, sizeof(base), "cbs-exec-test"))
+        return 1;
     if (run_parent(argv[1], argv[0]) != 0) {
         fputs("run execution tests: FAIL\n", stderr);
+        test_remove_tree(base);
         return 1;
     }
+    test_remove_tree(base);
     puts("run execution tests: PASS (byte-exact argv and local environment)");
     return 0;
 }

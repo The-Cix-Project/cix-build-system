@@ -3,6 +3,7 @@ set -eu
 
 cbs=${1:?usage: workspace-diagnostic-test.sh CBS}
 temporary_dir=$(mktemp -d)
+trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 missing="$temporary_dir/missing/workspace"
 
 if "$cbs" build tests/fixtures/standalone-smoke.cbs \

@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 /* Regression tests for cache-first fetching and transport diagnostics. */
 #include "cbs.h"
+#include "temp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,8 +36,7 @@ static int fetch_mock(const char *url, const char *destination, void *opaque,
 
 /* Exercise cache verification and source transport failure reporting. */
 int main(int argc, char **argv) {
-    char directory_template[] = "/tmp/cbs-fetch-test-XXXXXX";
-    char *directory;
+    char directory[4096];
     FILE *recipe;
     char *source_text;
     long source_length;
@@ -53,8 +53,7 @@ int main(int argc, char **argv) {
 
     if (argc != 2)
         return 2;
-    directory = mkdtemp(directory_template);
-    if (directory == NULL)
+    if (!test_temp_root(directory, sizeof(directory), "cbs-fetch-test"))
         return 1;
     recipe = fopen(argv[1], "rb");
     if (recipe == NULL || fseek(recipe, 0, SEEK_END) != 0)
@@ -105,6 +104,7 @@ int main(int argc, char **argv) {
     cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
     free(source_text);
+    test_remove_tree(directory);
     if (!ok) {
         fputs("source fetch tests: FAIL\n", stderr);
         return 1;
