@@ -10,3 +10,7 @@ they are not shell fragments, are never re-parsed, and cannot create loops,
 pipelines, or arbitrary variables. This supports bounded probes such as
 compiler version and package metadata without turning CPDL into a scripting
 language.
+
+Recipes that need complete or multi-line output may use `stdout file PATH`.
+CBS writes the captured bytes to the confined path after the command exits;
+the file can then be checked with the existing `require file` assertions.

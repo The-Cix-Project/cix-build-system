@@ -227,6 +227,7 @@ static void validate_run(Validator *validator, const CbsNode *run,
     int jobs = 0;
     int timeout = 0;
     int expect = 0;
+    int stdout_file = 0;
     int allow_failure = 0;
     size_t index;
     size_t other;
@@ -294,6 +295,10 @@ static void validate_run(Validator *validator, const CbsNode *run,
                     validation_error(validator, item, "CPDL-E3002",
                                      "duplicate stdout binding name");
             }
+            break;
+        case CBS_NODE_RUN_STDOUT_FILE:
+            duplicate_option(validator, item, &stdout_file, "stdout file");
+            validate_value(validator, item, item->value);
             break;
         case CBS_NODE_ALLOW_FAILURE:
             duplicate_option(validator, item, &allow_failure, "allow_failure");

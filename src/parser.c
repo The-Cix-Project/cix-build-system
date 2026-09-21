@@ -202,10 +202,24 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
         } else if (is_word(parser, "stdout")) {
             CbsToken *name;
             advance(parser);
-            item = cbs_node_create(CBS_NODE_RUN_STDOUT_BIND, token->location);
-            name = consume_kind(parser, CBS_TOKEN_STRING, "stdout binding name");
-            if (name != NULL)
-                item->name = cbs_duplicate(name->text);
+            if (is_word(parser, "file")) {
+                CbsToken *path;
+                advance(parser);
+                item = cbs_node_create(CBS_NODE_RUN_STDOUT_FILE,
+                                       token->location);
+                path = consume_text_value(parser, "stdout file path");
+                if (path != NULL) {
+                    item->value = cbs_duplicate(path->text);
+                    item->flag = path->kind;
+                }
+            } else {
+                item = cbs_node_create(CBS_NODE_RUN_STDOUT_BIND,
+                                       token->location);
+                name = consume_kind(parser, CBS_TOKEN_STRING,
+                                    "stdout binding name");
+                if (name != NULL)
+                    item->name = cbs_duplicate(name->text);
+            }
         } else if (is_word(parser, "allow_failure")) {
             advance(parser);
             item = cbs_node_create(CBS_NODE_ALLOW_FAILURE, token->location);

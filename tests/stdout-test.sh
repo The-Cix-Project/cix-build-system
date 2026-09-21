@@ -20,10 +20,18 @@ package "stdout-test" {
             "${stdout.VALUE}\n"
             expect { stdout contains "hello world" }
         }
+        run "printf" {
+            "first line\nsecond line\n"
+            stdout file "${build}/multiline-output"
+        }
+        require file "${build}/multiline-output" {
+            exists
+            contains "second line"
+        }
     }
 }
 EOF
 "$cbs" build "$root/recipe.cbs" --arch x86_64 --staged "$root/stage" \
     >"$root/out"
 grep -q '^staged ' "$root/out"
-printf '%s\n' 'stdout tests: PASS (bounded assertion and binding)'
+printf '%s\n' 'stdout tests: PASS (bounded assertion, binding, and file capture)'

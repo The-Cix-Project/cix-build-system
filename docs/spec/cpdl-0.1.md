@@ -415,6 +415,7 @@ run-item = argument
          | run-expect
          | run-stdout-assert
          | run-stdout-bind
+         | run-stdout-file
          | "allow_failure" ;
 
 argument        = text-value ;
@@ -424,6 +425,7 @@ run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
 run-stdout-assert = "expect", "{", "stdout", "contains", string, "}" ;
 run-stdout-bind = "stdout", string ;
+run-stdout-file = "stdout", "file", path-value ;
 run-each        = "each", { text-value } ;
 ```
 

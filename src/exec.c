@@ -479,6 +479,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     char output[65537];
     size_t output_length = 0;
     int capture_stdout = 0;
+    int stdout_value = 0;
+    int stdout_file = 0;
+    const char *stdout_file_logical = NULL;
     struct timespec command_start;
     struct timespec command_end;
     int command_event_status;
@@ -524,6 +527,11 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         } else if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT ||
                    item->kind == CBS_NODE_RUN_STDOUT_BIND) {
             capture_stdout = 1;
+            stdout_value = 1;
+        } else if (item->kind == CBS_NODE_RUN_STDOUT_FILE) {
+            capture_stdout = 1;
+            stdout_file = 1;
+            stdout_file_logical = item->value;
         }
     }
     if (capture_stdout) {
@@ -736,29 +744,81 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             string_list_destroy(&environment);
             return 0;
         }
-        while (output_length > 0 && (output[output_length - 1] == '\n' ||
-                                     output[output_length - 1] == '\r' ||
-                                     output[output_length - 1] == ' ' ||
-                                     output[output_length - 1] == '\t'))
-            output[--output_length] = '\0';
-        {
-            size_t leading = 0;
-            while (output[leading] == ' ' || output[leading] == '\t')
-                ++leading;
-            if (leading != 0) {
-                memmove(output, output + leading, output_length - leading + 1);
-                output_length -= leading;
+        if (stdout_value) {
+            while (output_length > 0 &&
+                   (output[output_length - 1] == '\n' ||
+                    output[output_length - 1] == '\r' ||
+                    output[output_length - 1] == ' ' ||
+                    output[output_length - 1] == '\t'))
+                output[--output_length] = '\0';
+            {
+                size_t leading = 0;
+                while (output[leading] == ' ' || output[leading] == '\t')
+                    ++leading;
+                if (leading != 0) {
+                    memmove(output, output + leading,
+                            output_length - leading + 1);
+                    output_length -= leading;
+                }
+            }
+            if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "process stdout must be one line");
+                fclose(capture);
+                free(executable);
+                free(program);
+                string_list_destroy(&arguments);
+                string_list_destroy(&environment);
+                return 0;
             }
         }
-        if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
-            runtime_error(run, context, "CPDL-E4001",
-                          "process stdout must be one line");
-            fclose(capture);
-            free(executable);
-            free(program);
-            string_list_destroy(&arguments);
-            string_list_destroy(&environment);
-            return 0;
+        if (stdout_file) {
+            char *stdout_path = cbs_resolve_confined_path(stdout_file_logical,
+                                                            context);
+            int stdout_fd;
+            size_t written = 0;
+            if (stdout_path == NULL) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "stdout file path is outside an execution root");
+                fclose(capture);
+                free(executable);
+                free(program);
+                string_list_destroy(&arguments);
+                string_list_destroy(&environment);
+                return 0;
+            }
+            stdout_fd = open(stdout_path, O_WRONLY | O_CREAT | O_TRUNC,
+                             0644);
+            if (stdout_fd < 0) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "cannot open stdout file");
+                free(stdout_path);
+                fclose(capture);
+                free(executable);
+                free(program);
+                string_list_destroy(&arguments);
+                string_list_destroy(&environment);
+                return 0;
+            }
+            while (written < output_length) {
+                ssize_t count = write(stdout_fd, output + written,
+                                      output_length - written);
+                if (count <= 0) {
+                    close(stdout_fd);
+                    free(stdout_path);
+                    runtime_error(run, context, "CPDL-E4001",
+                                  "cannot write stdout file");
+                    fclose(capture);
+                    free(executable);
+                    free(program);
+                    string_list_destroy(&arguments);
+                    string_list_destroy(&environment);
+                    return 0;
+                }
+                written += (size_t)count;
+            }
+            close(stdout_fd);
+            free(stdout_path);
         }
     }
     if (capture)

@@ -85,7 +85,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o \
 		-o tests/exec-test
 	./tests/exec-test tests/fixtures/execution/argv.cbs
 	rm -f tests/exec-test
@@ -110,17 +110,17 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/each-test tests/fixtures/execution/each.cbs
 	rm -f tests/each-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/identity-test.c \
-		src/ast.o src/diag.o src/exec.o src/identity.o src/lexer.o src/parser.o \
+		src/ast.o src/diag.o src/exec.o src/fs.o src/identity.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/identity-test
 	./tests/identity-test tests/fixtures/execution/identity.cbs
 	rm -f tests/identity-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/source-test.c \
-		src/ast.o src/archive.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/source.o \
 		src/validate.o -larchive -o tests/source-test
 	./tests/source-test tests/fixtures/execution/sources.cbs
 	rm -f tests/source-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fetch-test.c \
-		src/ast.o src/archive.o src/diag.o src/exec.o src/lexer.o src/parser.o src/source.o \
+		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/source.o \
 		src/validate.o -larchive -o tests/fetch-test
 	./tests/fetch-test tests/fixtures/execution/sources.cbs
 	rm -f tests/fetch-test
@@ -142,7 +142,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/stage-test
 	rm -f tests/stage-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o src/source.o src/archive.o \
-		src/ast.o src/diag.o src/exec.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/manifest-test
+		src/ast.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/manifest-test
 	./tests/manifest-test
 	rm -f tests/manifest-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/package-test.c src/package.o src/prune.o src/cixpkg.o src/source.o src/manifest.o src/archive.o \
@@ -156,7 +156,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/repro-test
 	rm -f tests/repro-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dependency-test.c \
-		src/ast.o src/dependency.o src/diag.o src/exec.o src/lexer.o src/parser.o \
+		src/ast.o src/dependency.o src/diag.o src/exec.o src/fs.o src/lexer.o src/parser.o \
 		src/validate.o -o tests/dependency-test
 	./tests/dependency-test tests/fixtures/valid/complete.cbs
 	rm -f tests/dependency-test
