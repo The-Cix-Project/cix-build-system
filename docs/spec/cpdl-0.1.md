@@ -646,7 +646,7 @@ glob-binding-operation = "glob", string, "=", string,
                          [ "exactly", integer ] ;
 
 links-operation = "links", path-value, "{", {
-                  ( "needs" | "forbids" ), string | "no_undefined" }, "}" ;
+                  ( "needs" | "forbids" ), string }, "}" ;
 
 source-edit-target = path-value | "glob", string ;
 ```

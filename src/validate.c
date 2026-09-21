@@ -440,12 +440,10 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             const CbsNode *property = operation->children[index];
             if (property->name == NULL ||
                 (strcmp(property->name, "needs") != 0 &&
-                 strcmp(property->name, "forbids") != 0 &&
-                 strcmp(property->name, "no_undefined") != 0))
+                 strcmp(property->name, "forbids") != 0))
                 validation_error(validator, property, "CPDL-E3004",
-                                 "links accepts needs, forbids, or no_undefined");
-            else if (strcmp(property->name, "no_undefined") != 0 &&
-                     (property->value == NULL || property->value[0] == '\0'))
+                                 "links accepts needs or forbids");
+            else if (property->value == NULL || property->value[0] == '\0')
                 validation_error(validator, property, "CPDL-E3004",
                                  "link library name must not be empty");
         }
