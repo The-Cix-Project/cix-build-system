@@ -1084,6 +1084,27 @@ edited_content(const unsigned char *content, size_t content_length,
     return result;
 }
 
+/* Keep the bytes before the one exact truncation marker. */
+static unsigned char *truncated_content(const unsigned char *content,
+                                        size_t content_length,
+                                        const unsigned char *needle,
+                                        size_t needle_length,
+                                        size_t *result_length) {
+    size_t offset;
+    unsigned char *result;
+
+    for (offset = 0; offset + needle_length <= content_length; ++offset)
+        if (memcmp(content + offset, needle, needle_length) == 0) {
+            result = cbs_allocate(offset + 1);
+            memcpy(result, content, offset);
+            result[offset] = '\0';
+            *result_length = offset;
+            return result;
+        }
+    errno = ENOENT;
+    return NULL;
+}
+
 /* Apply one cardinality-checked source edit atomically. */
 static int execute_edit(const CbsNode *operation,
                         const CbsExecutionContext *context) {
@@ -1202,10 +1223,16 @@ static int execute_edit(const CbsNode *operation,
         assertion_error(operation, context, message);
         goto done;
     }
-    result = edited_content(
-        content, content_length, (const unsigned char *)needle, strlen(needle),
-        (const unsigned char *)replacement, strlen(replacement), matches,
-        operation->kind == CBS_NODE_INSERT, until, &result_length);
+    if (operation->kind == CBS_NODE_TRUNCATE)
+        result = truncated_content(content, content_length,
+                                   (const unsigned char *)needle,
+                                   strlen(needle), &result_length);
+    else
+        result = edited_content(
+            content, content_length, (const unsigned char *)needle,
+            strlen(needle), (const unsigned char *)replacement,
+            strlen(replacement), matches, operation->kind == CBS_NODE_INSERT,
+            until, &result_length);
     if (result == NULL)
         goto filesystem_failure;
     if (!atomic_write_bytes(path, result, result_length, mode))
@@ -1513,7 +1540,8 @@ static int require_config(const CbsNode *operation,
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context) {
     if (operation->kind == CBS_NODE_REPLACE ||
-        operation->kind == CBS_NODE_INSERT)
+        operation->kind == CBS_NODE_INSERT ||
+        operation->kind == CBS_NODE_TRUNCATE)
         return execute_edit(operation, context);
     if (operation->kind == CBS_NODE_REQUIRE) {
         if (strcmp(operation->name, "glob") == 0)

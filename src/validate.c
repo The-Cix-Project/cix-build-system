@@ -407,6 +407,16 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             }
         }
         break;
+    case CBS_NODE_TRUNCATE:
+        validate_value(validator, operation, operation->name);
+        validate_value(validator, operation, operation->value);
+        if (operation->value == NULL || operation->value[0] == '\0')
+            validation_error(validator, operation, "CPDL-E3004",
+                             "truncate match value must not be empty");
+        if (operation->number < 1)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "truncate cardinality must be positive");
+        break;
     case CBS_NODE_COPY:
     case CBS_NODE_MOVE:
         validate_selector(validator, operation);

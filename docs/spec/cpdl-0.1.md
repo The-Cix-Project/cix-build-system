@@ -377,6 +377,7 @@ operation = run-operation
           | materialize-operation
           | replace-operation
           | insert-operation
+          | truncate-operation
           | require-operation
           | each-operation
           | stage-operation ;
@@ -636,6 +637,9 @@ insert-operation = "insert", source-edit-target, "{",
                    "exactly", integer,
                    "}" ;
 
+truncate-operation = "truncate", path-value, "{", "from", text-value,
+                     "exactly", integer, "}" ;
+
 source-edit-target = path-value | "glob", string ;
 ```
 
@@ -661,6 +665,11 @@ Both operations read and replace a regular file atomically, preserve its mode,
 and fail without modifying it when validation, counting, reading, or writing
 fails. CPDL 0.1 source edits are byte operations; they do not implement regular
 expressions or locale-dependent text matching.
+
+`truncate` reads a regular file and, after its exact cardinality check, keeps
+the bytes before the one literal `from` match and discards that marker and all
+following bytes. It preserves the file mode and commits atomically; a failed
+count or filesystem operation leaves the original unchanged.
 
 ### 4.7 Assertions and globs
 

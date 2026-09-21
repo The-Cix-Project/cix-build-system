@@ -415,6 +415,7 @@ static int execute_operation(const CbsNode *operation,
         return cbs_execute_materialize(operation, context);
     if (operation->kind == CBS_NODE_REPLACE ||
         operation->kind == CBS_NODE_INSERT ||
+        operation->kind == CBS_NODE_TRUNCATE ||
         operation->kind == CBS_NODE_REQUIRE)
         return cbs_execute_edit_assertion(operation, context);
     if (operation->kind == CBS_NODE_CD)

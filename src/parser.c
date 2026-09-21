@@ -516,6 +516,32 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
     return node;
 }
 
+/* Parse `truncate PATH { from MATCH exactly COUNT }`. */
+static CbsNode *parse_truncate(CbsParser *parser) {
+    CbsToken *keyword = advance(parser);
+    CbsToken *path;
+    CbsToken *match;
+    CbsToken *count;
+    CbsNode *node = cbs_node_create(CBS_NODE_TRUNCATE, keyword->location);
+
+    path = consume_path(parser);
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    consume_word(parser, "from");
+    match = consume_text_value(parser, "match value");
+    consume_word(parser, "exactly");
+    count = consume_kind(parser, CBS_TOKEN_INTEGER, "cardinality");
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    if (path != NULL)
+        node->name = cbs_duplicate(path->text);
+    if (match != NULL) {
+        node->value = cbs_duplicate(match->text);
+        node->flag = match->kind;
+    }
+    if (count != NULL)
+        node->number = strtol(count->text, NULL, 10);
+    return node;
+}
+
 /* Parse a runtime assertion and its property block. */
 static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
@@ -957,6 +983,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         return parse_edit(parser, 0);
     if (is_word(parser, "insert"))
         return parse_edit(parser, 1);
+    if (is_word(parser, "truncate"))
+        return parse_truncate(parser);
     expected(parser, "phase operation");
     return NULL;
 }

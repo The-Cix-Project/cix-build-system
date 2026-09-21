@@ -6,6 +6,11 @@ package "edit-assert-test" {
     build {
         mkdir "${build}/matches"
         write "${build}/input.bin" "old middle old" chmod 0640
+        write "${build}/truncate.txt" "keep\nCUT\ndiscarded\n"
+        truncate "${build}/truncate.txt" {
+            from "CUT"
+            exactly 1
+        }
         write "${build}/matches/a" "a"
         write "${build}/matches/b" "b"
         replace "${build}/input.bin" {

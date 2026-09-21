@@ -169,6 +169,10 @@ static int run_test(const char *recipe_path) {
     join(path, sizeof(path), build, "input.bin");
     if (!file_equals(path, (const unsigned char *)"new! middle new!", 16, 0640))
         goto cleanup;
+    join(path, sizeof(path), build, "truncate.txt");
+    if (!file_equals(path, (const unsigned char *)"keep\n", 5, 0644))
+        goto cleanup;
+    join(path, sizeof(path), build, "input.bin");
 
     memset(&operation, 0, sizeof(operation));
     operation.location.path = recipe_path;
