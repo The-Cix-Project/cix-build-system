@@ -405,8 +405,12 @@ static int execute_operation(const CbsNode *operation,
     }
     if (operation->kind == CBS_NODE_RUN)
         return cbs_execute_run(operation, context);
-    if (is_filesystem(operation->kind))
-        return cbs_execute_filesystem(operation, context);
+    if (is_filesystem(operation->kind)) {
+        int result = cbs_execute_filesystem(operation, context);
+        if (!result && operation->second_flag)
+            return 1;
+        return result;
+    }
     if (operation->kind == CBS_NODE_MATERIALIZE)
         return cbs_execute_materialize(operation, context);
     if (operation->kind == CBS_NODE_REPLACE ||

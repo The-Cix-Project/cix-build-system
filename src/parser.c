@@ -350,6 +350,10 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         value = consume_path(parser);
         if (value != NULL)
             node->second_value = cbs_duplicate(value->text);
+        if (is_word(parser, "allow_failure")) {
+            node->second_flag = 1;
+            advance(parser);
+        }
         return node;
     }
     if (strcmp(keyword->text, "remove") == 0) {
@@ -360,6 +364,10 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         }
         node = parse_selector(parser, CBS_NODE_REMOVE, keyword->location);
         node->number = tree;
+        if (is_word(parser, "allow_failure")) {
+            node->second_flag = 1;
+            advance(parser);
+        }
         return node;
     }
     if (strcmp(keyword->text, "symlink") == 0) {

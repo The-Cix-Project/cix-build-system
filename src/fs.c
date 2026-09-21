@@ -915,7 +915,7 @@ failure:
     free(first);
     free(second);
     path_list_destroy(&paths);
-    return 0;
+    return operation->second_flag ? 1 : 0;
 }
 
 /* Report a source-edit or assertion failure at its operation location. */

@@ -30,6 +30,7 @@ package "filesystem-test" {
         copy glob "${build}/input/*.txt" to "${dest}/copied"
         copy "${build}/input/a-link" to "${dest}/copied/a-link"
         copy $source.payload to "${dest}/named-source"
+        copy glob "${build}/input/*.missing" to "${dest}/copied" allow_failure
         mkdir "${build}/tree-source/sub" chmod 0700
         write "${build}/tree-source/root.txt" "root" chmod 0600
         write "${build}/tree-source/sub/nested.txt" "nested" chmod 0610
@@ -38,6 +39,7 @@ package "filesystem-test" {
         move "${dest}/copied/b.txt" to "${dest}/moved.txt"
         chmod 0644 glob "${dest}/copied/*.txt"
         remove glob "${build}/input/*.tmp"
+        remove glob "${build}/input/*.la" allow_failure
         mkdir "${build}/discard/nested"
         write "${build}/discard/nested/value" "discard"
         remove tree "${build}/discard"

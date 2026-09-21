@@ -480,8 +480,10 @@ At most one each of `jobs`, `timeout`, `expect`, and `allow_failure` may occur.
 The default expected exit status is 0. An expected status must be between 0 and
 255 inclusive. A non-matching status or terminating
 signal fails the operation. `allow_failure` records the result but permits the
-next operation to run; it is valid only inside `on_fail` in CPDL 0.1. It cannot
-hide a normal phase failure.
+next operation to run; inside `on_fail` it applies to the diagnostic block.
+A trailing `allow_failure` on `copy` or `remove` records a filesystem failure
+and permits the next operation to run. It is never implicit and cannot hide a
+failure on an unmarked operation.
 
 A timeout terminates the complete CBS-created process group, waits for it to be
 reaped, and fails the operation. The grace period and signal sequence are CBS
@@ -522,9 +524,11 @@ directory globally. Leaving the block restores the prior context even on failure
 
 ```ebnf
 mkdir-operation   = "mkdir", path-value, [ "chmod", mode ] ;
-copy-operation    = "copy", [ "tree" ], source-selector, "to", path-value ;
+copy-operation    = "copy", [ "tree" ], source-selector, "to", path-value,
+                     [ "allow_failure" ] ;
 move-operation    = "move", source-selector, "to", path-value ;
-remove-operation  = "remove", [ "tree" ], source-selector ;
+remove-operation  = "remove", [ "tree" ], source-selector,
+                     [ "allow_failure" ] ;
 symlink-operation = "symlink", path-value, "to", path-value ;
 write-operation   = "write", path-value, text-value, [ "chmod", mode ] ;
 chmod-operation   = "chmod", mode, source-selector ;
