@@ -411,6 +411,13 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_MOVE:
         validate_selector(validator, operation);
         validate_value(validator, operation, operation->second_value);
+        if (operation->kind == CBS_NODE_MOVE && operation->number)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "move does not support tree sources");
+        if (operation->kind == CBS_NODE_COPY && operation->number &&
+            operation->flag)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "copy tree does not support glob sources");
         break;
     case CBS_NODE_REMOVE:
     case CBS_NODE_CHMOD:

@@ -522,7 +522,7 @@ directory globally. Leaving the block restores the prior context even on failure
 
 ```ebnf
 mkdir-operation   = "mkdir", path-value, [ "chmod", mode ] ;
-copy-operation    = "copy", source-selector, "to", path-value ;
+copy-operation    = "copy", [ "tree" ], source-selector, "to", path-value ;
 move-operation    = "move", source-selector, "to", path-value ;
 remove-operation  = "remove", [ "tree" ], source-selector ;
 symlink-operation = "symlink", path-value, "to", path-value ;
@@ -543,7 +543,11 @@ by explicit CBS policy recorded in build metadata.
 `copy` preserves file bytes and permission bits. It does not preserve numeric
 ownership: new regular files are owned by the CBS build identity, and staged
 ownership is assigned later by CBS package policy. A directory source is
-invalid; recursive directory copying is not in CPDL 0.1. Multiple glob matches
+invalid unless `copy tree` is used. `copy tree SRC to DEST` recursively copies
+the contents of the confined source directory into the confined destination,
+preserving regular-file modes and symbolic links without dereferencing them.
+The tree form requires one literal directory source and creates the destination
+directory when absent. Multiple glob matches
 require an existing directory destination. A single source follows the same
 destination naming rules as POSIX `cp` without dereferencing a source symlink.
 An existing regular-file destination is replaced. An existing destination

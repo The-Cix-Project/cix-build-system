@@ -336,10 +336,16 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
     }
     if (strcmp(keyword->text, "copy") == 0 ||
         strcmp(keyword->text, "move") == 0) {
+        int tree = 0;
+        if (strcmp(keyword->text, "copy") == 0 && is_word(parser, "tree")) {
+            tree = 1;
+            advance(parser);
+        }
         node = parse_selector(
             parser,
             strcmp(keyword->text, "copy") == 0 ? CBS_NODE_COPY : CBS_NODE_MOVE,
             keyword->location);
+        node->number = tree;
         consume_word(parser, "to");
         value = consume_path(parser);
         if (value != NULL)

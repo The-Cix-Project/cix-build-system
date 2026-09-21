@@ -175,12 +175,25 @@ static int run_test(const char *recipe_path) {
     path_join(path, sizeof(path), dest, "named-source");
     if (!regular_with(path, "named source", 0644))
         goto cleanup;
+    path_join(path, sizeof(path), dest, "tree-copy/root.txt");
+    if (!regular_with(path, "root", 0600))
+        goto cleanup;
+    path_join(path, sizeof(path), dest, "tree-copy/sub/nested.txt");
+    if (!regular_with(path, "nested", 0610))
+        goto cleanup;
     path_join(path, sizeof(path), dest, "copied/a-link");
     target_length = readlink(path, target, sizeof(target) - 1);
     if (target_length != 5)
         goto cleanup;
     target[target_length] = '\0';
     if (strcmp(target, "a.txt") != 0)
+        goto cleanup;
+    path_join(path, sizeof(path), dest, "tree-copy/sub/root-link");
+    target_length = readlink(path, target, sizeof(target) - 1);
+    if (target_length != 11)
+        goto cleanup;
+    target[target_length] = '\0';
+    if (strcmp(target, "../root.txt") != 0)
         goto cleanup;
     path_join(path, sizeof(path), build, "input/drop.tmp");
     if (lstat(path, &status) == 0 || errno != ENOENT)

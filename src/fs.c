@@ -389,6 +389,61 @@ done:
     return result;
 }
 
+/* Recursively copy a directory's contents without dereferencing symlinks. */
+static int copy_tree(const char *source, const char *destination) {
+    DIR *directory;
+    struct dirent *entry;
+    struct stat source_status;
+    mode_t source_mode;
+
+    if (lstat(source, &source_status) != 0 ||
+        !S_ISDIR(source_status.st_mode) || S_ISLNK(source_status.st_mode)) {
+        errno = ENOTDIR;
+        return 0;
+    }
+    source_mode = source_status.st_mode & 07777;
+    if (lstat(destination, &source_status) == 0) {
+        if (!S_ISDIR(source_status.st_mode) || S_ISLNK(source_status.st_mode)) {
+            errno = ENOTDIR;
+            return 0;
+        }
+    } else if (errno != ENOENT || mkdir(destination, source_mode) != 0) {
+        return 0;
+    }
+    directory = opendir(source);
+    if (directory == NULL)
+        return 0;
+    while ((entry = readdir(directory)) != NULL) {
+        char *source_child;
+        char *destination_child;
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        source_child = join_path(source, entry->d_name);
+        destination_child = join_path(destination, entry->d_name);
+        if (lstat(source_child, &source_status) != 0 ||
+            (S_ISDIR(source_status.st_mode) && !S_ISLNK(source_status.st_mode)
+                 ? copy_tree(source_child, destination_child)
+                 : copy_one(source_child, destination)) == 0) {
+            free(source_child);
+            free(destination_child);
+            closedir(directory);
+            return 0;
+        }
+        if (S_ISDIR(source_status.st_mode) && !S_ISLNK(source_status.st_mode) &&
+            chmod(destination_child, source_status.st_mode & 07777) != 0) {
+            free(source_child);
+            free(destination_child);
+            closedir(directory);
+            return 0;
+        }
+        free(source_child);
+        free(destination_child);
+    }
+    closedir(directory);
+    return chmod(destination, source_mode) == 0;
+}
+
 /* Materialize one verified named source into the build tree. */
 int cbs_execute_materialize(const CbsNode *operation,
                             const CbsExecutionContext *context) {
@@ -788,6 +843,20 @@ int cbs_execute_filesystem(const CbsNode *operation,
             second = resolve_path(operation->second_value, context, &root);
             if (second == NULL || !safe_parents(second, root))
                 goto failure;
+            if (operation->kind == CBS_NODE_COPY && operation->number) {
+                struct stat source_status;
+                if (paths.count != 1 || lstat(paths.items[0], &source_status) != 0 ||
+                    !S_ISDIR(source_status.st_mode) ||
+                    S_ISLNK(source_status.st_mode))
+                    goto failure;
+                result = copy_tree(paths.items[0], second);
+                if (!result)
+                    goto failure;
+                free(first);
+                free(second);
+                path_list_destroy(&paths);
+                return 1;
+            }
             if (paths.count > 1) {
                 struct stat status;
                 if (lstat(second, &status) != 0 || !S_ISDIR(status.st_mode)) {
