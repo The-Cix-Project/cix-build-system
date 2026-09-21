@@ -379,6 +379,7 @@ operation = run-operation
           | insert-operation
           | truncate-operation
           | glob-binding-operation
+          | links-operation
           | require-operation
           | each-operation
           | stage-operation ;
@@ -643,6 +644,9 @@ truncate-operation = "truncate", path-value, "{", "from", text-value,
 
 glob-binding-operation = "glob", string, "=", string,
                          [ "exactly", integer ] ;
+
+links-operation = "links", path-value, "{", {
+                  ( "needs" | "forbids" ), string | "no_undefined" }, "}" ;
 
 source-edit-target = path-value | "glob", string ;
 ```

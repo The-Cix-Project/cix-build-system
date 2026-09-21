@@ -715,6 +715,87 @@ failure:
     return 0;
 }
 
+typedef struct {
+    const CbsNode *operation;
+    const CbsExecutionContext *context;
+    int failed;
+    const char *seen[128];
+    size_t seen_count;
+} LinkCheck;
+
+static int check_link_dependency(const char *dependency, void *user) {
+    LinkCheck *check = user;
+    size_t index;
+    for (index = 0; index < check->operation->child_count; ++index) {
+        const CbsNode *property = check->operation->children[index];
+        if (strcmp(property->name, "needs") == 0 &&
+            strcmp(property->value, dependency) == 0)
+            return 1;
+        if (strcmp(property->name, "forbids") == 0 &&
+            strcmp(property->value, dependency) == 0) {
+            char message[256];
+            snprintf(message, sizeof(message),
+                     "artifact links forbidden library `%s`", dependency);
+            assertion_error(check->operation, check->context, message);
+            check->failed = 1;
+            return 0;
+        }
+    }
+    if (check->seen_count < sizeof(check->seen) / sizeof(check->seen[0]))
+        check->seen[check->seen_count++] = dependency;
+    return 1;
+}
+
+int cbs_execute_links(const CbsNode *operation,
+                      const CbsExecutionContext *context) {
+    const char *root;
+    char *path = resolve_path(operation->value, context, &root);
+    LinkCheck check = {operation, context, 0, {0}, 0};
+    size_t index;
+
+    if (path == NULL || !safe_parents(path, root)) {
+        fs_error(operation, context, operation->value,
+                 "cannot inspect ELF dynamic dependencies");
+        free(path);
+        return 0;
+    }
+    if (!cbs_observe_dependencies(check_link_dependency, path, &check)) {
+        if (check.failed) {
+            free(path);
+            return 0;
+        }
+        fs_error(operation, context, operation->value,
+                 "cannot inspect ELF dynamic dependencies");
+        free(path);
+        return 0;
+    }
+    if (check.failed) {
+        free(path);
+        return 0;
+    }
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        if (strcmp(property->name, "needs") == 0) {
+            size_t seen;
+            int found = 0;
+            for (seen = 0; seen < check.seen_count; ++seen)
+                if (strcmp(check.seen[seen], property->value) == 0)
+                    found = 1;
+            if (!found) {
+                char message[256];
+                snprintf(message, sizeof(message),
+                         "artifact is missing required library `%s`",
+                         property->value);
+                assertion_error(operation, context, message);
+                free(path);
+                return 0;
+            }
+        }
+    }
+    free(path);
+    return 1;
+}
+
 /* Write replacement content through a temporary file and rename. */
 static int atomic_write_bytes(const char *path, const unsigned char *content,
                               size_t length, mode_t mode) {

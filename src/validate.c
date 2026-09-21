@@ -431,6 +431,25 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             validation_error(validator, operation, "CPDL-E3004",
                              "glob binding cardinality must be positive");
         break;
+    case CBS_NODE_LINKS:
+        validate_value(validator, operation, operation->value);
+        if (operation->value == NULL || operation->value[0] == '\0')
+            validation_error(validator, operation, "CPDL-E3004",
+                             "links requires an artifact path");
+        for (index = 0; index < operation->child_count; ++index) {
+            const CbsNode *property = operation->children[index];
+            if (property->name == NULL ||
+                (strcmp(property->name, "needs") != 0 &&
+                 strcmp(property->name, "forbids") != 0 &&
+                 strcmp(property->name, "no_undefined") != 0))
+                validation_error(validator, property, "CPDL-E3004",
+                                 "links accepts needs, forbids, or no_undefined");
+            else if (strcmp(property->name, "no_undefined") != 0 &&
+                     (property->value == NULL || property->value[0] == '\0'))
+                validation_error(validator, property, "CPDL-E3004",
+                                 "link library name must not be empty");
+        }
+        break;
     case CBS_NODE_COPY:
     case CBS_NODE_MOVE:
         validate_selector(validator, operation);

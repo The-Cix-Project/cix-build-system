@@ -566,6 +566,37 @@ static CbsNode *parse_glob_binding(CbsParser *parser) {
     return node;
 }
 
+static CbsNode *parse_links(CbsParser *parser) {
+    CbsToken *keyword = advance(parser);
+    CbsToken *path = consume_path(parser);
+    CbsNode *node = cbs_node_create(CBS_NODE_LINKS, keyword->location);
+    if (path != NULL)
+        node->value = cbs_duplicate(path->text);
+    if (consume_kind(parser, CBS_TOKEN_LBRACE, "{") != NULL)
+        while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+               current(parser)->kind != CBS_TOKEN_EOF) {
+            CbsToken *property = advance(parser);
+            CbsNode *item;
+            if (strcmp(property->text, "no_undefined") == 0) {
+                item = cbs_node_create(CBS_NODE_PROPERTY, property->location);
+                item->name = cbs_duplicate(property->text);
+            } else if (strcmp(property->text, "needs") == 0 ||
+                       strcmp(property->text, "forbids") == 0) {
+                CbsToken *value = consume_text_value(parser, "library name");
+                item = cbs_node_create(CBS_NODE_PROPERTY, property->location);
+                item->name = cbs_duplicate(property->text);
+                if (value != NULL)
+                    item->value = cbs_duplicate(value->text);
+            } else {
+                expected(parser, "needs, forbids, or no_undefined");
+                continue;
+            }
+            cbs_node_add(node, item);
+        }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 /* Parse a runtime assertion and its property block. */
 static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
@@ -1014,6 +1045,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         return parse_truncate(parser);
     if (is_word(parser, "glob"))
         return parse_glob_binding(parser);
+    if (is_word(parser, "links"))
+        return parse_links(parser);
     expected(parser, "phase operation");
     return NULL;
 }
