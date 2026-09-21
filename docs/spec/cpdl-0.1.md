@@ -705,7 +705,7 @@ require-symlink = "require", "symlink", path-value, "{",
                   "}" ;
 
 require-glob = "require", "glob", string, "{",
-               "count", integer,
+               ( "exactly" | "count" ), integer,
                "}" ;
 ```
 

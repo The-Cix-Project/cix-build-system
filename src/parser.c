@@ -603,7 +603,10 @@ static CbsNode *parse_require(CbsParser *parser) {
         }
     } else if (kind != NULL && strcmp(kind->text, "glob") == 0) {
         CbsToken *count;
-        consume_word(parser, "count");
+        if (is_word(parser, "exactly"))
+            advance(parser);
+        else
+            consume_word(parser, "count");
         count = consume_kind(parser, CBS_TOKEN_INTEGER, "cardinality");
         if (count != NULL)
             node->number = strtol(count->text, NULL, 10);

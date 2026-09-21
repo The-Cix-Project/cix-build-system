@@ -39,7 +39,7 @@ package "edit-assert-test" {
             count 2
         }
         require glob "${build}/matches/*.missing" {
-            count 0
+            exactly 0
         }
         write "${build}/link.mk" "LDFLAGS = -Wl,--version-script=libfoo.map -shared\nLDFLAGS2 = -Wl,--version-script=lib/bar.map\n"
         replace "${build}/link.mk" {
