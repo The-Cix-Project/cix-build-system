@@ -5,6 +5,9 @@ package "each-test" {
 
     build {
         mkdir "${dest}/usr/lib"
+        each "source" in { "src/syslogd.c" "lib/pidfile.c" } {
+            write "${build}/${each.source.basename}" "${each.source.dirname}/${each.source.stem}\n"
+        }
         write "${build}/expected-present" "x"
         each "lib" in { "libcap.so.2" "libcrypto.so.3" "libresolv.so.2" } {
             write "${build}/${each.lib}" "payload for ${each.lib}\n" chmod 0644

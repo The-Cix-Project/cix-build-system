@@ -739,6 +739,11 @@ bound item is usable wherever a string value is: paths, `run` arguments,
 written text, `require` targets, and `env` values. Block strings do not
 interpolate and are left unchanged; the bare form `$each.NAME` is not a value.
 Items are quoted strings and may themselves interpolate.
+The bound value also supports the lexical accessors `${each.NAME.basename}`,
+`${each.NAME.dirname}`, and `${each.NAME.stem}`. `basename` is the final path
+component, `dirname` is the preceding path (or `.` when there is none), and
+`stem` removes the final extension from the basename (except for a leading
+dotfile). These accessors do not access the filesystem.
 
 Each expansion is an independent block: an `env` binding made inside it ends
 with that item, and an `on_fail` at the end of the body runs for the item that

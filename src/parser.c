@@ -665,33 +665,148 @@ static char *replace_placeholder(const char *text, const char *placeholder,
     return result;
 }
 
+/* Return one path-derived view of an each item. These are lexical operations;
+ * they do not inspect the build filesystem. */
+static char *item_accessor(const char *item, const char *accessor) {
+    const char *slash = strrchr(item, '/');
+    const char *base = slash == NULL ? item : slash + 1;
+    const char *dot;
+
+    if (strcmp(accessor, "basename") == 0)
+        return cbs_duplicate(base);
+    if (strcmp(accessor, "dirname") == 0) {
+        if (slash == NULL)
+            return cbs_duplicate(".");
+        if (slash == item)
+            return cbs_duplicate("/");
+        return cbs_duplicate_range(item, (size_t)(slash - item));
+    }
+    if (strcmp(accessor, "stem") == 0) {
+        dot = strrchr(base, '.');
+        if (dot == NULL || dot == base)
+            return cbs_duplicate(base);
+        return cbs_duplicate_range(base, (size_t)(dot - base));
+    }
+    return NULL;
+}
+
+/* Replace `${each.NAME}` and its lexical path accessors in TEXT. */
+static char *replace_item_placeholders(const char *text, const char *name,
+                                       const char *item, int *invalid) {
+    char prefix[256];
+    size_t prefix_length;
+    size_t item_length = strlen(item);
+    size_t result_size;
+    size_t length = 0;
+    const char *cursor = text;
+    char *result;
+    int changed = 0;
+
+    if (snprintf(prefix, sizeof(prefix), "${each.%s", name) >=
+        (int)sizeof(prefix))
+        return NULL;
+    prefix_length = strlen(prefix);
+    /* There can be many placeholders. Each replacement is no longer than the
+     * complete item, so this conservative bound keeps the operation local and
+     * avoids reallocating while walking the string. */
+    result_size = strlen(text) + (strlen(text) / 2 + 1) * item_length + 1;
+    result = cbs_allocate(result_size);
+    while (*cursor != '\0') {
+        const char *opening = strstr(cursor, "${");
+        const char *end;
+        const char *suffix;
+        char *replacement = NULL;
+        size_t plain;
+
+        if (opening == NULL) {
+            plain = strlen(cursor);
+            memcpy(result + length, cursor, plain);
+            length += plain;
+            break;
+        }
+        plain = (size_t)(opening - cursor);
+        memcpy(result + length, cursor, plain);
+        length += plain;
+        end = strchr(opening + 2, '}');
+        if (end == NULL) {
+            plain = strlen(opening);
+            memcpy(result + length, opening, plain);
+            length += plain;
+            break;
+        }
+        suffix = opening + prefix_length;
+        if (strncmp(opening, prefix, prefix_length) == 0 &&
+            (suffix == end || *suffix == '.')) {
+            if (suffix == end)
+                replacement = cbs_duplicate(item);
+            else if (suffix + 1 < end) {
+                char accessor[32];
+                size_t accessor_length = (size_t)(end - suffix - 1);
+                if (accessor_length < sizeof(accessor)) {
+                    memcpy(accessor, suffix + 1, accessor_length);
+                    accessor[accessor_length] = '\0';
+                    replacement = item_accessor(item, accessor);
+                }
+                if (replacement == NULL)
+                    *invalid = 1;
+            } else {
+                *invalid = 1;
+            }
+            if (replacement != NULL) {
+                size_t replacement_length = strlen(replacement);
+                memcpy(result + length, replacement, replacement_length);
+                length += replacement_length;
+                free(replacement);
+                changed = 1;
+            } else {
+                plain = (size_t)(end + 1 - opening);
+                memcpy(result + length, opening, plain);
+                length += plain;
+            }
+        } else {
+            plain = (size_t)(end + 1 - opening);
+            memcpy(result + length, opening, plain);
+            length += plain;
+        }
+        cursor = end + 1;
+    }
+    result[length] = '\0';
+    if (!changed) {
+        free(result);
+        return NULL;
+    }
+    return result;
+}
+
 /* Bind one item throughout a cloned each body. Every quoted-string field
- * has `${each.NAME}` replaced; block strings do not interpolate and are left
- * alone, so the bound name behaves exactly like every other interpolation. */
-static void bind_item(CbsNode *node, const char *placeholder,
-                      const char *item) {
+ * has `${each.NAME}` or a path accessor replaced; block strings do not
+ * interpolate and are left alone. */
+static void bind_item(CbsNode *node, const char *name, const char *item,
+                      int *invalid) {
     size_t index;
     char *bound;
 
     if (node->name != NULL &&
-        (bound = replace_placeholder(node->name, placeholder, item)) != NULL) {
+        (bound = replace_item_placeholders(node->name, name, item, invalid)) !=
+            NULL) {
         free(node->name);
         node->name = bound;
     }
     if (node->value != NULL && node->flag != CBS_TOKEN_BLOCK_STRING &&
-        (bound = replace_placeholder(node->value, placeholder, item)) != NULL) {
+        (bound = replace_item_placeholders(node->value, name, item, invalid)) !=
+            NULL) {
         free(node->value);
         node->value = bound;
     }
     if (node->second_value != NULL &&
         node->second_flag != CBS_TOKEN_BLOCK_STRING &&
-        (bound = replace_placeholder(node->second_value, placeholder, item)) !=
-            NULL) {
+        (bound = replace_item_placeholders(node->second_value, name, item,
+                                           invalid)) != NULL) {
         free(node->second_value);
         node->second_value = bound;
     }
     for (index = 0; index < node->child_count; ++index)
-        bind_item(node->children[index], placeholder, item);
+        bind_item(node->children[index], name, item, invalid);
 }
 
 /* True when an already expanded nested each inside NODE bound NAME. */
@@ -718,6 +833,7 @@ static CbsNode *parse_each(CbsParser *parser, int diagnostic_only) {
     CbsNode *expansion;
     char placeholder[256];
     size_t index;
+    int invalid_accessor = 0;
 
     name = consume_kind(parser, CBS_TOKEN_STRING, "each item name string");
     consume_word(parser, "in");
@@ -767,11 +883,14 @@ static CbsNode *parse_each(CbsParser *parser, int diagnostic_only) {
             block->number = (long)index + 1;
             for (child = 0; child < body->child_count; ++child) {
                 CbsNode *copy = clone_node(body->children[child]);
-                bind_item(copy, placeholder, block->value);
+                bind_item(copy, name->text, block->value, &invalid_accessor);
                 cbs_node_add(block, copy);
             }
             cbs_node_add(expansion, block);
         }
+        if (invalid_accessor)
+            parse_error(parser, name->location,
+                        "each accessor must be basename, dirname, or stem");
     }
     cbs_node_destroy(items);
     cbs_node_destroy(body);

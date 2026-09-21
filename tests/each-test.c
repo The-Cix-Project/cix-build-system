@@ -146,6 +146,12 @@ static int run_test(const char *recipe_path) {
     path_join(path, sizeof(path), dest, "usr/lib/libresolv.so.2");
     if (!regular_with(path, "payload for libresolv.so.2\n"))
         goto cleanup;
+    path_join(path, sizeof(path), build, "syslogd.c");
+    if (!regular_with(path, "src/syslogd\n"))
+        goto cleanup;
+    path_join(path, sizeof(path), build, "pidfile.c");
+    if (!regular_with(path, "lib/pidfile\n"))
+        goto cleanup;
     /* Nested each: both names bind independently. */
     path_join(path, sizeof(path), build, "O2-beta");
     if (!regular_with(path, "O2/beta\n"))
