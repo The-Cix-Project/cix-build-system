@@ -513,6 +513,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     }
     string_list_add(&arguments, cbs_duplicate(program));
     string_list_add(&environment, cbs_duplicate("PATH=/usr/bin:/bin"));
+    /* Give reproducible-build-aware tools a stable epoch instead of the wall
+     * clock. An explicit CPDL epoch binding can replace this default later. */
+    string_list_add(&environment, cbs_duplicate("SOURCE_DATE_EPOCH=0"));
     for (index = 0; index < context->environment_count; ++index)
         environment_set(&environment, context->environment[index].name,
                         environment_entry(context->environment[index].name,

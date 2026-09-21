@@ -257,6 +257,12 @@ remain the immutable build input until a resolver selects a new release.
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
 
+Builds set `SOURCE_DATE_EPOCH=0` in every child process. CIXPKG manifests and
+payloads are emitted in canonical path order with normalized ownership; CBS
+does not claim that arbitrary toolchains produce bit-identical output, but it
+provides this stable epoch and deterministic packaging boundary for tools that
+honor it.
+
 `license` is an optional SPDX expression carried into the artifact manifest as
 an `m license <expression>` line; it must be a non-empty single-line string.
 `metadata { "key" "value" ... }` is an optional block of opaque string pairs
