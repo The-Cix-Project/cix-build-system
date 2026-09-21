@@ -97,6 +97,7 @@ typedef enum {
     CBS_NODE_TRUNCATE,
     CBS_NODE_GLOB_BIND,
     CBS_NODE_LINKS,
+    CBS_NODE_PATCH,
     CBS_NODE_REQUIRE,
     CBS_NODE_LIST,
     CBS_NODE_ON_FAIL,
@@ -431,6 +432,8 @@ int cbs_execute_edit_assertion(const CbsNode *operation,
 int cbs_execute_glob_binding(const CbsNode *operation,
                              const CbsExecutionContext *context);
 int cbs_execute_links(const CbsNode *operation,
+                      const CbsExecutionContext *context);
+int cbs_execute_patch(const CbsNode *operation,
                       const CbsExecutionContext *context);
 /* Resolve and validate a path beneath an execution root. */
 char *cbs_resolve_confined_path(const char *logical,

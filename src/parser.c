@@ -594,6 +594,28 @@ static CbsNode *parse_links(CbsParser *parser) {
     return node;
 }
 
+static CbsNode *parse_patch(CbsParser *parser) {
+    CbsToken *keyword = advance(parser);
+    CbsToken *file = consume_kind(parser, CBS_TOKEN_STRING, "patch file");
+    CbsToken *digest = NULL;
+    CbsToken *strip = NULL;
+    CbsNode *node = cbs_node_create(CBS_NODE_PATCH, keyword->location);
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    consume_word(parser, "sha256");
+    digest = consume_kind(parser, CBS_TOKEN_STRING, "patch digest");
+    if (is_word(parser, "strip")) {
+        advance(parser);
+        strip = consume_kind(parser, CBS_TOKEN_INTEGER, "strip count");
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    if (file != NULL)
+        node->name = cbs_duplicate(file->text);
+    if (digest != NULL)
+        node->value = cbs_duplicate(digest->text);
+    node->number = strip == NULL ? 0 : strtol(strip->text, NULL, 10);
+    return node;
+}
+
 /* Parse a runtime assertion and its property block. */
 static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
@@ -1044,6 +1066,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         return parse_glob_binding(parser);
     if (is_word(parser, "links"))
         return parse_links(parser);
+    if (is_word(parser, "patch"))
+        return parse_patch(parser);
     expected(parser, "phase operation");
     return NULL;
 }

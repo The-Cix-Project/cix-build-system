@@ -5,6 +5,15 @@ package "edit-assert-test" {
 
     build {
         mkdir "${build}/matches"
+        write "${src}/patch-target.txt" "old\nkeep\n"
+        patch "patch-test.diff" {
+            sha256 "5532d3fb640c172c20104b35415774b5fd3f8910eef21154fedbeccbcdbe3574"
+            strip 1
+        }
+        require file "${src}/patch-target.txt" {
+            exists
+            contains "new\nkeep"
+        }
         write "${build}/input.bin" "old middle old" chmod 0640
         write "${build}/truncate.txt" "keep\nCUT\ndiscarded\n"
         truncate "${build}/truncate.txt" {

@@ -417,6 +417,8 @@ static int execute_operation(const CbsNode *operation,
         return cbs_execute_glob_binding(operation, context);
     if (operation->kind == CBS_NODE_LINKS)
         return cbs_execute_links(operation, context);
+    if (operation->kind == CBS_NODE_PATCH)
+        return cbs_execute_patch(operation, context);
     if (operation->kind == CBS_NODE_REPLACE ||
         operation->kind == CBS_NODE_INSERT ||
         operation->kind == CBS_NODE_TRUNCATE ||

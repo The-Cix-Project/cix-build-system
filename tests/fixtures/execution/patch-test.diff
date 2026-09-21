@@ -1,0 +1,6 @@
+--- a/patch-target.txt
++++ b/patch-target.txt
+@@ -1,2 +1,2 @@
+-old
++new
+ keep

@@ -164,6 +164,8 @@ static int run_test(const char *recipe_path) {
                 ? cbs_execute_filesystem(item, &context)
                 : item->kind == CBS_NODE_GLOB_BIND
                 ? cbs_execute_glob_binding(item, &context)
+                : item->kind == CBS_NODE_PATCH
+                ? cbs_execute_patch(item, &context)
                 : cbs_execute_edit_assertion(item, &context);
         if (!success)
             goto cleanup;

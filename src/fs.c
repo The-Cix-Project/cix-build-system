@@ -24,6 +24,10 @@ typedef struct {
 
 /* Forward-declare parent confinement validation. */
 static int safe_parents(const char *path, const char *root);
+static unsigned char *read_regular(const char *path, size_t *length,
+                                   mode_t *mode);
+static int atomic_write_bytes(const char *path, const unsigned char *content,
+                              size_t length, mode_t mode);
 
 /* Emit one located filesystem-operation diagnostic. */
 static void fs_error(const CbsNode *operation,
@@ -794,6 +798,201 @@ int cbs_execute_links(const CbsNode *operation,
     }
     free(path);
     return 1;
+}
+
+typedef struct {
+    char **items;
+    size_t count;
+    size_t capacity;
+} PatchLines;
+
+static void patch_lines_destroy(PatchLines *lines) {
+    size_t index;
+    for (index = 0; index < lines->count; ++index)
+        free(lines->items[index]);
+    free(lines->items);
+}
+
+static int patch_lines_add(PatchLines *lines, const char *value, size_t length) {
+    if (lines->count == lines->capacity) {
+        size_t capacity = lines->capacity == 0 ? 16 : lines->capacity * 2;
+        lines->items = cbs_reallocate(lines->items,
+                                      capacity * sizeof(*lines->items));
+        lines->capacity = capacity;
+    }
+    lines->items[lines->count++] = cbs_duplicate_range(value, length);
+    return 1;
+}
+
+static int patch_split_lines(const unsigned char *data, size_t length,
+                             PatchLines *lines, int *trailing_newline) {
+    size_t start = 0;
+    *trailing_newline = length > 0 && data[length - 1] == '\n';
+    while (start < length) {
+        size_t end = start;
+        while (end < length && data[end] != '\n')
+            ++end;
+        if (end > start && data[end - 1] == '\r')
+            --end;
+        patch_lines_add(lines, (const char *)data + start, end - start);
+        start = end < length ? end + 1 : end;
+    }
+    return 1;
+}
+
+static int patch_path(const char *header, long strip, char *output,
+                      size_t output_size) {
+    const char *path = header;
+    long index;
+    while (*path == ' ')
+        ++path;
+    for (index = 0; index < strip; ++index) {
+        path = strchr(path, '/');
+        if (path == NULL)
+            return 0;
+        ++path;
+    }
+    return *path != '\0' && snprintf(output, output_size, "%s", path) <
+           (int)output_size;
+}
+
+static int patch_apply_lines(PatchLines *source, PatchLines *patch,
+                             size_t first_hunk, PatchLines *result,
+                             int trailing_newline) {
+    size_t source_index = 0;
+    size_t patch_index = first_hunk;
+    while (patch_index < patch->count) {
+        size_t old_start, old_count, new_start, new_count;
+        size_t hunk_source;
+        int parsed = sscanf(patch->items[patch_index], "@@ -%zu,%zu +%zu,%zu",
+                            &old_start, &old_count, &new_start, &new_count);
+        if (parsed != 4) {
+            old_count = new_count = 1;
+            if (sscanf(patch->items[patch_index], "@@ -%zu +%zu", &old_start,
+                       &new_start) != 2)
+                return 0;
+        }
+        (void)new_start;
+        if (old_start == 0 || old_start - 1 < source_index ||
+            old_start - 1 > source->count)
+            return 0;
+        while (source_index < old_start - 1) {
+            patch_lines_add(result, source->items[source_index],
+                            strlen(source->items[source_index]));
+            ++source_index;
+        }
+        ++patch_index;
+        hunk_source = source_index;
+        while (patch_index < patch->count && patch->items[patch_index][0] !=
+                                                   '@') {
+            const char *line = patch->items[patch_index++];
+            if (line[0] == '\\')
+                continue;
+            if (line[0] != ' ' && line[0] != '-' && line[0] != '+')
+                return 0;
+            if (line[0] == '+' ) {
+                patch_lines_add(result, line + 1, strlen(line + 1));
+            } else {
+                if (source_index >= source->count ||
+                    strcmp(source->items[source_index], line + 1) != 0)
+                    return 0;
+                if (line[0] == ' ')
+                    patch_lines_add(result, source->items[source_index],
+                                     strlen(source->items[source_index]));
+                ++source_index;
+            }
+        }
+        if (source_index - hunk_source != old_count)
+            return 0;
+    }
+    while (source_index < source->count)
+        patch_lines_add(result, source->items[source_index],
+                        strlen(source->items[source_index++]));
+    (void)trailing_newline;
+    return 1;
+}
+
+int cbs_execute_patch(const CbsNode *operation,
+                      const CbsExecutionContext *context) {
+    char file_path[4096], target_relative[4096], target_path[4096];
+    char recipe_directory[4096], digest[65];
+    const char *slash = strrchr(context->recipe_path, '/');
+    FILE *file;
+    long length;
+    unsigned char *data;
+    PatchLines patch = {0}, source = {0}, result = {0};
+    int patch_newline, source_newline;
+    size_t index, header = 0;
+    mode_t mode;
+    unsigned char *source_data;
+    size_t source_length, result_length;
+    int success = 0;
+
+    snprintf(recipe_directory, sizeof(recipe_directory), "%.*s",
+             slash == NULL ? 1 : (int)(slash - context->recipe_path),
+             slash == NULL ? "." : context->recipe_path);
+    snprintf(file_path, sizeof(file_path), "%s/%s", recipe_directory,
+             operation->name);
+    if (!cbs_digest_file(file_path, digest) || strcmp(digest, operation->value) != 0)
+        goto failure;
+    file = fopen(file_path, "rb");
+    if (file == NULL || fseek(file, 0, SEEK_END) != 0 ||
+        (length = ftell(file)) < 0 || fseek(file, 0, SEEK_SET) != 0)
+        goto failure;
+    data = cbs_allocate((size_t)length + 1);
+    if (fread(data, 1, (size_t)length, file) != (size_t)length) {
+        fclose(file); free(data); goto failure;
+    }
+    fclose(file);
+    patch_split_lines(data, (size_t)length, &patch, &patch_newline);
+    free(data);
+    if (patch.count < 3 || strncmp(patch.items[0], "--- ", 4) != 0 ||
+        strncmp(patch.items[1], "+++ ", 4) != 0 ||
+        !patch_path(patch.items[1] + 4, operation->number, target_relative,
+                    sizeof(target_relative)))
+        goto failure;
+    snprintf(target_path, sizeof(target_path), "%s/%s", context->src,
+             target_relative);
+    source_data = read_regular(target_path, &source_length, &mode);
+    if (source_data == NULL)
+        goto failure;
+    patch_split_lines(source_data, source_length, &source, &source_newline);
+    free(source_data);
+    for (index = 2; index < patch.count; ++index)
+        if (strncmp(patch.items[index], "@@ ", 3) == 0) {
+            header = index;
+            break;
+        }
+    if (header == 0 || !patch_apply_lines(&source, &patch, header, &result,
+                                          source_newline))
+        goto failure;
+    result_length = 0;
+    for (index = 0; index < result.count; ++index)
+        result_length += strlen(result.items[index]) + 1;
+    if (!source_newline && result_length > 0)
+        --result_length;
+    data = cbs_allocate(result_length + 1);
+    result_length = 0;
+    for (index = 0; index < result.count; ++index) {
+        size_t item_length = strlen(result.items[index]);
+        memcpy(data + result_length, result.items[index], item_length);
+        result_length += item_length;
+        if (index + 1 < result.count || source_newline)
+            data[result_length++] = '\n';
+    }
+    data[result_length] = '\0';
+    if (!atomic_write_bytes(target_path, data, result_length, mode)) {
+        free(data); goto failure;
+    }
+    free(data);
+    success = 1;
+failure:
+    if (!success)
+        fs_error(operation, context, operation->name, "patch application failed");
+    patch_lines_destroy(&patch);
+    patch_lines_destroy(&source);
+    patch_lines_destroy(&result);
+    return success;
 }
 
 /* Write replacement content through a temporary file and rename. */

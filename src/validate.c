@@ -448,6 +448,16 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                                  "link library name must not be empty");
         }
         break;
+    case CBS_NODE_PATCH:
+        validate_value(validator, operation, operation->name);
+        validate_value(validator, operation, operation->value);
+        if (operation->value == NULL || !valid_sha256(operation->value))
+            validation_error(validator, operation, "CPDL-E3004",
+                             "patch requires a lowercase SHA-256 digest");
+        if (operation->number < 0)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "patch strip count must not be negative");
+        break;
     case CBS_NODE_COPY:
     case CBS_NODE_MOVE:
         validate_selector(validator, operation);

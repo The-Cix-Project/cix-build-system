@@ -380,6 +380,7 @@ operation = run-operation
           | truncate-operation
           | glob-binding-operation
           | links-operation
+          | patch-operation
           | require-operation
           | each-operation
           | stage-operation ;
@@ -648,6 +649,9 @@ glob-binding-operation = "glob", string, "=", string,
 links-operation = "links", path-value, "{", {
                   ( "needs" | "forbids" ), string }, "}" ;
 
+patch-operation = "patch", string, "{", "sha256", string,
+                  [ "strip", integer ], "}" ;
+
 source-edit-target = path-value | "glob", string ;
 ```
 
@@ -678,6 +682,12 @@ expressions or locale-dependent text matching.
 the bytes before the one literal `from` match and discards that marker and all
 following bytes. It preserves the file mode and commits atomically; a failed
 count or filesystem operation leaves the original unchanged.
+
+`patch` reads a unified-diff file from the recipe directory, verifies its
+declared SHA-256, and applies exact-context hunks to the source tree. Context
+must match byte-for-byte, with no fuzz or reject files; a failed digest,
+context check, or write leaves the source unchanged. `strip` removes that
+many leading path components from the patch's `+++` path.
 
 `glob "NAME" = PATTERN` resolves a confined glob in sorted path order and
 binds its match as `${glob.NAME}` for later operations. It requires exactly
