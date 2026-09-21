@@ -1378,6 +1378,14 @@ static int require_path(const CbsNode *operation,
     }
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
+        if (strcmp(property->name, "executable") == 0) {
+            if ((mode & 0111) == 0) {
+                assertion_error(operation, context,
+                                "required file must be executable");
+                goto done;
+            }
+            continue;
+        }
         if (strcmp(property->name, "nonempty") == 0) {
             if (content_length == 0) {
                 assertion_error(operation, context,

@@ -560,13 +560,15 @@ static CbsNode *parse_require(CbsParser *parser) {
     } else {
         consume_word(parser, "exists");
         while (is_word(parser, "contains") || is_word(parser, "same_as") ||
-               is_word(parser, "nonempty") || is_word(parser, "target")) {
+               is_word(parser, "nonempty") || is_word(parser, "executable") ||
+               is_word(parser, "target")) {
             CbsToken *text;
             CbsNode *property;
             const char *property_name = current(parser)->text;
             int path_valued = strcmp(property_name, "same_as") == 0 ||
                               strcmp(property_name, "target") == 0;
-            int nonempty = strcmp(property_name, "nonempty") == 0;
+            int nonempty = strcmp(property_name, "nonempty") == 0 ||
+                           strcmp(property_name, "executable") == 0;
             advance(parser);
             text = nonempty ? NULL
                    : path_valued

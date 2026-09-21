@@ -566,9 +566,11 @@ while replacement of a non-empty directory fails. `remove` removes files,
 empty directories, and symlinks. Removing a non-empty directory requires
 `tree`; recursive removal never traverses a symlinked directory.
 
-File requirements may assert `exists`, `nonempty`, `contains`, and `same_as`.
+File requirements may assert `exists`, `nonempty`, `executable`, `contains`,
+and `same_as`.
 `nonempty` requires a regular file with at least one byte; `contains` checks
-for a byte string and `same_as` compares the complete file contents.
+for a byte string; `executable` requires at least one execute bit; and `same_as`
+compares the complete file contents.
 
 `symlink TARGET to LINK_PATH` creates `LINK_PATH` with the exact target bytes.
 CBS does not canonicalize the target. An existing destination fails.
@@ -670,7 +672,8 @@ require-operation = require-file
 
 require-file = "require", "file", path-value, "{",
                "exists",
-               { "nonempty" | "contains", text-value | "same_as", path-value },
+               { "nonempty" | "executable" | "contains", text-value
+               | "same_as", path-value },
                "}" ;
 
 require-directory = "require", "directory", path-value, "{",

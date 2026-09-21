@@ -529,7 +529,8 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                 const char *name = property->name == NULL ? "" : property->name;
                 int file_property = strcmp(name, "contains") == 0 ||
                                     strcmp(name, "same_as") == 0 ||
-                                    strcmp(name, "nonempty") == 0;
+                                    strcmp(name, "nonempty") == 0 ||
+                                    strcmp(name, "executable") == 0;
                 if (strcmp(kind, "directory") == 0)
                     validation_error(validator, property, "CPDL-E3004",
                                      "directory assertion accepts only exists");
@@ -540,7 +541,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                 else if (strcmp(kind, "file") == 0 && !file_property)
                     validation_error(
                         validator, property, "CPDL-E3004",
-                        "file assertion must use contains, same_as, or nonempty");
+                        "file assertion must use contains, same_as, nonempty, or executable");
                 if (property->name != NULL &&
                     strcmp(property->name, "nonempty") != 0)
                     validate_value(validator, property, property->value);
