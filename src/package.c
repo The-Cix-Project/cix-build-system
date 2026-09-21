@@ -33,6 +33,40 @@ static const char *declared_compiler(const CbsNode *document) {
     return NULL;
 }
 
+/* Append provenance facts to the canonical manifest before it is packaged. */
+static int append_provenance(const char *manifest, const char *recipe,
+                             const char *recipe_text, const CbsSourceSet *sources,
+                             const CbsExecutionContext *context) {
+    FILE *file;
+    char digest[65];
+    size_t index;
+
+    if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
+        return 0;
+    file = fopen(manifest, "ab");
+    if (file == NULL)
+        return 0;
+    if (fprintf(file, "m recipe %s\n", recipe) < 0 ||
+        fprintf(file, "m recipe_sha256 %s\n", digest) < 0 ||
+        fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
+        fprintf(file, "m architecture %s\n", context->arch) < 0 ||
+        fprintf(file, "m toolchain %s\n", context->compiler == NULL
+                                               ? "none"
+                                               : context->compiler) < 0)
+        goto failure;
+    for (index = 0; index < sources->count; ++index) {
+        const CbsSource *source = &sources->items[index];
+        if (source->url_count == 0 ||
+            fprintf(file, "m source %s %s %s\n", source->name,
+                    source->urls[0], source->sha256) < 0)
+            goto failure;
+    }
+    return fclose(file) == 0;
+failure:
+    fclose(file);
+    return 0;
+}
+
 /* Return the artifact format selected by the immutable recipe revision. */
 static const char *declared_format(const CbsNode *document) {
     const CbsNode *package;
@@ -396,6 +430,12 @@ int cbs_build_standalone_with_events_policy(
                            manifest_error[0] != '\0'
                                ? manifest_error
                                : "cannot write staged-tree manifest");
+        if (ok && !append_provenance(manifest, recipe, text, &sources,
+                                     &context)) {
+            pipeline_error(recipe, text, document->location, "provenance",
+                           "cannot append build provenance");
+            ok = 0;
+        }
         if (ok) {
             ok = cbs_manifest_collect_with_error(
                 dest, &entries, &entry_count, manifest_error,

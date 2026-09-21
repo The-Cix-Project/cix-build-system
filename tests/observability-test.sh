@@ -14,7 +14,7 @@ CBS_LOG_DIR="$logs" "$cbs" build tests/fixtures/observability-success.cbs \
 
 grep -F '"type":"build-begin"' "$root/events" >/dev/null
 grep -F '"type":"command-end"' "$root/events" >/dev/null
-grep -F '"environment_names":"PATH,CBS_SECRET_TOKEN"' "$root/events" >/dev/null
+grep -F '"environment_names":"PATH,SOURCE_DATE_EPOCH,CBS_SECRET_TOKEN"' "$root/events" >/dev/null
 grep -E '"tree_files":[1-9]' "$root/events" >/dev/null
 grep -E '"tree_bytes":[1-9]' "$root/events" >/dev/null
 grep -E '"timestamp_ms":[1-9]' "$root/events" >/dev/null

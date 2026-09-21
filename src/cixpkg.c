@@ -389,7 +389,7 @@ int cbs_cixpkg_verify_tree(const char *package_path, char *identity,
             } else if (type == 'm') {
                 char key[32], value[4096];
                 if (sscanf(line, "m %31s %4095[^\n]", key, value) != 2 ||
-                    strcmp(key, "license") != 0 || value[0] == '\0') {
+                    value[0] == '\0') {
                     fclose(file);
                     free(data);
                     free(manifest);
@@ -644,7 +644,7 @@ int cbs_cixpkg_extract(const char *package_path, const char *destination) {
             } else if (type == 'm') {
                 char key[32], value[4096];
                 if (sscanf(line, "m %31s %4095[^\n]", key, value) != 2 ||
-                    strcmp(key, "license") != 0 || value[0] == '\0')
+                    value[0] == '\0')
                     goto cleanup;
                 continue;
             } else

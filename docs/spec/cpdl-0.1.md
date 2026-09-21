@@ -263,6 +263,11 @@ does not claim that arbitrary toolchains produce bit-identical output, but it
 provides this stable epoch and deterministic packaging boundary for tools that
 honor it.
 
+CIXPKG manifests also record provenance metadata: the recipe path and digest,
+CBS version, architecture, declared toolchain, and each declared source's
+name, first URL, and SHA-256. The recipe digest covers the published recipe
+bytes supplied to CBS.
+
 `license` is an optional SPDX expression carried into the artifact manifest as
 an `m license <expression>` line; it must be a non-empty single-line string.
 `metadata { "key" "value" ... }` is an optional block of opaque string pairs
