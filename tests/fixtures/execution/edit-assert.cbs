@@ -13,6 +13,10 @@ package "edit-assert-test" {
         }
         write "${build}/matches/a" "a"
         write "${build}/matches/b" "b"
+        glob "selected" = "${build}/matches/a"
+        require file "${glob.selected}" {
+            exists
+        }
         replace "${build}/input.bin" {
             from "old"
             to "new"

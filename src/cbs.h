@@ -95,6 +95,7 @@ typedef enum {
     CBS_NODE_REPLACE,
     CBS_NODE_INSERT,
     CBS_NODE_TRUNCATE,
+    CBS_NODE_GLOB_BIND,
     CBS_NODE_REQUIRE,
     CBS_NODE_LIST,
     CBS_NODE_ON_FAIL,
@@ -172,6 +173,8 @@ typedef struct {
     const char *name;
     char *value;
 } CbsOutputBinding;
+
+typedef CbsOutputBinding CbsGlobBinding;
 
 typedef struct {
     /* Environment variable name visible to a phase. */
@@ -346,6 +349,9 @@ typedef struct {
     CbsOutputBinding *output_bindings;
     size_t output_binding_count;
     size_t output_binding_capacity;
+    CbsGlobBinding *glob_bindings;
+    size_t glob_binding_count;
+    size_t glob_binding_capacity;
     CbsPhaseEvent phase_event;
     /* State passed to the phase-event callback. */
     void *phase_event_user;
@@ -421,6 +427,8 @@ int cbs_execute_materialize(const CbsNode *operation,
 /* Apply a source edit and assert its expected match cardinality. */
 int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
+int cbs_execute_glob_binding(const CbsNode *operation,
+                             const CbsExecutionContext *context);
 /* Resolve and validate a path beneath an execution root. */
 char *cbs_resolve_confined_path(const char *logical,
                                 const CbsExecutionContext *context);

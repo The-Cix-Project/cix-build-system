@@ -642,6 +642,10 @@ static void path_list_destroy(PathList *list) {
 }
 
 /* Select source paths for copy/remove operations. */
+static void assertion_error(const CbsNode *operation,
+                            const CbsExecutionContext *context,
+                            const char *message);
+
 static int select_paths(const CbsNode *operation,
                         const CbsExecutionContext *context, PathList *paths) {
     const char *root;
@@ -662,6 +666,53 @@ static int select_paths(const CbsNode *operation,
         free(resolved);
     }
     return 1;
+}
+
+/* Resolve one confined glob and publish its match as `${glob.NAME}`. */
+int cbs_execute_glob_binding(const CbsNode *operation,
+                             const CbsExecutionContext *context) {
+    const char *root;
+    char *pattern = resolve_path(operation->value, context, &root);
+    PathList paths;
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
+    size_t next;
+
+    memset(&paths, 0, sizeof(paths));
+    if (pattern == NULL || !safe_parents(pattern, root))
+        goto failure;
+    collect_matches(root, pattern, &paths);
+    qsort(paths.items, paths.count, sizeof(*paths.items), compare_paths);
+    if (paths.count != (size_t)operation->number) {
+        char message[256];
+        snprintf(message, sizeof(message),
+                 "glob binding expected %ld matches but found %lu",
+                 operation->number, (unsigned long)paths.count);
+        assertion_error(operation, context, message);
+        free(pattern);
+        path_list_destroy(&paths);
+        return 0;
+    }
+    next = mutable_context->glob_binding_count;
+    if (next == mutable_context->glob_binding_capacity) {
+        size_t capacity = next == 0 ? 4 : next * 2;
+        mutable_context->glob_bindings = cbs_reallocate(
+            mutable_context->glob_bindings,
+            capacity * sizeof(*mutable_context->glob_bindings));
+        mutable_context->glob_binding_capacity = capacity;
+    }
+    mutable_context->glob_bindings[next].name = operation->name;
+    mutable_context->glob_bindings[next].value = cbs_duplicate(paths.items[0]);
+    mutable_context->glob_binding_count++;
+    free(pattern);
+    path_list_destroy(&paths);
+    return 1;
+
+failure:
+    errno = ENOENT;
+    fs_error(operation, context, operation->value, "glob binding failed");
+    free(pattern);
+    path_list_destroy(&paths);
+    return 0;
 }
 
 /* Write replacement content through a temporary file and rename. */

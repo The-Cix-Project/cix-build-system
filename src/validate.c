@@ -111,6 +111,8 @@ static int known_value_name(Validator *validator, const char *name,
     }
     if (length > 7 && strncmp(name, "stdout.", 7) == 0)
         return 1;
+    if (length > 5 && strncmp(name, "glob.", 5) == 0)
+        return 1;
     return 0;
 }
 
@@ -416,6 +418,18 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         if (operation->number < 1)
             validation_error(validator, operation, "CPDL-E3004",
                              "truncate cardinality must be positive");
+        break;
+    case CBS_NODE_GLOB_BIND:
+        if (!valid_environment_name(operation->name))
+            validation_error(validator, operation, "CPDL-E3004",
+                             "invalid glob binding name");
+        validate_value(validator, operation, operation->value);
+        if (operation->value == NULL || !valid_glob(operation->value))
+            validation_error(validator, operation, "CPDL-E3004",
+                             "invalid glob binding expression");
+        if (operation->number < 1)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "glob binding cardinality must be positive");
         break;
     case CBS_NODE_COPY:
     case CBS_NODE_MOVE:

@@ -542,6 +542,30 @@ static CbsNode *parse_truncate(CbsParser *parser) {
     return node;
 }
 
+/* Parse `glob "NAME" = PATTERN [exactly COUNT]`. */
+static CbsNode *parse_glob_binding(CbsParser *parser) {
+    CbsToken *keyword = advance(parser);
+    CbsToken *name = consume_kind(parser, CBS_TOKEN_STRING, "glob binding name");
+    CbsToken *pattern;
+    CbsToken *count = NULL;
+    CbsNode *node = cbs_node_create(CBS_NODE_GLOB_BIND, keyword->location);
+
+    consume_kind(parser, CBS_TOKEN_EQUAL, "=");
+    pattern = consume_text_value(parser, "glob pattern");
+    if (is_word(parser, "exactly")) {
+        advance(parser);
+        count = consume_kind(parser, CBS_TOKEN_INTEGER, "cardinality");
+    }
+    if (name != NULL)
+        node->name = cbs_duplicate(name->text);
+    if (pattern != NULL) {
+        node->value = cbs_duplicate(pattern->text);
+        node->flag = pattern->kind;
+    }
+    node->number = count == NULL ? 1 : strtol(count->text, NULL, 10);
+    return node;
+}
+
 /* Parse a runtime assertion and its property block. */
 static CbsNode *parse_require(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "require");
@@ -985,6 +1009,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
         return parse_edit(parser, 1);
     if (is_word(parser, "truncate"))
         return parse_truncate(parser);
+    if (is_word(parser, "glob"))
+        return parse_glob_binding(parser);
     expected(parser, "phase operation");
     return NULL;
 }

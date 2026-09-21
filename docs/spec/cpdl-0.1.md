@@ -378,6 +378,7 @@ operation = run-operation
           | replace-operation
           | insert-operation
           | truncate-operation
+          | glob-binding-operation
           | require-operation
           | each-operation
           | stage-operation ;
@@ -640,6 +641,9 @@ insert-operation = "insert", source-edit-target, "{",
 truncate-operation = "truncate", path-value, "{", "from", text-value,
                      "exactly", integer, "}" ;
 
+glob-binding-operation = "glob", string, "=", string,
+                         [ "exactly", integer ] ;
+
 source-edit-target = path-value | "glob", string ;
 ```
 
@@ -670,6 +674,12 @@ expressions or locale-dependent text matching.
 the bytes before the one literal `from` match and discards that marker and all
 following bytes. It preserves the file mode and commits atomically; a failed
 count or filesystem operation leaves the original unchanged.
+
+`glob "NAME" = PATTERN` resolves a confined glob in sorted path order and
+binds its match as `${glob.NAME}` for later operations. It requires exactly
+one match by default; `exactly N` permits an explicit multi-match count but
+still binds the first sorted match. A count mismatch or filesystem failure
+does not publish a binding.
 
 ### 4.7 Assertions and globs
 

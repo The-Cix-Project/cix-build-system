@@ -222,6 +222,13 @@ static const char *context_value(const CbsExecutionContext *context,
                         length - 7) == 0)
                 return context->output_bindings[index].value;
     }
+    if (length > 5 && strncmp(name, "glob.", 5) == 0) {
+        for (index = 0; index < context->glob_binding_count; ++index)
+            if (strlen(context->glob_bindings[index].name) == length - 5 &&
+                strncmp(context->glob_bindings[index].name, name + 5,
+                        length - 5) == 0)
+                return context->glob_bindings[index].value;
+    }
     return NULL;
 }
 

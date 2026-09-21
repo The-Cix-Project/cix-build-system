@@ -413,6 +413,8 @@ static int execute_operation(const CbsNode *operation,
     }
     if (operation->kind == CBS_NODE_MATERIALIZE)
         return cbs_execute_materialize(operation, context);
+    if (operation->kind == CBS_NODE_GLOB_BIND)
+        return cbs_execute_glob_binding(operation, context);
     if (operation->kind == CBS_NODE_REPLACE ||
         operation->kind == CBS_NODE_INSERT ||
         operation->kind == CBS_NODE_TRUNCATE ||
