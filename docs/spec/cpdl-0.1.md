@@ -477,6 +477,12 @@ current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
 `system`, and `popen` are not conforming execution paths because they admit
 ambient environment or shell behavior.
 
+`stdout file PATH` captures bounded command output for later assertions or
+diagnostics. The limit is 64 KiB; exceeding it fails with `CPDL-E4001` and
+does not create a partial artifact. It is not a general-purpose output
+redirect; commands that produce large files should write them directly or use
+a filesystem operation after producing a declared source.
+
 `env "NAME" = value` creates or replaces one command-local environment binding.
 It does not affect later commands. Names are POSIX portable names in either
 case, `[A-Za-z_][A-Za-z0-9_]*` — lowercase autoconf and libtool cache
