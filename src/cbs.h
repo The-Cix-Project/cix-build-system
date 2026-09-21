@@ -459,12 +459,20 @@ int cbs_manifest_compare(const void *left, const void *right);
 /* Collect and sort every supported entry beneath a staged root. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count);
+int cbs_manifest_collect_with_error(const char *root,
+                                    CbsManifestEntry **entries,
+                                    size_t *count, char *error,
+                                    size_t error_size);
 /* Release a manifest-entry array and its owned strings. */
 void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count);
 /* Write a deterministic typed manifest for a staged root. */
 int cbs_manifest_write(const char *root, const char *output);
 int cbs_manifest_write_with_license(const char *root, const char *output,
                                     const char *license);
+int cbs_manifest_write_with_license_error(const char *root,
+                                          const char *output,
+                                          const char *license, char *error,
+                                          size_t error_size);
 /* Build a package from an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);

@@ -193,6 +193,8 @@ int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 
 int cbs_workspace_prepare(const char *);
 int cbs_manifest_collect(const char *, CbsManifestEntry **, size_t *);
+int cbs_manifest_collect_with_error(const char *, CbsManifestEntry **,
+                                    size_t *, char *, size_t);
 void cbs_manifest_entries_destroy(CbsManifestEntry *, size_t);
 int cbs_manifest_write(const char *, const char *);
 int cbs_manifest_compare(const void *, const void *);

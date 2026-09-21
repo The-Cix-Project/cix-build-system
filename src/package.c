@@ -273,7 +273,7 @@ int cbs_build_standalone_with_events_policy(
     CbsManifestEntry *entries = NULL;
     size_t entry_count = 0;
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
-        *package_identity = NULL;
+        manifest_error[512], *package_identity = NULL;
     unsigned flags = 0;
     int ok;
     if (!recipe || !workspace || !architecture)
@@ -388,16 +388,24 @@ int cbs_build_standalone_with_events_policy(
     }
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-        ok = cbs_manifest_write_with_license(dest, manifest,
-                                             declared_license(document));
+        ok = cbs_manifest_write_with_license_error(
+            dest, manifest, declared_license(document), manifest_error,
+            sizeof(manifest_error));
         if (!ok)
             pipeline_error(recipe, text, document->location, "manifest",
-                           "cannot write staged-tree manifest");
-        if (ok)
-            ok = cbs_manifest_collect(dest, &entries, &entry_count);
-        if (!ok && entries == NULL)
-            pipeline_error(recipe, text, document->location, "manifest",
-                           "cannot collect staged-tree entries");
+                           manifest_error[0] != '\0'
+                               ? manifest_error
+                               : "cannot write staged-tree manifest");
+        if (ok) {
+            ok = cbs_manifest_collect_with_error(
+                dest, &entries, &entry_count, manifest_error,
+                sizeof(manifest_error));
+            if (!ok)
+                pipeline_error(recipe, text, document->location, "manifest",
+                               manifest_error[0] != '\0'
+                                   ? manifest_error
+                                   : "cannot collect staged-tree entries");
+        }
         if (ok) {
             size_t index;
             context.current_tree_files = (unsigned long long)entry_count;
@@ -405,10 +413,10 @@ int cbs_build_standalone_with_events_policy(
             for (index = 0; index < entry_count; ++index)
                 context.current_tree_bytes += entries[index].size;
         }
-        ok = ok &&
-             cbs_cixpkg_write_tree_with_flags(manifest, dest, package_path,
-                                              package_identity, flags);
-        if (!ok)
+        if (ok)
+            ok = cbs_cixpkg_write_tree_with_flags(
+                manifest, dest, package_path, package_identity, flags);
+        if (!ok && entries != NULL)
             pipeline_error(recipe, text, document->location, "package output",
                            "cannot write CIXPKG output");
         if (ok) {

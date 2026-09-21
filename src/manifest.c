@@ -2,6 +2,8 @@
 #include "cbs.h"
 
 #include <dirent.h>
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +13,15 @@
 /* Reject permission bits that would create a privileged installed file. */
 static int unsafe_mode(mode_t mode) {
     return (mode & (S_ISUID | S_ISGID)) != 0;
+}
+
+static void set_error(char *error, size_t error_size, const char *format, ...) {
+    va_list arguments;
+    if (error == NULL || error_size == 0)
+        return;
+    va_start(arguments, format);
+    vsnprintf(error, error_size, format, arguments);
+    va_end(arguments);
 }
 
 /* Check that a relative staged symlink stays within the staged root. */
@@ -46,15 +57,22 @@ static int safe_link_target(const char *relative, const char *target) {
 /* Append one validated entry while growing the manifest array. */
 static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      const char *path, char type, mode_t mode,
-                     const char *target) {
+                     const char *target, char *error, size_t error_size) {
     CbsManifestEntry *entry;
-    if (unsafe_mode(mode))
+    if (unsafe_mode(mode)) {
+        set_error(error, error_size,
+                  "%s has mode %04o; CIXPKG refuses setuid and setgid",
+                  path, (unsigned)(mode & 07777));
         return 0;
+    }
     if (*count == *capacity) {
         size_t next = *capacity == 0 ? 16 : *capacity * 2;
         CbsManifestEntry *grown = realloc(*items, next * sizeof(*grown));
-        if (grown == NULL)
+        if (grown == NULL) {
+            set_error(error, error_size,
+                      "%s could not be recorded: out of memory", path);
             return 0;
+        }
         *items = grown;
         *capacity = next;
     }
@@ -72,46 +90,67 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
 
 /* Recursively collect supported entries from a staged directory. */
 static int collect(const char *root, const char *relative,
-                   CbsManifestEntry **items, size_t *count, size_t *capacity) {
+                   CbsManifestEntry **items, size_t *count, size_t *capacity,
+                   char *error, size_t error_size) {
     char path[4096];
     DIR *directory;
     struct dirent *entry;
     if (snprintf(path, sizeof(path), "%s/%s", root, relative) >=
-        (int)sizeof(path))
+        (int)sizeof(path)) {
+        set_error(error, error_size, "%s: path is too long", relative);
         return 0;
+    }
     directory = opendir(path);
-    if (directory == NULL)
+    if (directory == NULL) {
+        set_error(error, error_size, "%s: cannot open directory: %s",
+                  relative[0] ? relative : ".", strerror(errno));
         return 0;
+    }
     while ((entry = readdir(directory)) != NULL) {
         char child[4096];
         struct stat status;
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
         if (snprintf(child, sizeof(child), "%s%s%s", relative,
-                     relative[0] ? "/" : "",
-                     entry->d_name) >= (int)sizeof(child) ||
-            snprintf(path, sizeof(path), "%s/%s", root, child) >=
+                     relative[0] ? "/" : "", entry->d_name) >=
+            (int)sizeof(child)) {
+            set_error(error, error_size, "%s/%s: path is too long", relative,
+                      entry->d_name);
+            closedir(directory);
+            return 0;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s", root, child) >=
                 (int)sizeof(path) ||
             lstat(path, &status) != 0) {
+            set_error(error, error_size, "%s: cannot inspect staged entry: %s",
+                      child, strerror(errno));
             closedir(directory);
             return 0;
         }
         if (S_ISDIR(status.st_mode)) {
             if (!add_entry(items, count, capacity, child, 'd', status.st_mode,
-                           NULL) ||
-                !collect(root, child, items, count, capacity)) {
+                           NULL, error, error_size) ||
+                !collect(root, child, items, count, capacity, error,
+                         error_size)) {
                 closedir(directory);
                 return 0;
             }
         } else if (S_ISREG(status.st_mode)) {
             char digest[65];
             if (status.st_nlink != 1) {
+                set_error(error, error_size,
+                          "%s is a hard link (link count %lu); CIXPKG "
+                          "entries must have exactly one link",
+                          child, (unsigned long)status.st_nlink);
                 closedir(directory);
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'f', status.st_mode,
-                           NULL) ||
+                           NULL, error, error_size) ||
                 !cbs_digest_file(path, digest)) {
+                if (error == NULL || error[0] == '\0')
+                    set_error(error, error_size,
+                              "%s: cannot read file for digest", child);
                 closedir(directory);
                 return 0;
             }
@@ -126,15 +165,22 @@ static int collect(const char *root, const char *relative,
             }
             target[length] = '\0';
             if (!safe_link_target(child, target)) {
+                set_error(error, error_size,
+                          "%s -> %s escapes the staged root; CIXPKG "
+                          "symlink targets must be relative and contained",
+                          child, target);
                 closedir(directory);
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'l', status.st_mode,
-                           target)) {
+                           target, error, error_size)) {
                 closedir(directory);
                 return 0;
             }
         } else {
+            set_error(error, error_size,
+                      "%s is an unsupported file type; CIXPKG carries "
+                      "directories, regular files and symlinks only", child);
             closedir(directory);
             return 0;
         }
@@ -168,17 +214,23 @@ static int write_entry(FILE *file, const CbsManifestEntry *entry) {
 }
 
 /* Collect, sort, and write a deterministic manifest file. */
-int cbs_manifest_write_with_license(const char *root, const char *output,
-                                    const char *license) {
+int cbs_manifest_write_with_license_error(const char *root, const char *output,
+                                          const char *license, char *error,
+                                          size_t error_size) {
     CbsManifestEntry *items = NULL;
     size_t count = 0, capacity = 0, index;
     FILE *file;
-    if (!collect(root, "", &items, &count, &capacity))
+    if (error != NULL && error_size > 0)
+        error[0] = '\0';
+    if (!collect(root, "", &items, &count, &capacity, error, error_size))
         goto fail;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     file = fopen(output, "wb");
-    if (file == NULL)
+    if (file == NULL) {
+        set_error(error, error_size, "%s: cannot write manifest: %s", output,
+                  strerror(errno));
         goto fail;
+    }
     if (license != NULL && fprintf(file, "m license %s\n", license) < 0) {
         fclose(file);
         goto fail;
@@ -197,6 +249,12 @@ fail:
     return 0;
 }
 
+int cbs_manifest_write_with_license(const char *root, const char *output,
+                                    const char *license) {
+    return cbs_manifest_write_with_license_error(root, output, license, NULL,
+                                                 0);
+}
+
 int cbs_manifest_write(const char *root, const char *output) {
     return cbs_manifest_write_with_license(root, output, NULL);
 }
@@ -209,12 +267,21 @@ int cbs_manifest_compare(const void *left, const void *right) {
 /* Return sorted manifest entries for callers that need direct inspection. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count) {
+    return cbs_manifest_collect_with_error(root, entries, count, NULL, 0);
+}
+
+int cbs_manifest_collect_with_error(const char *root,
+                                    CbsManifestEntry **entries,
+                                    size_t *count, char *error,
+                                    size_t error_size) {
     size_t capacity = 0;
     if (!root || !entries || !count)
         return 0;
     *entries = NULL;
     *count = 0;
-    if (!collect(root, "", entries, count, &capacity)) {
+    if (error != NULL && error_size > 0)
+        error[0] = '\0';
+    if (!collect(root, "", entries, count, &capacity, error, error_size)) {
         cbs_manifest_entries_destroy(*entries, *count);
         *entries = NULL;
         *count = 0;

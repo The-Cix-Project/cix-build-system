@@ -15,6 +15,7 @@ static int run_test(const char *root) {
     char tree[4160];
     char manifest[4160], package[4160], extracted[4160], path[4160], target[64];
     char round_manifest[4160], round_package[4160];
+    char error[512];
     FILE *file;
     struct stat status;
     ssize_t length;
@@ -81,12 +82,42 @@ static int run_test(const char *root) {
         return 1;
     snprintf(path, sizeof(path), "%s/bin/escape", tree);
     if (symlink("../../outside", path) != 0 ||
-        cbs_manifest_write(tree, manifest))
+        cbs_manifest_write_with_license_error(tree, manifest, NULL, error,
+                                              sizeof(error)) ||
+        strstr(error, "bin/escape") == NULL ||
+        strstr(error, "escapes the staged root") == NULL)
         return 1;
+    unlink(path);
     snprintf(path, sizeof(path), "%s/bin/setuid", tree);
     file = fopen(path, "wb");
     if (file == NULL || fputs("bad", file) < 0 || fclose(file) != 0 ||
-        chmod(path, 04755) != 0 || cbs_manifest_write(tree, manifest))
+        chmod(path, 04755) != 0 ||
+        cbs_manifest_write_with_license_error(tree, manifest, NULL, error,
+                                               sizeof(error)) ||
+        strstr(error, "bin/setuid") == NULL ||
+        strstr(error, "setuid and setgid") == NULL)
+        return 1;
+    unlink(path);
+    snprintf(path, sizeof(path), "%s/bin/original", tree);
+    file = fopen(path, "wb");
+    if (file == NULL || fputs("hard", file) < 0 || fclose(file) != 0)
+        return 1;
+    snprintf(target, sizeof(target), "%s/bin/hardlink", tree);
+    if (link(path, target) != 0 ||
+        cbs_manifest_write_with_license_error(tree, manifest, NULL, error,
+                                               sizeof(error)) ||
+        strstr(error, "bin/") == NULL ||
+        strstr(error, "hard link") == NULL ||
+        strstr(error, "exactly one link") == NULL)
+        return 1;
+    unlink(path);
+    unlink(target);
+    snprintf(path, sizeof(path), "%s/bin/socket", tree);
+    if (mkfifo(path, 0600) != 0 ||
+        cbs_manifest_write_with_license_error(tree, manifest, NULL, error,
+                                               sizeof(error)) ||
+        strstr(error, "bin/socket") == NULL ||
+        strstr(error, "unsupported file type") == NULL)
         return 1;
     return 0;
 }
@@ -102,6 +133,6 @@ int main(void) {
     if (result != 0)
         return result;
     puts("typed CIXPKG tests: PASS (empty directories, modes, confined links, "
-         "exact round trip, and setuid rejection)");
+         "exact round trip, and named manifest rejections)");
     return 0;
 }
