@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
+
 typedef struct CbsNode CbsNode;
 
 typedef struct {
@@ -23,6 +25,7 @@ typedef struct {
     char *value;
     int stderr_stream;
 } CbsOutputBinding;
+typedef CbsOutputBinding CbsGlobBinding;
 
 typedef struct {
     unsigned version;
@@ -95,9 +98,11 @@ typedef struct {
     const char *src;
     const char *build;
     const char *dest;
+    const char *case_directory;
     const char *firmware_root;
     long jobs;
     const char *working_directory;
+    const char *command_path;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -109,12 +114,18 @@ typedef struct {
     CbsOutputBinding *output_bindings;
     size_t output_binding_count;
     size_t output_binding_capacity;
+    CbsGlobBinding *glob_bindings;
+    size_t glob_binding_count;
+    size_t glob_binding_capacity;
     int (*phase_event)(const char *, const char *, int, void *);
     void *phase_event_user;
     CbsBuildEventSink event_sink;
     void *event_sink_user;
     const char *build_id;
     const char *current_phase;
+    const char *current_prune_path;
+    const char *current_prune_rule;
+    unsigned long long current_prune_bytes;
     unsigned long long event_sequence;
     unsigned long long current_cpu_ms;
     unsigned long long current_max_memory_bytes;
@@ -169,6 +180,7 @@ void *cbs_allocate(size_t);
 void *cbs_reallocate(void *, size_t);
 char *cbs_duplicate(const char *);
 char *cbs_duplicate_range(const char *, size_t);
+int cbs_command_path_is_valid(const char *);
 
 int cbs_cli_fetch_service(CbsFetchService *, char *, size_t);
 int cbs_cli_fetch_service_with_ca(CbsFetchService *, char *, size_t,
@@ -189,6 +201,11 @@ int cbs_build_standalone_with_events_policy(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
     const char *, const CbsPrunePolicy *, CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy_path(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, CbsBuildEventSink,
+    void *);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 

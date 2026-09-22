@@ -287,11 +287,12 @@ int cbs_build_package(const char *recipe, const char *staged_root,
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events_policy(
+int cbs_build_standalone_with_events_policy_path(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path,
     CbsBuildEventSink event_sink,
     void *event_sink_user) {
     FILE *f;
@@ -310,7 +311,8 @@ int cbs_build_standalone_with_events_policy(
         manifest_error[512], *package_identity = NULL;
     unsigned flags = 0;
     int ok;
-    if (!recipe || !workspace || !architecture)
+    if (!recipe || !workspace || !architecture ||
+        (command_path != NULL && !cbs_command_path_is_valid(command_path)))
         return 0;
     f = fopen(recipe, "rb");
     if (!f || fseek(f, 0, SEEK_END) || (n = ftell(f)) < 0 ||
@@ -395,6 +397,9 @@ int cbs_build_standalone_with_events_policy(
             context.firmware_root = firmware_root;
             context.jobs = 1;
             context.working_directory = build;
+            context.command_path = command_path == NULL
+                                       ? CBS_DEFAULT_COMMAND_PATH
+                                       : command_path;
             ok = cbs_sources_apply_execution_context(&sources, &context);
             if (!ok)
                 pipeline_error(recipe, text, document->location, "sources",
@@ -487,6 +492,18 @@ int cbs_build_standalone_with_events_policy(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events_policy(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
+    return cbs_build_standalone_with_events_policy_path(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy, NULL,
+        event_sink, event_sink_user);
 }
 
 int cbs_build_standalone_with_events(

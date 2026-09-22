@@ -28,6 +28,33 @@ typedef struct {
 static volatile sig_atomic_t active_child;
 static volatile sig_atomic_t interrupted;
 
+int cbs_command_path_is_valid(const char *command_path) {
+    const char *cursor;
+    if (command_path == NULL || command_path[0] == '\0')
+        return 0;
+    cursor = command_path;
+    while (1) {
+        const char *end = strchr(cursor, ':');
+        size_t length = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
+        size_t index;
+        if (length == 0 || cursor[0] != '/')
+            return 0;
+        for (index = 0; index + 1 < length; ++index) {
+            if (cursor[index] == '/' &&
+                ((cursor[index + 1] == '.' &&
+                  (index + 2 == length || cursor[index + 2] == '/')) ||
+                 (cursor[index + 1] == '.' && index + 2 < length &&
+                  cursor[index + 2] == '.' &&
+                  (index + 3 == length || cursor[index + 3] == '/'))))
+                return 0;
+        }
+        if (end == NULL)
+            break;
+        cursor = end + 1;
+    }
+    return 1;
+}
+
 static unsigned long long usage_cpu_ms(const struct rusage *usage) {
     return (unsigned long long)usage->ru_utime.tv_sec * 1000ULL +
            (unsigned long long)usage->ru_utime.tv_usec / 1000ULL +
@@ -654,7 +681,23 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         return 0;
     }
     string_list_add(&arguments, cbs_duplicate(program));
-    string_list_add(&environment, cbs_duplicate("PATH=/usr/bin:/bin"));
+    {
+        const char *command_path = context->command_path;
+        char *path_environment;
+        if (command_path == NULL)
+            command_path = CBS_DEFAULT_COMMAND_PATH;
+        if (!cbs_command_path_is_valid(command_path)) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "command PATH policy is invalid");
+            free(program);
+            string_list_destroy(&arguments);
+            return 0;
+        }
+        path_environment = cbs_allocate(strlen(command_path) + 6);
+        snprintf(path_environment, strlen(command_path) + 6, "PATH=%s",
+                 command_path);
+        string_list_add(&environment, path_environment);
+    }
     /* Give reproducible-build-aware tools a stable epoch instead of the wall
      * clock. An explicit CPDL epoch binding can replace this default later. */
     string_list_add(&environment, cbs_duplicate("SOURCE_DATE_EPOCH=0"));

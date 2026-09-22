@@ -200,6 +200,8 @@ The remaining build options are for callers embedding CBS in a larger system:
                           records that a finalization policy completed
 --firmware-root DIR       bind `${firmware}` to DIR for recipes that install
                           firmware; unset leaves `${firmware}` empty
+--command-path DIRS       use these colon-separated absolute command roots;
+                          default is `/usr/bin:/bin`, with no ambient PATH
 ```
 
 Cache hits do not require network access. Source archives are extracted by

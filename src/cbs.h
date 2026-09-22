@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
+
 typedef struct {
     /* Source filename or logical diagnostic origin. */
     const char *path;
@@ -349,6 +351,8 @@ typedef struct {
     long jobs;
     /* Working directory used when launching child processes. */
     const char *working_directory;
+    /* Approved colon-separated absolute roots used to resolve commands. */
+    const char *command_path;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -405,6 +409,8 @@ void *cbs_reallocate(void *pointer, size_t size);
 char *cbs_duplicate(const char *text);
 /* Copy a bounded character range and append a NUL terminator. */
 char *cbs_duplicate_range(const char *start, size_t length);
+/* Validate a colon-separated command search policy. */
+int cbs_command_path_is_valid(const char *command_path);
 
 /* Create, attach, and destroy nodes in the CPDL abstract syntax tree. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location);
@@ -541,6 +547,13 @@ int cbs_build_standalone_with_events_policy(
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
     CbsBuildEventSink event_sink,
+    void *event_sink_user);
+int cbs_build_standalone_with_events_policy_path(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, CbsBuildEventSink event_sink,
     void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {

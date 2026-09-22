@@ -485,8 +485,11 @@ escape in CPDL while allowing upstream build systems that are themselves
 scripts.
 
 The executable is resolved using the phase environment's deterministic `PATH`
-when it contains no `/`. A value containing `/` is resolved relative to the
-current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
+when it contains no `/`. Standalone CBS uses `/usr/bin:/bin` by default; an
+embedder or the `--command-path` option may provide a colon-separated list of
+non-empty absolute roots. Empty, relative, `.` and `..` components are refused;
+CBS never falls back to the host's ambient `PATH`. A value containing `/` is
+resolved relative to the current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
 `system`, and `popen` are not conforming execution paths because they admit
 ambient environment or shell behavior.
 

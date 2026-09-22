@@ -136,6 +136,7 @@ static void usage(FILE *stream) {
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
         "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
+        "      [--command-path DIRS]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -154,6 +155,7 @@ typedef struct {
     const char *finalize_command;
     const char *prune_policy;
     const char *firmware_root;
+    const char *command_path;
 } CbsBuildOptions;
 
 /* Parse build options independently of their order on the command line. */
@@ -186,6 +188,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 15;
         else if (strncmp(argument, "--firmware-root=", 16) == 0)
             value = argument + 16;
+        else if (strncmp(argument, "--command-path=", 15) == 0)
+            value = argument + 15;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
@@ -194,7 +198,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--events") == 0 ||
                  strcmp(argument, "--finalize-command") == 0 ||
                  strcmp(argument, "--prune-policy") == 0 ||
-                 strcmp(argument, "--firmware-root") == 0) {
+                 strcmp(argument, "--firmware-root") == 0 ||
+                 strcmp(argument, "--command-path") == 0) {
             if (++index >= argc) {
                 fprintf(stderr, "build: option `%s` requires a value\n",
                         argument);
@@ -234,6 +239,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--firmware-root") == 0 ||
                  strncmp(argument, "--firmware-root=", 16) == 0)
             options->firmware_root = value;
+        else if (strcmp(argument, "--command-path") == 0 ||
+                 strncmp(argument, "--command-path=", 15) == 0)
+            options->command_path = value;
         else
             options->events = value;
     }
@@ -485,7 +493,9 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("},\"phases\":[", stdout);
+        fputs("},\"command_path\":", stdout);
+        print_json_string(CBS_DEFAULT_COMMAND_PATH);
+        fputs(",\"phases\":[", stdout);
         for (index = 0; index < plan.count; ++index)
             printf("%s{\"name\":\"%s\",\"operations\":%zu}",
                    index == 0 ? "" : ",", plan.phases[index]->name,
@@ -499,6 +509,7 @@ static int explain_file(const char *path, int json) {
                metadata.upstream == NULL ? "none" : metadata.upstream,
                metadata.toolchain == NULL ? "none" : metadata.toolchain,
                metadata.capability_count);
+        printf("command-path %s\n", CBS_DEFAULT_COMMAND_PATH);
         for (index = 0; index < plan.count; ++index)
             printf("%zu %s operations=%zu\n", index + 1,
                    plan.phases[index]->name,
@@ -535,7 +546,8 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *ca_file, const char *events,
                       const char *finalize_command,
                       const char *prune_policy_path,
-                      const char *firmware_root) {
+                      const char *firmware_root,
+                      const char *command_path) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -547,6 +559,11 @@ static int build_file(const char *recipe, const char *architecture,
     char prune_error[256];
     struct stat firmware_status;
     memset(&service, 0, sizeof(service));
+    if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
+        fprintf(stderr, "build: --command-path must contain only non-empty "
+                        "absolute directories without . or .. components\n");
+        return 2;
+    }
     if (prune_policy_path != NULL &&
         !cbs_prune_policy_load(prune_policy_path, &prune_policy,
                                prune_error, sizeof(prune_error))) {
@@ -590,13 +607,13 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events_policy(
+    result = cbs_build_standalone_with_events_policy_path(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             (void *)finalize_command,
             firmware_root,
-            prune_policy_path == NULL ? NULL : &prune_policy, event_sink,
-            event_stream);
+            prune_policy_path == NULL ? NULL : &prune_policy, command_path,
+            event_sink, event_stream);
     if (event_stream != stderr)
         fclose(event_stream);
     if (!result) {
@@ -695,8 +712,9 @@ int main(int argc, char **argv) {
             return 2;
         return build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
-                          options.events, options.finalize_command,
-                          options.prune_policy, options.firmware_root);
+                      options.events, options.finalize_command,
+                          options.prune_policy, options.firmware_root,
+                          options.command_path);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);
