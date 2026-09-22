@@ -516,6 +516,9 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     /* Give reproducible-build-aware tools a stable epoch instead of the wall
      * clock. An explicit CPDL epoch binding can replace this default later. */
     string_list_add(&environment, cbs_duplicate("SOURCE_DATE_EPOCH=0"));
+    if (context->compiler != NULL)
+        environment_set(&environment, "CC",
+                        environment_entry("CC", context->compiler));
     for (index = 0; index < context->environment_count; ++index)
         environment_set(&environment, context->environment[index].name,
                         environment_entry(context->environment[index].name,
@@ -554,13 +557,6 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             string_list_destroy(&environment);
             return 0;
         }
-    }
-    if (context->compiler != NULL) {
-        const char *base = strrchr(program, '/');
-        base = base == NULL ? program : base + 1;
-        if (strcmp(base, "make") == 0)
-            string_list_add(&arguments,
-                            environment_entry("CC", context->compiler));
     }
     for (index = 0; index < arguments.count; ++index) {
         size_t length = strlen(arguments.items[index]);

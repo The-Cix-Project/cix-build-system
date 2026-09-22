@@ -35,5 +35,13 @@ package "argv-test" {
         run "${build}/exec-test" {
             "--probe-limit"
         }
+        run "/usr/bin/make" {
+            "-s"
+            "-f"
+            "${src}/tests/fixtures/execution/cc-precedence.mk"
+            "print"
+            "CC=recipe-cc"
+            expect { stdout contains "origin=command line cc=recipe-cc" }
+        }
     }
 }

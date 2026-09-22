@@ -125,7 +125,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     if (!cbs_validate(document, recipe_path, source))
         goto cleanup_document;
     phase = find_phase(document, "build");
-    if (phase == NULL || phase->child_count != 6)
+    if (phase == NULL || phase->child_count != 7)
         goto cleanup_document;
     if (getcwd(current_directory, sizeof(current_directory)) == NULL)
         goto cleanup_document;
@@ -160,6 +160,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     context.build = build_directory;
     context.dest = base;
     context.jobs = 3;
+    context.compiler = "tcc";
     context.working_directory = current_directory;
     context.limits.address_space_mb = 256;
     context.limits.file_size_mb = 1;
@@ -176,7 +177,8 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     if (!expected_runtime_failure(phase->children[2], &context, "CPDL-E4001") ||
         !expected_runtime_failure(phase->children[3], &context, "CPDL-E4003") ||
         !expected_runtime_failure(phase->children[4], &context, "CPDL-E4002") ||
-        !cbs_execute_run(phase->children[5], &context))
+        !cbs_execute_run(phase->children[5], &context) ||
+        !cbs_execute_run(phase->children[6], &context))
         goto cleanup_document;
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
