@@ -17,6 +17,9 @@ package "filesystem-test" {
         write "${build}/input/a.txt" "alpha" chmod 0600
         write "${build}/input/tool" "tool" chmod 0755
         write "${build}/input/reference.txt" "alpha"
+        write "${build}/block.txt" """
+            literal ${not_a_binding}
+            """
         require file "${build}/input/a.txt" {
             exists
             nonempty

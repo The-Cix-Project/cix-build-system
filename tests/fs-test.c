@@ -162,6 +162,9 @@ static int run_test(const char *recipe_path) {
         if (!operation_result)
             goto cleanup;
     }
+    if (!path_join(path, sizeof(path), build, "block.txt") ||
+        !regular_with(path, "literal ${not_a_binding}\n", 0644))
+        goto cleanup;
 
     /* Regression for #201: a matching DT_NEEDED entry must be retained in
      * the observed set before required-library checks run. */

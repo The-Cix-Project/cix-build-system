@@ -1215,7 +1215,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
     } else if (operation->kind == CBS_NODE_WRITE) {
         const char *mode_text =
             operation->child_count == 0 ? NULL : operation->children[0]->value;
-        second = cbs_resolve_value(operation->second_value, operation->flag,
+        second = cbs_resolve_value(operation->second_value,
+                                    operation->second_flag,
                                    context);
         result =
             atomic_write_bytes(first, (const unsigned char *)second,
