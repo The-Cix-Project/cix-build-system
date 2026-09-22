@@ -349,7 +349,7 @@ static int run_test(const char *recipe_path) {
         candidates[4] = "/usr/lib64/libc.so.6";
         candidates[5] = "/lib64/libc.so.6";
         for (candidate = 0; candidate < 6 && !have_host; ++candidate)
-            have_host = lstat(candidates[candidate], &host) == 0;
+            have_host = stat(candidates[candidate], &host) == 0;
         free(triplet);
         if (!have_host)
             FS_FAIL();
@@ -357,11 +357,10 @@ static int run_test(const char *recipe_path) {
         if (lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
             FS_FAIL();
         path_join(path, sizeof(path), dest, "usr/lib/libc.so.6");
-        if (lstat(path, &status) != 0 ||
-            S_ISREG(status.st_mode) != S_ISREG(host.st_mode) ||
-            S_ISLNK(status.st_mode) != S_ISLNK(host.st_mode) ||
+        if (lstat(path, &status) != 0 || !S_ISREG(status.st_mode) ||
+            !S_ISREG(host.st_mode) ||
             (status.st_mode & 07777) != (host.st_mode & 07777) ||
-            (S_ISREG(host.st_mode) && status.st_size != host.st_size))
+            status.st_size != host.st_size)
             FS_FAIL();
         memset(&missing, 0, sizeof(missing));
         missing.kind = CBS_NODE_STAGE;

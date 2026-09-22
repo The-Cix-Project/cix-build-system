@@ -875,9 +875,10 @@ architecture, and takes the first regular file or symbolic link found. An
 embedder or the `--library-path` option may provide a colon-separated list of
 non-empty absolute roots; empty, relative, `.`, and `..` components are
 refused.
-The copy preserves the mode, and a symbolic link is copied as a link with its
-target text unchanged, so the soname link a recipe names is shipped as a link
-and the versioned file must be staged separately. The `into` directory must
+The copy preserves the mode and copies the selected library's contents. If the
+selected image entry is a symbolic link, CBS follows it while reading the
+library, so the staged artifact contains a usable regular file rather than a
+link whose target may not exist in the artifact. The `into` directory must
 resolve beneath a confined root; it is created (mode 0755) when absent and
 left untouched when present. When no directory holds the library, the
 operation fails with `CPDL-E4004`, names the library and every directory
