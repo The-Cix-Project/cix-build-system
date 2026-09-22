@@ -591,6 +591,21 @@ prepare {
 }
 ```
 
+Use `at line_start` to match only at the beginning of a line, or `at line N`
+to match only on one-based line `N`. This keeps a shebang rewrite from
+touching the same text inside a heredoc:
+
+```cbs
+prepare {
+    replace glob "${src}/project-1.0/**/*.sh" {
+        from "#!/bin/bash"
+        at line 1
+        to "#!/usr/bin/bash"
+        exactly 7
+    }
+}
+```
+
 An empty match and an unexpected count fail before mutation. Assertions include:
 
 ```cbs

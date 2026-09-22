@@ -661,6 +661,7 @@ metadata rules are decided separately.
 replace-operation = "replace", source-edit-target, "{",
                     "from", text-value,
                     [ "until", ( "whitespace" | "line" ) ],
+                    [ "at", ( "line_start" | "line", integer ) ],
                     "to", text-value,
                     "exactly", integer,
                     "}" ;
@@ -699,6 +700,13 @@ This removes or rewrites a flag together with its argument
 language; the delimiter is never part of the match and the count rule is
 unchanged, so an edit that matches nothing still fails. `insert` has no
 `until`.
+
+`at line_start` restricts matches to the beginning of a line. `at line N`
+restricts matches to the beginning of the one-based line `N`. The anchor is
+applied before `until` and does not include the line ending; `exactly N`
+therefore counts only matches satisfying the anchor. These anchors are useful
+for shebang rewrites and other edits where the same bytes may occur in a
+heredoc or as part of a longer line.
 
 `insert` counts non-overlapping byte-for-byte matches of its anchor. The count
 must equal `exactly` before mutation. `after` inserts `write` immediately after

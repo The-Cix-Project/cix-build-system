@@ -1354,6 +1354,12 @@ static unsigned char *read_regular(const char *path, size_t *length,
 /* Count non-overlapping occurrences of a byte pattern. */
 /* How far a source-edit match extends past its literal prefix. */
 enum { EDIT_UNTIL_NONE, EDIT_UNTIL_WHITESPACE, EDIT_UNTIL_LINE };
+enum { EDIT_AT_ANY, EDIT_AT_LINE_START, EDIT_AT_LINE };
+
+typedef struct {
+    int kind;
+    long line;
+} EditAnchor;
 
 /* Read the operation's `until` clause, if any. */
 static int edit_until_mode(const CbsNode *operation) {
@@ -1367,6 +1373,57 @@ static int edit_until_mode(const CbsNode *operation) {
                        : EDIT_UNTIL_WHITESPACE;
     }
     return EDIT_UNTIL_NONE;
+}
+
+/* Read the operation's optional line anchor. */
+static EditAnchor edit_anchor(const CbsNode *operation) {
+    EditAnchor anchor = {EDIT_AT_ANY, 0};
+    size_t index;
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        if (property->kind == CBS_NODE_PROPERTY && property->name != NULL &&
+            strcmp(property->name, "at") == 0 && property->value != NULL) {
+            if (strcmp(property->value, "line_start") == 0)
+                anchor.kind = EDIT_AT_LINE_START;
+            else if (strcmp(property->value, "line") == 0) {
+                anchor.kind = EDIT_AT_LINE;
+                anchor.line = property->number;
+            }
+        }
+    }
+    return anchor;
+}
+
+/* Return the one-based line containing OFFSET, treating CRLF as one break. */
+static long content_line(const unsigned char *content, size_t offset) {
+    size_t index = 0;
+    long line = 1;
+    while (index < offset) {
+        if (content[index] == '\r') {
+            ++line;
+            if (index + 1 < offset && content[index + 1] == '\n')
+                ++index;
+        } else if (content[index] == '\n') {
+            ++line;
+        }
+        ++index;
+    }
+    return line;
+}
+
+static int is_line_start(const unsigned char *content, size_t offset) {
+    return offset == 0 || content[offset - 1] == '\n' ||
+           content[offset - 1] == '\r';
+}
+
+static int anchor_matches(const unsigned char *content, size_t offset,
+                          EditAnchor anchor) {
+    if (anchor.kind == EDIT_AT_ANY)
+        return 1;
+    if (!is_line_start(content, offset))
+        return 0;
+    return anchor.kind != EDIT_AT_LINE ||
+           content_line(content, offset) == anchor.line;
 }
 
 /* Length of the match at OFFSET whose literal prefix already matched: the
@@ -1392,14 +1449,16 @@ static size_t match_extent(const unsigned char *content, size_t content_length,
  * until rule. */
 static size_t count_matches(const unsigned char *content,
                             size_t content_length, const unsigned char *needle,
-                            size_t needle_length, int until) {
+                            size_t needle_length, int until,
+                            EditAnchor anchor) {
     size_t count = 0;
     size_t offset = 0;
 
     if (needle_length == 0)
         return 0;
     while (offset + needle_length <= content_length) {
-        if (memcmp(content + offset, needle, needle_length) == 0) {
+        if (anchor_matches(content, offset, anchor) &&
+            memcmp(content + offset, needle, needle_length) == 0) {
             ++count;
             offset += match_extent(content, content_length, offset,
                                    needle_length, until);
@@ -1413,7 +1472,7 @@ static size_t count_matches(const unsigned char *content,
 static size_t count_bytes(const unsigned char *content, size_t content_length,
                           const unsigned char *needle, size_t needle_length) {
     return count_matches(content, content_length, needle, needle_length,
-                         EDIT_UNTIL_NONE);
+                         EDIT_UNTIL_NONE, (EditAnchor){EDIT_AT_ANY, 0});
 }
 
 /* Test whether a byte pattern occurs at least once. */
@@ -1431,7 +1490,7 @@ edited_content(const unsigned char *content, size_t content_length,
                const unsigned char *needle, size_t needle_length,
                const unsigned char *replacement, size_t replacement_length,
                size_t matches, int insert, int insert_before, int until,
-               size_t *result_length) {
+               EditAnchor anchor, size_t *result_length) {
     size_t bound;
     unsigned char *result;
     size_t source_offset = 0;
@@ -1446,6 +1505,7 @@ edited_content(const unsigned char *content, size_t content_length,
     result = cbs_allocate(bound);
     while (source_offset < content_length) {
         if (source_offset + needle_length <= content_length &&
+            anchor_matches(content, source_offset, anchor) &&
             memcmp(content + source_offset, needle, needle_length) == 0) {
             size_t extent = match_extent(content, content_length,
                                          source_offset, needle_length, until);
@@ -1509,6 +1569,7 @@ static int execute_edit(const CbsNode *operation,
     mode_t mode = 0;
     char message[256];
     int until = edit_until_mode(operation);
+    EditAnchor anchor = edit_anchor(operation);
     int success = 0;
 
     if (operation->selector_glob) {
@@ -1549,7 +1610,7 @@ static int execute_edit(const CbsNode *operation,
             }
             total_matches += count_matches(
                 matched_content, matched_length,
-                (const unsigned char *)needle, strlen(needle), until);
+                (const unsigned char *)needle, strlen(needle), until, anchor);
             free(matched_content);
         }
         if (total_matches != (size_t)operation->number) {
@@ -1583,7 +1644,7 @@ static int execute_edit(const CbsNode *operation,
             single.number = (long)count_matches(
                 current_content, current_length,
                 (const unsigned char *)current_needle,
-                strlen(current_needle), until);
+                strlen(current_needle), until, anchor);
             free(current_content);
             free(current_needle);
             if (!execute_edit(&single, context)) {
@@ -1602,7 +1663,7 @@ static int execute_edit(const CbsNode *operation,
         goto filesystem_failure;
     matches = count_matches(content, content_length,
                             (const unsigned char *)needle, strlen(needle),
-                            until);
+                            until, anchor);
     if (matches != (size_t)operation->number) {
         snprintf(message, sizeof(message),
                  "source edit expected %ld matches but found %lu",
@@ -1619,7 +1680,7 @@ static int execute_edit(const CbsNode *operation,
             content, content_length, (const unsigned char *)needle,
             strlen(needle), (const unsigned char *)replacement,
             strlen(replacement), matches, operation->kind == CBS_NODE_INSERT,
-            operation->insert_before, until, &result_length);
+            operation->insert_before, until, anchor, &result_length);
     if (result == NULL)
         goto filesystem_failure;
     if (!atomic_write_bytes(path, result, result_length, mode))

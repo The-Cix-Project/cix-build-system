@@ -530,6 +530,22 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
             cbs_node_add(node, property);
         }
     }
+    if (is_word(parser, "at")) {
+        CbsToken *at = advance(parser);
+        CbsNode *property = cbs_node_create(CBS_NODE_PROPERTY, at->location);
+        property->name = cbs_duplicate("at");
+        if (is_word(parser, "line_start")) {
+            property->value = cbs_duplicate(advance(parser)->text);
+        } else {
+            CbsToken *line = consume_word(parser, "line");
+            CbsToken *number = consume_kind(parser, CBS_TOKEN_INTEGER,
+                                             "line number");
+            property->value = cbs_duplicate("line");
+            if (line != NULL && number != NULL)
+                property->number = strtol(number->text, NULL, 10);
+        }
+        cbs_node_add(node, property);
+    }
     consume_word(parser, insert ? "write" : "to");
     second = consume_text_value(parser, "replacement value");
     consume_word(parser, "exactly");

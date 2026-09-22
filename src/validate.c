@@ -548,6 +548,9 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         break;
     case CBS_NODE_REPLACE:
     case CBS_NODE_INSERT:
+        {
+        int seen_at = 0;
+        int seen_until = 0;
         validate_value(validator, operation, operation->name);
         if (operation->selector_glob && operation->name != NULL &&
             !valid_glob(operation->name))
@@ -560,22 +563,41 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                              "source-edit match value must not be empty");
         for (index = 0; index < operation->child_count; ++index) {
             const CbsNode *property = operation->children[index];
-            if (property->name == NULL || strcmp(property->name, "until") != 0)
+            if (property->name == NULL ||
+                (strcmp(property->name, "until") != 0 &&
+                 strcmp(property->name, "at") != 0))
                 validation_error(validator, property, "CPDL-E3004",
-                                 "source edits accept only an until clause");
+                                 "source edits accept only until or at clauses");
             else if (operation->kind == CBS_NODE_INSERT)
                 validation_error(validator, property, "CPDL-E3004",
-                                 "until applies only to replace");
-            else if (index != 0)
+                                 "until and at apply only to replace");
+            else if (strcmp(property->name, "until") == 0 && seen_until)
                 validation_error(validator, property, "CPDL-E3002",
                                  "duplicate until clause");
-            else if (property->value == NULL ||
+            else if (strcmp(property->name, "at") == 0 && seen_at)
+                validation_error(validator, property, "CPDL-E3002",
+                                 "duplicate at clause");
+            else if (strcmp(property->name, "until") == 0 &&
+                     (property->value == NULL ||
                      (strcmp(property->value, "whitespace") != 0 &&
-                      strcmp(property->value, "line") != 0))
+                      strcmp(property->value, "line") != 0)))
                 validation_error(validator, property, "CPDL-E3004",
                                  "until must be whitespace or line");
+            else if (strcmp(property->name, "at") == 0 &&
+                     (property->value == NULL ||
+                      (strcmp(property->value, "line_start") != 0 &&
+                       strcmp(property->value, "line") != 0) ||
+                      (strcmp(property->value, "line") == 0 &&
+                       property->number < 1)))
+                validation_error(validator, property, "CPDL-E3004",
+                                 "at must be line_start or line N with N >= 1");
+            if (property->name != NULL && strcmp(property->name, "until") == 0)
+                seen_until = 1;
+            else if (property->name != NULL && strcmp(property->name, "at") == 0)
+                seen_at = 1;
         }
         break;
+        }
     case CBS_NODE_REQUIRE:
         if (operation->name == NULL ||
             (strcmp(operation->name, "file") != 0 &&
