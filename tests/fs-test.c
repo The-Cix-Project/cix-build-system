@@ -141,6 +141,14 @@ static int run_test(const char *recipe_path) {
     size_t index;
     int result = 1;
 
+#define FS_FAIL()                                                            \
+    do {                                                                     \
+        fprintf(stderr,                                                      \
+                "filesystem execution tests: failure at fs-test.c:%d\n", \
+                __LINE__);                                                   \
+        goto cleanup;                                                         \
+    } while (0)
+
     memset(&tokens, 0, sizeof(tokens));
     if (!test_temp_root(base, sizeof(base), "cbs-fs-test"))
         return 1;
@@ -157,10 +165,10 @@ static int run_test(const char *recipe_path) {
         return 1;
     document = cbs_parse(recipe_path, source, source_length, &tokens);
     if (document == NULL || !cbs_validate(document, recipe_path, source))
-        goto cleanup;
+        FS_FAIL();
     phase = find_phase(document, "build");
     if (phase == NULL)
-        goto cleanup;
+        FS_FAIL();
     memset(&context, 0, sizeof(context));
     context.recipe_path = recipe_path;
     context.recipe_source = source;
@@ -187,7 +195,7 @@ static int run_test(const char *recipe_path) {
             TestCapture capture;
             char diagnostic[2048];
             if (!test_capture_begin(&capture, capture_root))
-                goto cleanup;
+                FS_FAIL();
             operation_result = cbs_execute_filesystem(operation, &context);
             test_capture_end(&capture, diagnostic, sizeof(diagnostic));
             if (!operation_result || diagnostic[0] != '\0') {
@@ -197,7 +205,7 @@ static int run_test(const char *recipe_path) {
                         index, filesystem_kind(operation->kind),
                         operation->value == NULL ? "" : operation->value,
                         diagnostic);
-                goto cleanup;
+                FS_FAIL();
             }
         } else if (operation->kind == CBS_NODE_REPLACE ||
             operation->kind == CBS_NODE_INSERT)
@@ -210,12 +218,12 @@ static int run_test(const char *recipe_path) {
                     "%zu (%s `%s`)\n",
                     index, filesystem_kind(operation->kind),
                     operation->value == NULL ? "" : operation->value);
-            goto cleanup;
+            FS_FAIL();
         }
     }
     if (!path_join(path, sizeof(path), build, "block.txt") ||
         !regular_with(path, "literal ${not_a_binding}\n", 0644))
-        goto cleanup;
+        FS_FAIL();
 
     /* Regression for #201: a matching DT_NEEDED entry must be retained in
      * the observed set before required-library checks run. */
@@ -223,7 +231,7 @@ static int run_test(const char *recipe_path) {
         !path_join(executable, sizeof(executable), cwd, "cbs") ||
         !path_join(path, sizeof(path), src, "linked-cbs") ||
         symlink(executable, path) != 0)
-        goto cleanup;
+        FS_FAIL();
     memset(&needs, 0, sizeof(needs));
     needs.kind = CBS_NODE_PROPERTY;
     needs.name = "needs";
@@ -235,73 +243,73 @@ static int run_test(const char *recipe_path) {
     links.children = link_children;
     links.child_count = 1;
     if (!cbs_execute_links(&links, &context))
-        goto cleanup;
+        FS_FAIL();
 
     path_join(path, sizeof(path), build, "input");
     if (lstat(path, &status) != 0 || (status.st_mode & 07777) != 0700)
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "copied/a.txt");
     if (!regular_with(path, "alpha", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "moved.txt");
     if (!regular_with(path, "beta", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "replace.txt");
     if (!regular_with(path, "new", 0640))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "named-source");
     if (!regular_with(path, "named source", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "tree-copy/root.txt");
     if (!regular_with(path, "root", 0600))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "tree-copy/sub/nested.txt");
     if (!regular_with(path, "nested", 0610))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "copied/a-link");
     target_length = readlink(path, target, sizeof(target) - 1);
     if (target_length != 5)
-        goto cleanup;
+        FS_FAIL();
     target[target_length] = '\0';
     if (strcmp(target, "a.txt") != 0)
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "tree-copy/sub/root-link");
     target_length = readlink(path, target, sizeof(target) - 1);
     if (target_length != 11)
-        goto cleanup;
+        FS_FAIL();
     target[target_length] = '\0';
     if (strcmp(target, "../root.txt") != 0)
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "input/drop.tmp");
     if (lstat(path, &status) == 0 || errno != ENOENT)
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "discard");
     if (lstat(path, &status) == 0 || errno != ENOENT)
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "patterns/a.txt");
     if (!regular_with(path, "a", 0640))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "patterns/b.txt");
     if (!regular_with(path, "b", 0640))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "patterns/c.txt");
     if (!regular_with(path, "c", 0641))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "patterns/q.x");
     if (!regular_with(path, "q", 0642))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "patterns/literal*.txt");
     if (!regular_with(path, "star", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "bulk/a.txt");
     if (!regular_with(path, "new", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "bulk/z.txt");
     if (!regular_with(path, "new", 0644))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), build, "terminal");
     if (lstat(path, &status) == 0 || errno != ENOENT)
-        goto cleanup;
+        FS_FAIL();
 
     memset(&escape, 0, sizeof(escape));
     escape.kind = CBS_NODE_WRITE;
@@ -312,7 +320,7 @@ static int run_test(const char *recipe_path) {
     escape.second_value = "bad";
     escape.flag = CBS_TOKEN_STRING;
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
 
     /* stage library: the first sandbox copy of libc.so.6 is shipped with its
      * mode, and the destination directory is created on demand. The test
@@ -329,17 +337,17 @@ static int run_test(const char *recipe_path) {
         for (candidate = 0; candidate < 6 && !have_host; ++candidate)
             have_host = lstat(candidates[candidate], &host) == 0;
         if (!have_host)
-            goto cleanup;
+            FS_FAIL();
         path_join(path, sizeof(path), dest, "usr/lib");
         if (lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
-            goto cleanup;
+            FS_FAIL();
         path_join(path, sizeof(path), dest, "usr/lib/libc.so.6");
         if (lstat(path, &status) != 0 ||
             S_ISREG(status.st_mode) != S_ISREG(host.st_mode) ||
             S_ISLNK(status.st_mode) != S_ISLNK(host.st_mode) ||
             (status.st_mode & 07777) != (host.st_mode & 07777) ||
             (S_ISREG(host.st_mode) && status.st_size != host.st_size))
-            goto cleanup;
+            FS_FAIL();
         memset(&missing, 0, sizeof(missing));
         missing.kind = CBS_NODE_STAGE;
         missing.location.path = recipe_path;
@@ -349,11 +357,11 @@ static int run_test(const char *recipe_path) {
         missing.second_value = "${dest}/usr/lib";
         if (!expect_failure(&missing, &context,
                             "library is not in the build sandbox (searched "))
-            goto cleanup;
+            FS_FAIL();
         missing.value = "../etc/passwd";
         if (!expect_failure(&missing, &context,
                             "stage library name must be a bare file name"))
-            goto cleanup;
+            FS_FAIL();
     }
 
     {
@@ -371,7 +379,7 @@ static int run_test(const char *recipe_path) {
         mismatch.second_flag = CBS_TOKEN_STRING;
         mismatch.number = 1;
         if (!expect_edit_failure(&mismatch, &context)) {
-            goto cleanup;
+            FS_FAIL();
         }
     }
 
@@ -390,21 +398,21 @@ static int run_test(const char *recipe_path) {
         empty.second_flag = CBS_TOKEN_STRING;
         empty.number = 0;
         if (!expect_edit_failure(&empty, &context))
-            goto cleanup;
+            FS_FAIL();
     }
     path_join(path, sizeof(path), outside, "escaped");
     if (lstat(path, &status) == 0)
-        goto cleanup;
+        FS_FAIL();
 
     path_join(path, sizeof(path), dest, "linked-parent");
     if (symlink(outside, path) != 0)
-        goto cleanup;
+        FS_FAIL();
     escape.value = "${dest}/linked-parent/escaped";
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), outside, "escaped");
     if (lstat(path, &status) == 0)
-        goto cleanup;
+        FS_FAIL();
 
     memset(&escape, 0, sizeof(escape));
     escape.location.path = recipe_path;
@@ -414,40 +422,40 @@ static int run_test(const char *recipe_path) {
     escape.value = "${build}/input";
     escape.second_value = "${dest}/directory-copy";
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
 
     escape.kind = CBS_NODE_REMOVE;
     escape.value = "${build}/input";
     escape.second_value = NULL;
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
 
     escape.value = "${build}/input/*.missing";
     escape.flag = 1;
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
 
     escape.kind = CBS_NODE_COPY;
     escape.value = "${build}/input/*.txt";
     escape.second_value = "${dest}/moved.txt";
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
 
     escape.kind = CBS_NODE_CHMOD;
     escape.value = "${dest}/copied/a-link";
     escape.second_value = "0777";
     escape.flag = 0;
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
     path_join(path, sizeof(path), dest, "copied/a.txt");
     if (!regular_with(path, "alpha", 0644))
-        goto cleanup;
+        FS_FAIL();
 
     escape.kind = CBS_NODE_SYMLINK;
     escape.value = "target";
     escape.second_value = "${dest}/copied/a-link";
     if (!expect_failure(&escape, &context, NULL))
-        goto cleanup;
+        FS_FAIL();
     result = 0;
 
 cleanup:
