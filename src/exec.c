@@ -668,6 +668,35 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         if (item->kind == CBS_NODE_ARGUMENT) {
             string_list_add(&arguments, cbs_resolve_value(item->value,
                                                           item->flag, context));
+        } else if (item->kind == CBS_NODE_RUN_GLOB) {
+            char **matches = NULL;
+            size_t match_count = 0;
+            size_t match_index;
+            if (!cbs_expand_glob(item->value, context, &matches,
+                                 &match_count)) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "run argument glob is outside an execution root");
+                free(program);
+                string_list_destroy(&arguments);
+                string_list_destroy(&environment);
+                return 0;
+            }
+            if ((item->number >= 0 &&
+                 match_count != (size_t)item->number) ||
+                (item->number < 0 && match_count == 0)) {
+                runtime_error(run, context, "CPDL-E4001",
+                              "run argument glob matched an unexpected number of paths");
+                for (match_index = 0; match_index < match_count; ++match_index)
+                    free(matches[match_index]);
+                free(matches);
+                free(program);
+                string_list_destroy(&arguments);
+                string_list_destroy(&environment);
+                return 0;
+            }
+            for (match_index = 0; match_index < match_count; ++match_index)
+                string_list_add(&arguments, matches[match_index]);
+            free(matches);
         } else if (item->kind == CBS_NODE_RUN_ENV) {
             char *value = cbs_resolve_value(item->value, item->flag, context);
             environment_set(&environment, item->name,

@@ -277,6 +277,15 @@ static void validate_run(Validator *validator, const CbsNode *run,
                 validation_error(validator, item, "CPDL-E3004",
                                  "timeout must be greater than zero");
             break;
+        case CBS_NODE_RUN_GLOB:
+            validate_value(validator, item, item->value);
+            if (item->value == NULL || !valid_glob(item->value))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "invalid run argument glob expression");
+            if (item->number < -1)
+                validation_error(validator, item, "CPDL-E3004",
+                                 "run argument glob cardinality is invalid");
+            break;
         case CBS_NODE_RUN_EXPECT:
             duplicate_option(validator, item, &expect, "expect");
             if (item->number < 0 || item->number > 255)

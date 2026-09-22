@@ -77,6 +77,7 @@ typedef enum {
     CBS_NODE_RUN_JOBS,
     CBS_NODE_RUN_TIMEOUT,
     CBS_NODE_RUN_EXPECT,
+    CBS_NODE_RUN_GLOB,
     CBS_NODE_RUN_STDOUT_ASSERT,
     CBS_NODE_RUN_STDOUT_BIND,
     CBS_NODE_RUN_STDOUT_FILE,
@@ -437,6 +438,9 @@ int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
 int cbs_execute_glob_binding(const CbsNode *operation,
                              const CbsExecutionContext *context);
+/* Expand a confined glob into sorted, owned argument paths. */
+int cbs_expand_glob(const char *pattern, const CbsExecutionContext *context,
+                    char ***matches, size_t *count);
 int cbs_execute_links(const CbsNode *operation,
                       const CbsExecutionContext *context);
 int cbs_execute_patch(const CbsNode *operation,

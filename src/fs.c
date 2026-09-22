@@ -719,6 +719,31 @@ failure:
     return 0;
 }
 
+/* Expand a confined glob for a command argument list. */
+int cbs_expand_glob(const char *logical, const CbsExecutionContext *context,
+                    char ***matches, size_t *count) {
+    const char *root;
+    char *pattern;
+    PathList paths;
+
+    if (matches == NULL || count == NULL)
+        return 0;
+    *matches = NULL;
+    *count = 0;
+    memset(&paths, 0, sizeof(paths));
+    pattern = resolve_path(logical, context, &root);
+    if (pattern == NULL || !safe_parents(pattern, root)) {
+        free(pattern);
+        return 0;
+    }
+    collect_matches(root, pattern, &paths);
+    qsort(paths.items, paths.count, sizeof(*paths.items), compare_paths);
+    free(pattern);
+    *matches = paths.items;
+    *count = paths.count;
+    return 1;
+}
+
 typedef struct {
     const CbsNode *operation;
     const CbsExecutionContext *context;

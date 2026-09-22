@@ -56,5 +56,9 @@ package "argv-test" {
             "--probe-stderr"
             stderr file "${dest}/stderr-output"
         }
+        run "${build}/exec-test" {
+            "--probe-glob-args"
+            args glob "${src}/tests/fixtures/execution/*.cbs"
+        }
     }
 }

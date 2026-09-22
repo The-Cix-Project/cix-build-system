@@ -139,6 +139,23 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
             advance(parser);
             item = node_from_token(CBS_NODE_ARGUMENT, token);
             item->flag = token->kind;
+        } else if (is_word(parser, "args")) {
+            CbsToken *pattern;
+            advance(parser);
+            item = cbs_node_create(CBS_NODE_RUN_GLOB, token->location);
+            consume_word(parser, "glob");
+            pattern = consume_kind(parser, CBS_TOKEN_STRING, "glob string");
+            item->number = -1;
+            if (pattern != NULL)
+                item->value = cbs_duplicate(pattern->text);
+            if (is_word(parser, "exactly")) {
+                CbsToken *count;
+                advance(parser);
+                count = consume_kind(parser, CBS_TOKEN_INTEGER,
+                                      "glob cardinality");
+                if (count != NULL)
+                    item->number = strtol(count->text, NULL, 10);
+            }
         } else if (is_word(parser, "each")) {
             advance(parser);
             each_values = cbs_node_create(CBS_NODE_LIST, token->location);

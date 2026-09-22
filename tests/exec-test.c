@@ -127,7 +127,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     if (!cbs_validate(document, recipe_path, source))
         goto cleanup_document;
     phase = find_phase(document, "build");
-    if (phase == NULL || phase->child_count != 10)
+    if (phase == NULL || phase->child_count != 11)
         goto cleanup_document;
     if (getcwd(current_directory, sizeof(current_directory)) == NULL)
         goto cleanup_document;
@@ -184,6 +184,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
         !cbs_execute_run(phase->children[7], &context) ||
         !cbs_execute_run(phase->children[8], &context) ||
         !cbs_execute_run(phase->children[9], &context) ||
+        !cbs_execute_run(phase->children[10], &context) ||
         snprintf(stderr_path, sizeof(stderr_path), "%s/stderr-output", base) >=
             (int)sizeof(stderr_path) ||
         (stderr_text = read_file(stderr_path, &source_length)) == NULL ||
@@ -237,6 +238,17 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && strcmp(argv[1], "--probe-stderr") == 0) {
         fputs("stderr version 2.19.1\n", stderr);
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--probe-glob-args") == 0) {
+        int index;
+        if (argc < 4)
+            return 1;
+        for (index = 2; index < argc; ++index) {
+            if (strstr(argv[index], ".cbs") == NULL ||
+                (index > 2 && strcmp(argv[index - 1], argv[index]) > 0))
+                return 2;
+        }
         return 0;
     }
     if (argc != 2) {

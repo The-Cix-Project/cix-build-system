@@ -430,6 +430,7 @@ run-item = argument
          | run-jobs
          | run-timeout
          | run-expect
+         | run-args-glob
          | run-output-assert
          | run-output-bind
          | run-output-file
@@ -440,6 +441,7 @@ run-environment = "env", string, "=", text-value ;
 run-jobs        = "jobs", ( integer | "$jobs" ) ;
 run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
+run-args-glob   = "args", "glob", string, [ "exactly", integer ] ;
 run-output-assert = "expect", "{", ( "stdout" | "stderr" ),
                      "contains", string, "}" ;
 run-output-bind = ( "stdout" | "stderr" ), string ;
@@ -458,6 +460,12 @@ argv[0] = resolved executable value
 argv[1..n] = resolved argument values
 argv[n+1] = NULL
 ```
+
+`args glob PATTERN` expands every matching confined path into one argument,
+sorted by path. A pattern must match at least one path unless `exactly N` is
+provided; with `exactly`, the match count must equal `N`. Expansion happens
+when the command is prepared and uses the same literal, non-shell glob syntax
+and confinement rules as `glob` bindings.
 
 CBS passes this vector directly to the operating-system process execution
 interface. It must not invoke `sh`, `bash`, `env`, or another command
