@@ -15,6 +15,9 @@ if [ -n "$caller_cache" ]; then
 		exit 2
 	fi
 	find "$caller_cache" -maxdepth 1 -type f -exec cp -- {} "$cache_dir"/ \;
+else
+	echo 'upstream smoke test: SKIP (set CBS_UPSTREAM_CACHE to a digest-keyed source cache)' >&2
+	exit 0
 fi
 
 zstd_stage=$(mktemp -d "${TMPDIR:-/tmp}/cbs-zstd-stage.XXXXXX")

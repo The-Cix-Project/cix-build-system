@@ -30,3 +30,9 @@ Keep source/cache roots on a trusted filesystem, review diagnostics, and retain
 the input recipe and provenance alongside each artifact. cixd is optional;
 when present it may provide centralized source transport policy, stronger
 sandboxing, and image transactions through the adapter API.
+
+The repository's real zstd qualification is cache-backed: invoke
+`make upstream-test CBS_UPSTREAM_CACHE=/path/to/source-cache` with the source
+tarball stored under its declared SHA-256 filename. Without that cache,
+`make test` skips the qualification rather than allowing a test to perform an
+implicit network download.
