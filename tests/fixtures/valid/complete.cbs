@@ -44,6 +44,7 @@ package "example" {
         write "${build}/multiline.txt" """
             first
             second
+            shell_value="${array[@]}"
             """
         replace "${src}/configure" {
             from "old"

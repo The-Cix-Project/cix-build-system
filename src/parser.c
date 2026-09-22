@@ -411,12 +411,14 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
     if (strcmp(keyword->text, "write") == 0) {
         node = cbs_node_create(CBS_NODE_WRITE, keyword->location);
         value = consume_path(parser);
-        if (value != NULL)
+        if (value != NULL) {
             node->value = cbs_duplicate(value->text);
+            node->flag = value->kind;
+        }
         value = consume_text_value(parser, "write value");
         if (value != NULL) {
             node->second_value = cbs_duplicate(value->text);
-            node->flag = value->kind;
+            node->second_flag = value->kind;
         }
         parse_optional_mode(parser, node);
         return node;

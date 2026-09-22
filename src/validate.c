@@ -165,11 +165,25 @@ static void validate_bare_value(Validator *validator, const CbsNode *node,
         validation_error(validator, node, "CPDL-E3005", "unknown CBS value");
 }
 
-/* Validate a normal CPDL string value and its interpolation rules. */
-static void validate_value(Validator *validator, const CbsNode *node,
-                           const char *value) {
+/* Validate a value whose token kind controls interpolation semantics. */
+static void validate_value_kind(Validator *validator, const CbsNode *node,
+                                const char *value, int token_kind) {
+    if (token_kind == CBS_TOKEN_BLOCK_STRING)
+        return;
     validate_bare_value(validator, node, value);
     validate_interpolation(validator, node, value);
+}
+
+/* Validate a primary AST value. */
+static void validate_value(Validator *validator, const CbsNode *node,
+                           const char *value) {
+    validate_value_kind(validator, node, value, node->flag);
+}
+
+/* Validate a secondary AST value, which has its own source token kind. */
+static void validate_secondary_value(Validator *validator,
+                                     const CbsNode *node, const char *value) {
+    validate_value_kind(validator, node, value, node->second_flag);
 }
 
 /* Check an octal mode and reject privileged bits. */
@@ -410,7 +424,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_MKDIR:
     case CBS_NODE_WRITE:
         validate_value(validator, operation, operation->value);
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         if (!valid_mode(operation->second_value) &&
             operation->kind == CBS_NODE_MKDIR)
             validation_error(validator, operation, "CPDL-E3004",
@@ -478,7 +492,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_COPY:
     case CBS_NODE_MOVE:
         validate_selector(validator, operation);
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         if (operation->kind == CBS_NODE_MOVE && operation->number)
             validation_error(validator, operation, "CPDL-E3004",
                              "move does not support tree sources");
@@ -497,7 +511,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         break;
     case CBS_NODE_STAGE:
         validate_value(validator, operation, operation->value);
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         if (operation->value == NULL || operation->value[0] == '\0' ||
             strchr(operation->value, '/') != NULL ||
             strcmp(operation->value, ".") == 0 ||
@@ -507,7 +521,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         break;
     case CBS_NODE_SYMLINK:
         validate_value(validator, operation, operation->value);
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         break;
     case CBS_NODE_EXTRACT:
         if (operation->value == NULL ||
@@ -520,7 +534,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                 validation_error(validator, operation, "CPDL-E3005",
                                  "extract source is not declared");
         }
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         break;
     case CBS_NODE_MATERIALIZE:
         if (operation->value == NULL ||
@@ -530,7 +544,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         else if (!source_declared(validator, operation->value + 8))
             validation_error(validator, operation, "CPDL-E3005",
                              "materialize source is not declared");
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         break;
     case CBS_NODE_REPLACE:
     case CBS_NODE_INSERT:
@@ -540,7 +554,7 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
             validation_error(validator, operation, "CPDL-E3004",
                              "invalid source-edit glob expression");
         validate_value(validator, operation, operation->value);
-        validate_value(validator, operation, operation->second_value);
+        validate_secondary_value(validator, operation, operation->second_value);
         if (operation->value == NULL || operation->value[0] == '\0')
             validation_error(validator, operation, "CPDL-E3004",
                              "source-edit match value must not be empty");
