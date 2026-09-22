@@ -46,6 +46,33 @@ static CbsNode *find_phase(CbsNode *document, const char *name) {
     return NULL;
 }
 
+static const char *filesystem_kind(CbsNodeKind kind) {
+    switch (kind) {
+    case CBS_NODE_MKDIR:
+        return "mkdir";
+    case CBS_NODE_WRITE:
+        return "write";
+    case CBS_NODE_COPY:
+        return "copy";
+    case CBS_NODE_MOVE:
+        return "move";
+    case CBS_NODE_REMOVE:
+        return "remove";
+    case CBS_NODE_CHMOD:
+        return "chmod";
+    case CBS_NODE_SYMLINK:
+        return "symlink";
+    case CBS_NODE_STAGE:
+        return "stage";
+    case CBS_NODE_REPLACE:
+        return "replace";
+    case CBS_NODE_INSERT:
+        return "insert";
+    default:
+        return "filesystem operation";
+    }
+}
+
 static int path_join(char *buffer, size_t size, const char *left,
                      const char *right) {
     return snprintf(buffer, size, "%s/%s", left, right) < (int)size;
@@ -163,15 +190,28 @@ static int run_test(const char *recipe_path) {
                 goto cleanup;
             operation_result = cbs_execute_filesystem(operation, &context);
             test_capture_end(&capture, diagnostic, sizeof(diagnostic));
-            if (!operation_result || diagnostic[0] != '\0')
+            if (!operation_result || diagnostic[0] != '\0') {
+                fprintf(stderr,
+                        "filesystem execution tests: failure at operation "
+                        "%zu (%s `%s`)\n%s",
+                        index, filesystem_kind(operation->kind),
+                        operation->value == NULL ? "" : operation->value,
+                        diagnostic);
                 goto cleanup;
+            }
         } else if (operation->kind == CBS_NODE_REPLACE ||
             operation->kind == CBS_NODE_INSERT)
             operation_result = cbs_execute_edit_assertion(operation, &context);
         else
             operation_result = cbs_execute_filesystem(operation, &context);
-        if (!operation_result)
+        if (!operation_result) {
+            fprintf(stderr,
+                    "filesystem execution tests: failure at operation "
+                    "%zu (%s `%s`)\n",
+                    index, filesystem_kind(operation->kind),
+                    operation->value == NULL ? "" : operation->value);
             goto cleanup;
+        }
     }
     if (!path_join(path, sizeof(path), build, "block.txt") ||
         !regular_with(path, "literal ${not_a_binding}\n", 0644))
