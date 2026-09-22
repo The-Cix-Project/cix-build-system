@@ -135,10 +135,11 @@ static int run_test(const char *recipe_path) {
     CbsNode escape;
     CbsNode links, needs;
     CbsNode *link_children[1];
-    char executable[4160], cwd[4160];
+    char executable[4160], cwd[4160], usr_triplet[4160], lib_triplet[4160];
     struct stat status;
     ssize_t target_length;
     size_t index;
+    char *triplet;
     int result = 1;
 
 #define FS_FAIL()                                                            \
@@ -326,16 +327,30 @@ static int run_test(const char *recipe_path) {
      * mode, and the destination directory is created on demand. The test
      * assumes a glibc host, as the manual already does. */
     {
-        static const char *const candidates[] = {
-            "/usr/lib/x86_64-linux-gnu/libc.so.6",
-            "/lib/x86_64-linux-gnu/libc.so.6", "/usr/lib/libc.so.6",
-            "/lib/libc.so.6", "/usr/lib64/libc.so.6", "/lib64/libc.so.6"};
+        const char *candidates[6];
         struct stat host;
         CbsNode missing;
         size_t candidate;
         int have_host = 0;
+        triplet = cbs_resolve_value("${triplet}", CBS_TOKEN_STRING,
+                                    &context);
+        if (triplet == NULL ||
+            snprintf(usr_triplet, sizeof(usr_triplet), "/usr/lib/%s/libc.so.6",
+                     triplet) >= (int)sizeof(usr_triplet) ||
+            snprintf(lib_triplet, sizeof(lib_triplet), "/lib/%s/libc.so.6",
+                     triplet) >= (int)sizeof(lib_triplet)) {
+            free(triplet);
+            FS_FAIL();
+        }
+        candidates[0] = usr_triplet;
+        candidates[1] = lib_triplet;
+        candidates[2] = "/usr/lib/libc.so.6";
+        candidates[3] = "/lib/libc.so.6";
+        candidates[4] = "/usr/lib64/libc.so.6";
+        candidates[5] = "/lib64/libc.so.6";
         for (candidate = 0; candidate < 6 && !have_host; ++candidate)
             have_host = lstat(candidates[candidate], &host) == 0;
+        free(triplet);
         if (!have_host)
             FS_FAIL();
         path_join(path, sizeof(path), dest, "usr/lib");
