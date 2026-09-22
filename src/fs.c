@@ -1095,16 +1095,17 @@ static int atomic_write_bytes(const char *path, const unsigned char *content,
  * one operation that reads outside the confined roots (ADR-0036). */
 static int stage_library(const CbsNode *operation,
                          const CbsExecutionContext *context) {
-    static const char *const plain[] = {"/usr/lib", "/lib", "/usr/lib64",
-                                        "/lib64"};
     char *name = cbs_resolve_value(operation->value, CBS_TOKEN_STRING, context);
     char *triplet = cbs_resolve_value("${triplet}", CBS_TOKEN_STRING, context);
+    const char *library_path = context->library_path == NULL
+                                   ? CBS_DEFAULT_LIBRARY_PATH
+                                   : context->library_path;
     const char *root;
     char *directory = NULL;
     char searched[1024];
     char candidate[4096];
     struct stat status;
-    size_t index;
+    const char *cursor;
     size_t searched_length = 0;
     int found = 0;
     int result = 0;
@@ -1117,27 +1118,40 @@ static int stage_library(const CbsNode *operation,
         goto done;
     }
     searched[0] = '\0';
-    for (index = 0; index < 2 + sizeof(plain) / sizeof(plain[0]); ++index) {
-        int multiarch = index < 2;
-        if (multiarch && triplet[0] == '\0')
-            continue;
-        if (multiarch)
-            snprintf(candidate, sizeof(candidate), "%s/%s/%s",
-                     index == 0 ? "/usr/lib" : "/lib", triplet, name);
-        else
-            snprintf(candidate, sizeof(candidate), "%s/%s", plain[index - 2],
-                     name);
+    if (!cbs_library_path_is_valid(library_path)) {
+        errno = EINVAL;
+        fs_error(operation, context, library_path,
+                 "library search path policy is invalid");
+        goto done;
+    }
+    cursor = library_path;
+    while (1) {
+        const char *end = strchr(cursor, ':');
+        size_t length = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
+        char *root_path = cbs_duplicate_range(cursor, length);
+        if (triplet[0] != '\0') {
+            snprintf(candidate, sizeof(candidate), "%s/%s/%s", root_path,
+                     triplet, name);
+            if (lstat(candidate, &status) == 0 &&
+                (S_ISREG(status.st_mode) || S_ISLNK(status.st_mode)))
+                found = 1;
+        }
+        if (!found)
+            snprintf(candidate, sizeof(candidate), "%s/%s", root_path, name);
         searched_length += (size_t)snprintf(
             searched + searched_length, sizeof(searched) - searched_length,
             "%s%.*s", searched_length == 0 ? "" : ", ",
             (int)(strlen(candidate) - strlen(name) - 1), candidate);
         if (searched_length >= sizeof(searched))
             searched_length = sizeof(searched) - 1;
-        if (lstat(candidate, &status) == 0 &&
+        if (!found && lstat(candidate, &status) == 0 &&
             (S_ISREG(status.st_mode) || S_ISLNK(status.st_mode))) {
             found = 1;
-            break;
         }
+        free(root_path);
+        if (found || end == NULL)
+            break;
+        cursor = end + 1;
     }
     if (!found) {
         char detail[1400];

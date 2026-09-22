@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
+#define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
 typedef struct CbsNode CbsNode;
 
@@ -103,6 +104,7 @@ typedef struct {
     long jobs;
     const char *working_directory;
     const char *command_path;
+    const char *library_path;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -181,6 +183,7 @@ void *cbs_reallocate(void *, size_t);
 char *cbs_duplicate(const char *);
 char *cbs_duplicate_range(const char *, size_t);
 int cbs_command_path_is_valid(const char *);
+int cbs_library_path_is_valid(const char *);
 
 int cbs_cli_fetch_service(CbsFetchService *, char *, size_t);
 int cbs_cli_fetch_service_with_ca(CbsFetchService *, char *, size_t,
@@ -204,7 +207,8 @@ int cbs_build_standalone_with_events_policy(
 int cbs_build_standalone_with_events_policy_path(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
-    const char *, const CbsPrunePolicy *, const char *, CbsBuildEventSink,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    CbsBuildEventSink,
     void *);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);

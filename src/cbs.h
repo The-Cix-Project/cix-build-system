@@ -13,6 +13,7 @@
 #include <stdio.h>
 
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
+#define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
 typedef struct {
     /* Source filename or logical diagnostic origin. */
@@ -353,6 +354,8 @@ typedef struct {
     const char *working_directory;
     /* Approved colon-separated absolute roots used to resolve commands. */
     const char *command_path;
+    /* Colon-separated absolute roots used to locate staged libraries. */
+    const char *library_path;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -411,6 +414,8 @@ char *cbs_duplicate(const char *text);
 char *cbs_duplicate_range(const char *start, size_t length);
 /* Validate a colon-separated command search policy. */
 int cbs_command_path_is_valid(const char *command_path);
+/* Validate a colon-separated library-root policy. */
+int cbs_library_path_is_valid(const char *library_path);
 
 /* Create, attach, and destroy nodes in the CPDL abstract syntax tree. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location);
@@ -553,7 +558,8 @@ int cbs_build_standalone_with_events_policy_path(
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
-    const char *command_path, CbsBuildEventSink event_sink,
+    const char *command_path, const char *library_path,
+    CbsBuildEventSink event_sink,
     void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {

@@ -853,9 +853,13 @@ stage-operation = "stage", "library", string, "into", path-value ;
 
 `stage library` copies one shared library out of the build sandbox into the
 staged tree. The name is a bare file name (no `/`), such as `libresolv.so.2`.
-CBS searches, in order, `/usr/lib/TRIPLET`, `/lib/TRIPLET`, `/usr/lib`,
-`/lib`, `/usr/lib64`, and `/lib64`, where `TRIPLET` is `${triplet}` for the
-target architecture, and takes the first regular file or symbolic link found.
+CBS searches the configured library-root policy, which defaults to
+`/usr/lib:/lib:/usr/lib64:/lib64`. For each root it checks
+`ROOT/TRIPLET` and then `ROOT`, where `TRIPLET` is `${triplet}` for the target
+architecture, and takes the first regular file or symbolic link found. An
+embedder or the `--library-path` option may provide a colon-separated list of
+non-empty absolute roots; empty, relative, `.`, and `..` components are
+refused.
 The copy preserves the mode, and a symbolic link is copied as a link with its
 target text unchanged, so the soname link a recipe names is shipped as a link
 and the versioned file must be staged separately. The `into` directory must

@@ -55,6 +55,10 @@ int cbs_command_path_is_valid(const char *command_path) {
     return 1;
 }
 
+int cbs_library_path_is_valid(const char *library_path) {
+    return cbs_command_path_is_valid(library_path);
+}
+
 static unsigned long long usage_cpu_ms(const struct rusage *usage) {
     return (unsigned long long)usage->ru_utime.tv_sec * 1000ULL +
            (unsigned long long)usage->ru_utime.tv_usec / 1000ULL +

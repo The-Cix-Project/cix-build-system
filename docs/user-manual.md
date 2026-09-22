@@ -202,6 +202,8 @@ The remaining build options are for callers embedding CBS in a larger system:
                           firmware; unset leaves `${firmware}` empty
 --command-path DIRS       use these colon-separated absolute command roots;
                           default is `/usr/bin:/bin`, with no ambient PATH
+--library-path DIRS       use these colon-separated absolute library roots;
+                          default is `/usr/lib:/lib:/usr/lib64:/lib64`
 ```
 
 Cache hits do not require network access. Source archives are extracted by

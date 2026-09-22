@@ -293,6 +293,7 @@ int cbs_build_standalone_with_events_policy_path(
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
     const char *command_path,
+    const char *library_path,
     CbsBuildEventSink event_sink,
     void *event_sink_user) {
     FILE *f;
@@ -312,7 +313,8 @@ int cbs_build_standalone_with_events_policy_path(
     unsigned flags = 0;
     int ok;
     if (!recipe || !workspace || !architecture ||
-        (command_path != NULL && !cbs_command_path_is_valid(command_path)))
+        (command_path != NULL && !cbs_command_path_is_valid(command_path)) ||
+        (library_path != NULL && !cbs_library_path_is_valid(library_path)))
         return 0;
     f = fopen(recipe, "rb");
     if (!f || fseek(f, 0, SEEK_END) || (n = ftell(f)) < 0 ||
@@ -400,6 +402,9 @@ int cbs_build_standalone_with_events_policy_path(
             context.command_path = command_path == NULL
                                        ? CBS_DEFAULT_COMMAND_PATH
                                        : command_path;
+            context.library_path = library_path == NULL
+                                       ? CBS_DEFAULT_LIBRARY_PATH
+                                       : library_path;
             ok = cbs_sources_apply_execution_context(&sources, &context);
             if (!ok)
                 pipeline_error(recipe, text, document->location, "sources",
@@ -503,6 +508,7 @@ int cbs_build_standalone_with_events_policy(
     return cbs_build_standalone_with_events_policy_path(
         recipe, workspace, package_path, architecture, fetch_service,
         cache_directory, finalize, user, firmware_root, prune_policy, NULL,
+        NULL,
         event_sink, event_sink_user);
 }
 
