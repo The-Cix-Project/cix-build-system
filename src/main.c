@@ -538,18 +538,47 @@ static int explain_file(const char *path, int json) {
     return 0;
 }
 
+typedef struct {
+    char *resolved;
+} CbsFinalizeCommand;
+
+/* Resolve a finalizer against the approved command roots. */
+static char *resolve_finalize_command(const char *command,
+                                      const char *command_path) {
+    const char *cursor;
+    if (command == NULL || command[0] == '\0')
+        return NULL;
+    if (strchr(command, '/') != NULL)
+        return access(command, X_OK) == 0 ? cbs_duplicate(command) : NULL;
+    cursor = command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path;
+    while (1) {
+        const char *end = strchr(cursor, ':');
+        size_t length = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
+        char *candidate = cbs_allocate(length + strlen(command) + 2);
+        snprintf(candidate, length + strlen(command) + 2, "%.*s/%s",
+                 (int)length, cursor, command);
+        if (access(candidate, X_OK) == 0)
+            return candidate;
+        free(candidate);
+        if (end == NULL)
+            break;
+        cursor = end + 1;
+    }
+    return NULL;
+}
+
 /* Run an explicit process-level finalizer against the staged root. */
 static int run_finalize_command(const char *staged_root, void *user) {
-    const char *command = user;
+    const CbsFinalizeCommand *policy = user;
     pid_t child;
     int status;
-    if (command == NULL || staged_root == NULL)
+    if (policy == NULL || policy->resolved == NULL || staged_root == NULL)
         return 0;
     child = fork();
     if (child < 0)
         return 0;
     if (child == 0) {
-        execlp(command, command, staged_root, (char *)NULL);
+        execl(policy->resolved, policy->resolved, staged_root, (char *)NULL);
         _exit(127);
     }
     if (waitpid(child, &status, 0) < 0)
@@ -576,6 +605,7 @@ static int build_file(const char *recipe, const char *architecture,
     CbsPrunePolicy prune_policy;
     char prune_error[256];
     struct stat firmware_status;
+    CbsFinalizeCommand finalize_policy = {0};
     memset(&service, 0, sizeof(service));
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
         fprintf(stderr, "build: --command-path must contain only non-empty "
@@ -586,6 +616,16 @@ static int build_file(const char *recipe, const char *architecture,
         fprintf(stderr, "build: --library-path must contain only non-empty "
                         "absolute directories without . or .. components\n");
         return 2;
+    }
+    if (finalize_command != NULL) {
+        finalize_policy.resolved = resolve_finalize_command(
+            finalize_command,
+            command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path);
+        if (finalize_policy.resolved == NULL) {
+            fprintf(stderr, "build: finalize command is not executable under "
+                            "the approved command-path policy\n");
+            return 2;
+        }
     }
     if (prune_policy_path != NULL &&
         !cbs_prune_policy_load(prune_policy_path, &prune_policy,
@@ -633,12 +673,13 @@ static int build_file(const char *recipe, const char *architecture,
     result = cbs_build_standalone_with_events_policy_path(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
-            (void *)finalize_command,
+            finalize_command == NULL ? NULL : (void *)&finalize_policy,
             firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, event_sink, event_stream);
     if (event_stream != stderr)
         fclose(event_stream);
+    free(finalize_policy.resolved);
     if (!result) {
         fprintf(stderr, "build failed: recipe, staged tree, or package output "
                         "was rejected\n");

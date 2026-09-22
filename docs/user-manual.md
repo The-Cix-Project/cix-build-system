@@ -197,7 +197,8 @@ The remaining build options are for callers embedding CBS in a larger system:
 --finalize-command CMD    run CMD with the staged root as its only argument
                           after the phases and before the manifest; a
                           non-zero status fails the build and the artifact
-                          records that a finalization policy completed
+                          records that a finalization policy completed;
+                          bare names use `--command-path`, never host PATH
 --firmware-root DIR       bind `${firmware}` to DIR for recipes that install
                           firmware; unset leaves `${firmware}` empty
 --command-path DIRS       use these colon-separated absolute command roots;

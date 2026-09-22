@@ -3,6 +3,8 @@ set -eu
 
 cbs=${1:?usage: cli-finalize-test.sh CBS HELPER}
 helper=${2:?usage: cli-finalize-test.sh CBS HELPER}
+helper_dir=$(CDPATH= cd -- "$(dirname -- "$helper")" && pwd)
+helper_name=$(basename -- "$helper")
 temporary_dir=$(mktemp -d)
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
 mkdir "$temporary_dir/workspace"
@@ -10,7 +12,8 @@ mkdir "$temporary_dir/workspace"
 artifact="$temporary_dir/finalized.cixpkg"
 "$cbs" build tests/fixtures/standalone-smoke.cbs \
     --arch x86_64 --staged "$temporary_dir/workspace" \
-    --output "$artifact" --finalize-command "$helper"
+    --output "$artifact" --finalize-command "$helper_name" \
+    --command-path "$helper_dir:/usr/bin"
 "$cbs" extract "$artifact" --into "$temporary_dir/extracted" >/dev/null
 test -f "$temporary_dir/extracted/finalized-by-embedder"
 
