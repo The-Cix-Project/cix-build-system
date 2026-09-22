@@ -35,7 +35,7 @@ package "argv-test" {
         run "${build}/exec-test" {
             "--probe-limit"
         }
-        run "/usr/bin/make" {
+        run "make" {
             "-s"
             "-f"
             "${src}/tests/fixtures/execution/cc-precedence.mk"
