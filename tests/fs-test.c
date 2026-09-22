@@ -154,7 +154,18 @@ static int run_test(const char *recipe_path) {
     for (index = 0; index < phase->child_count; ++index) {
         CbsNode *operation = phase->children[index];
         int operation_result;
-        if (operation->kind == CBS_NODE_REPLACE ||
+        if ((operation->kind == CBS_NODE_COPY ||
+             operation->kind == CBS_NODE_REMOVE) && operation->flag &&
+            operation->second_flag) {
+            TestCapture capture;
+            char diagnostic[2048];
+            if (!test_capture_begin(&capture, capture_root))
+                goto cleanup;
+            operation_result = cbs_execute_filesystem(operation, &context);
+            test_capture_end(&capture, diagnostic, sizeof(diagnostic));
+            if (!operation_result || diagnostic[0] != '\0')
+                goto cleanup;
+        } else if (operation->kind == CBS_NODE_REPLACE ||
             operation->kind == CBS_NODE_INSERT)
             operation_result = cbs_execute_edit_assertion(operation, &context);
         else

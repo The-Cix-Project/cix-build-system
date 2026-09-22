@@ -1231,8 +1231,18 @@ int cbs_execute_filesystem(const CbsNode *operation,
             goto failure;
         result = symlink(second, first) == 0;
     } else {
-        if (!select_paths(operation, context, &paths))
+        if (!select_paths(operation, context, &paths)) {
+            /* An optional glob is a successful no-op when it matches
+             * nothing. Do not publish a fatal-looking diagnostic for the
+             * condition the recipe explicitly allowed. */
+            if (operation->flag && operation->second_flag && errno == ENOENT) {
+                free(first);
+                free(second);
+                path_list_destroy(&paths);
+                return 1;
+            }
             goto failure;
+        }
         if (operation->kind == CBS_NODE_COPY ||
             operation->kind == CBS_NODE_MOVE) {
             second = resolve_path(operation->second_value, context, &root);
