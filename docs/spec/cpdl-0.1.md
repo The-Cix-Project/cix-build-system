@@ -430,9 +430,9 @@ run-item = argument
          | run-jobs
          | run-timeout
          | run-expect
-         | run-stdout-assert
-         | run-stdout-bind
-         | run-stdout-file
+         | run-output-assert
+         | run-output-bind
+         | run-output-file
          | "allow_failure" ;
 
 argument        = text-value ;
@@ -440,9 +440,10 @@ run-environment = "env", string, "=", text-value ;
 run-jobs        = "jobs", ( integer | "$jobs" ) ;
 run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
-run-stdout-assert = "expect", "{", "stdout", "contains", string, "}" ;
-run-stdout-bind = "stdout", string ;
-run-stdout-file = "stdout", "file", path-value ;
+run-output-assert = "expect", "{", ( "stdout" | "stderr" ),
+                     "contains", string, "}" ;
+run-output-bind = ( "stdout" | "stderr" ), string ;
+run-output-file = ( "stdout" | "stderr" ), "file", path-value ;
 run-each        = "each", { text-value } ;
 ```
 
@@ -479,11 +480,14 @@ current CPDL directory context. CBS uses `execve` after resolution; `execvp`,
 `system`, and `popen` are not conforming execution paths because they admit
 ambient environment or shell behavior.
 
-`stdout file PATH` captures bounded command output for later assertions or
-diagnostics. The limit is 64 KiB; exceeding it fails with `CPDL-E4001` and
-does not create a partial artifact. It is not a general-purpose output
-redirect; commands that produce large files should write them directly or use
-a filesystem operation after producing a declared source.
+`stdout` and `stderr` assertions, bindings, and file captures observe their
+respective process streams; they are never implicitly merged. Captured output
+is bounded at 64 KiB; exceeding it fails with `CPDL-E4001` and does not create
+a partial artifact. `stdout "NAME"` and `stderr "NAME"` expose one-line,
+trimmed values as `${stdout.NAME}` and `${stderr.NAME}` for later commands.
+The file forms preserve bounded bytes at a confined path and are not general-
+purpose output redirects; commands that produce large files should write them
+directly or use a filesystem operation after producing a declared source.
 
 `env "NAME" = value` creates or replaces one command-local environment binding.
 It does not affect later commands. Names are POSIX portable names in either

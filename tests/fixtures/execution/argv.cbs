@@ -43,5 +43,18 @@ package "argv-test" {
             "CC=recipe-cc"
             expect { stdout contains "origin=command line cc=recipe-cc" }
         }
+        run "${build}/exec-test" {
+            "--probe-stderr"
+            expect { stderr contains "2.19.1" }
+            stderr "VERSION"
+        }
+        run "printf" {
+            "${stderr.VERSION}\n"
+            expect { stdout contains "stderr version 2.19.1" }
+        }
+        run "${build}/exec-test" {
+            "--probe-stderr"
+            stderr file "${dest}/stderr-output"
+        }
     }
 }

@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     const char *name;
     char *value;
+    int stderr_stream;
 } CbsOutputBinding;
 
 typedef struct {

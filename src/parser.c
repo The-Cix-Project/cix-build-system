@@ -106,6 +106,8 @@ static CbsNode *clone_node(const CbsNode *source) {
     copy->flag = source->flag;
     copy->second_flag = source->second_flag;
     copy->selector_glob = source->selector_glob;
+    copy->insert_before = source->insert_before;
+    copy->stderr_stream = source->stderr_stream;
     for (index = 0; index < source->child_count; ++index)
         cbs_node_add(copy, clone_node(source->children[index]));
     return copy;
@@ -190,7 +192,12 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
                 item = cbs_node_create(CBS_NODE_RUN_STDOUT_ASSERT,
                                        token->location);
                 consume_kind(parser, CBS_TOKEN_LBRACE, "{");
-                consume_word(parser, "stdout");
+                if (is_word(parser, "stderr")) {
+                    advance(parser);
+                    item->stderr_stream = 1;
+                } else {
+                    consume_word(parser, "stdout");
+                }
                 consume_word(parser, "contains");
                 pattern = consume_text_value(parser, "stdout text");
                 if (pattern != NULL) {
@@ -199,14 +206,16 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
                 }
                 consume_kind(parser, CBS_TOKEN_RBRACE, "}");
             }
-        } else if (is_word(parser, "stdout")) {
+        } else if (is_word(parser, "stdout") || is_word(parser, "stderr")) {
             CbsToken *name;
+            int stderr_stream = is_word(parser, "stderr");
             advance(parser);
             if (is_word(parser, "file")) {
                 CbsToken *path;
                 advance(parser);
                 item = cbs_node_create(CBS_NODE_RUN_STDOUT_FILE,
                                        token->location);
+                item->stderr_stream = stderr_stream;
                 path = consume_text_value(parser, "stdout file path");
                 if (path != NULL) {
                     item->value = cbs_duplicate(path->text);
@@ -215,6 +224,7 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
             } else {
                 item = cbs_node_create(CBS_NODE_RUN_STDOUT_BIND,
                                        token->location);
+                item->stderr_stream = stderr_stream;
                 name = consume_kind(parser, CBS_TOKEN_STRING,
                                     "stdout binding name");
                 if (name != NULL)

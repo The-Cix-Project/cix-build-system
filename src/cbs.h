@@ -134,6 +134,8 @@ struct CbsNode {
     int selector_glob;
     /* Whether an insert operation writes before, rather than after, a match. */
     int insert_before;
+    /* Whether a run output option targets stderr rather than stdout. */
+    int stderr_stream;
     /* Child nodes in source order. */
     CbsNode **children;
     /* Number of initialized child pointers. */
@@ -176,6 +178,8 @@ typedef struct {
 typedef struct {
     const char *name;
     char *value;
+    /* Nonzero when this binding came from stderr rather than stdout. */
+    int stderr_stream;
 } CbsOutputBinding;
 
 typedef CbsOutputBinding CbsGlobBinding;

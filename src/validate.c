@@ -109,7 +109,8 @@ static int known_value_name(Validator *validator, const char *name,
         free(source_name);
         return declared;
     }
-    if (length > 7 && strncmp(name, "stdout.", 7) == 0)
+    if (length > 7 && (strncmp(name, "stdout.", 7) == 0 ||
+                       strncmp(name, "stderr.", 7) == 0))
         return 1;
     if (length > 5 && strncmp(name, "glob.", 5) == 0)
         return 1;
@@ -230,6 +231,7 @@ static void validate_run(Validator *validator, const CbsNode *run,
     int timeout = 0;
     int expect = 0;
     int stdout_file = 0;
+    int stderr_file = 0;
     int allow_failure = 0;
     size_t index;
     size_t other;
@@ -293,13 +295,19 @@ static void validate_run(Validator *validator, const CbsNode *run,
             for (other = 0; other < index; ++other) {
                 const CbsNode *prior = run->children[other];
                 if (prior->kind == CBS_NODE_RUN_STDOUT_BIND &&
+                    prior->stderr_stream == item->stderr_stream &&
                     strcmp(prior->name, item->name) == 0)
                     validation_error(validator, item, "CPDL-E3002",
                                      "duplicate stdout binding name");
             }
             break;
         case CBS_NODE_RUN_STDOUT_FILE:
-            duplicate_option(validator, item, &stdout_file, "stdout file");
+            if (item->stderr_stream)
+                duplicate_option(validator, item, &stderr_file,
+                                 "stderr file");
+            else
+                duplicate_option(validator, item, &stdout_file,
+                                 "stdout file");
             validate_value(validator, item, item->value);
             break;
         case CBS_NODE_ALLOW_FAILURE:

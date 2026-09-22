@@ -215,9 +215,12 @@ static const char *context_value(const CbsExecutionContext *context,
                 return context->sources[index].path;
         }
     }
-    if (length > 7 && strncmp(name, "stdout.", 7) == 0) {
+    if (length > 7 && (strncmp(name, "stdout.", 7) == 0 ||
+                       strncmp(name, "stderr.", 7) == 0)) {
+        int stderr_stream = strncmp(name, "stderr.", 7) == 0;
         for (index = 0; index < context->output_binding_count; ++index)
-            if (strlen(context->output_bindings[index].name) == length - 7 &&
+            if (context->output_bindings[index].stderr_stream == stderr_stream &&
+                strlen(context->output_bindings[index].name) == length - 7 &&
                 strncmp(context->output_bindings[index].name, name + 7,
                         length - 7) == 0)
                 return context->output_bindings[index].value;
@@ -469,6 +472,136 @@ static void runtime_error(const CbsNode *run,
                    "error", code, CBS_DIAG_RUNTIME, message);
 }
 
+/* Read one bounded captured stream and apply the one-line binding contract. */
+static int read_captured_stream(FILE *capture, char *output, size_t *length,
+                                int one_line, const char *stream,
+                                const CbsNode *run,
+                                const CbsExecutionContext *context) {
+    rewind(capture);
+    *length = fread(output, 1, 65536, capture);
+    output[*length] = '\0';
+    if (*length == 65536 || fgetc(capture) != EOF) {
+        char message[128];
+        snprintf(message, sizeof(message), "process %s exceeds the 64 KiB limit",
+                 stream);
+        runtime_error(run, context, "CPDL-E4001", message);
+        return 0;
+    }
+    if (one_line) {
+        while (*length > 0 &&
+               (output[*length - 1] == '\n' ||
+                output[*length - 1] == '\r' || output[*length - 1] == ' ' ||
+                output[*length - 1] == '\t'))
+            output[--*length] = '\0';
+        {
+            size_t leading = 0;
+            while (output[leading] == ' ' || output[leading] == '\t')
+                ++leading;
+            if (leading != 0) {
+                memmove(output, output + leading, *length - leading + 1);
+                *length -= leading;
+            }
+        }
+        if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
+            char message[128];
+            snprintf(message, sizeof(message), "process %s must be one line",
+                     stream);
+            runtime_error(run, context, "CPDL-E4001", message);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Write one captured stream to a confined recipe path. */
+static int write_captured_stream(const char *logical, const char *output,
+                                 size_t length, const char *stream,
+                                 const CbsNode *run,
+                                 const CbsExecutionContext *context) {
+    char *path = cbs_resolve_confined_path(logical, context);
+    int descriptor;
+    size_t written = 0;
+
+    if (path == NULL) {
+        char message[128];
+        snprintf(message, sizeof(message),
+                 "%s file path is outside an execution root", stream);
+        runtime_error(run, context, "CPDL-E4001", message);
+        return 0;
+    }
+    descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (descriptor < 0) {
+        char message[128];
+        snprintf(message, sizeof(message), "cannot open %s file", stream);
+        runtime_error(run, context, "CPDL-E4001", message);
+        free(path);
+        return 0;
+    }
+    while (written < length) {
+        ssize_t count = write(descriptor, output + written, length - written);
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count <= 0) {
+            char message[128];
+            snprintf(message, sizeof(message), "cannot write %s file", stream);
+            close(descriptor);
+            free(path);
+            runtime_error(run, context, "CPDL-E4001", message);
+            return 0;
+        }
+        written += (size_t)count;
+    }
+    if (close(descriptor) != 0) {
+        char message[128];
+        snprintf(message, sizeof(message), "cannot close %s file", stream);
+        free(path);
+        runtime_error(run, context, "CPDL-E4001", message);
+        return 0;
+    }
+    free(path);
+    return 1;
+}
+
+/* Preserve captured output in the command log after the child exits. */
+static void append_captured_log(const char *path, const char *output,
+                                size_t length) {
+    int descriptor;
+    size_t written = 0;
+    if (path == NULL || path[0] == '\0' || length == 0)
+        return;
+    descriptor = open(path, O_WRONLY | O_APPEND);
+    if (descriptor < 0)
+        return;
+    while (written < length) {
+        ssize_t count = write(descriptor, output + written, length - written);
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count <= 0)
+            break;
+        written += (size_t)count;
+    }
+    close(descriptor);
+}
+
+/* Add a captured one-line value to the interpolation binding table. */
+static void bind_captured_output(CbsExecutionContext *context,
+                                 const CbsNode *item, const char *output) {
+    if (context->output_binding_count == context->output_binding_capacity) {
+        size_t next = context->output_binding_capacity == 0
+                          ? 4
+                          : context->output_binding_capacity * 2;
+        context->output_bindings = cbs_reallocate(
+            context->output_bindings, next * sizeof(*context->output_bindings));
+        context->output_binding_capacity = next;
+    }
+    context->output_bindings[context->output_binding_count].name = item->name;
+    context->output_bindings[context->output_binding_count].value =
+        cbs_duplicate(output);
+    context->output_bindings[context->output_binding_count].stderr_stream =
+        item->stderr_stream;
+    context->output_binding_count++;
+}
+
 /* Resolve and execute one CPDL run operation under resource limits. */
 int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     StringList arguments;
@@ -483,17 +616,24 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     int wait_result;
     char message[512];
     FILE *capture = NULL;
+    FILE *stderr_capture = NULL;
     char output[65537];
+    char stderr_output[65537];
     size_t output_length = 0;
+    size_t stderr_output_length = 0;
     int capture_stdout = 0;
+    int capture_stderr = 0;
     int stdout_value = 0;
+    int stderr_value = 0;
     int stdout_file = 0;
+    int stderr_file = 0;
     const char *stdout_file_logical = NULL;
+    const char *stderr_file_logical = NULL;
     struct timespec command_start;
     struct timespec command_end;
     int command_event_status;
     int log_fd = -1;
-    char log_path[4096];
+    char log_path[4096] = {0};
     char command_arguments[4096];
     size_t command_arguments_length = 0;
     char environment_names[4096];
@@ -539,12 +679,23 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             timeout_ms = duration_milliseconds(item->value);
         } else if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT ||
                    item->kind == CBS_NODE_RUN_STDOUT_BIND) {
-            capture_stdout = 1;
-            stdout_value = 1;
+            if (item->stderr_stream) {
+                capture_stderr = 1;
+                stderr_value = 1;
+            } else {
+                capture_stdout = 1;
+                stdout_value = 1;
+            }
         } else if (item->kind == CBS_NODE_RUN_STDOUT_FILE) {
-            capture_stdout = 1;
-            stdout_file = 1;
-            stdout_file_logical = item->value;
+            if (item->stderr_stream) {
+                capture_stderr = 1;
+                stderr_file = 1;
+                stderr_file_logical = item->value;
+            } else {
+                capture_stdout = 1;
+                stdout_file = 1;
+                stdout_file_logical = item->value;
+            }
         }
     }
     if (capture_stdout) {
@@ -552,6 +703,19 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         if (capture == NULL) {
             runtime_error(run, context, "CPDL-E4001",
                           "cannot capture process stdout");
+            free(program);
+            string_list_destroy(&arguments);
+            string_list_destroy(&environment);
+            return 0;
+        }
+    }
+    if (capture_stderr) {
+        stderr_capture = tmpfile();
+        if (stderr_capture == NULL) {
+            runtime_error(run, context, "CPDL-E4001",
+                          "cannot capture process stderr");
+            if (capture != NULL)
+                fclose(capture);
             free(program);
             string_list_destroy(&arguments);
             string_list_destroy(&environment);
@@ -629,6 +793,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             free(program);
             if (capture != NULL)
                 fclose(capture);
+            if (stderr_capture != NULL)
+                fclose(stderr_capture);
             string_list_destroy(&arguments);
             string_list_destroy(&environment);
             return 0;
@@ -640,6 +806,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             free(program);
             if (capture != NULL)
                 fclose(capture);
+            if (stderr_capture != NULL)
+                fclose(stderr_capture);
             string_list_destroy(&arguments);
             string_list_destroy(&environment);
             return 0;
@@ -656,6 +824,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         free(program);
         if (capture != NULL)
             fclose(capture);
+        if (stderr_capture != NULL)
+            fclose(stderr_capture);
         string_list_destroy(&arguments);
         string_list_destroy(&environment);
         return 0;
@@ -671,6 +841,10 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             close(log_fd);
         free(executable);
         free(program);
+        if (capture != NULL)
+            fclose(capture);
+        if (stderr_capture != NULL)
+            fclose(stderr_capture);
         string_list_destroy(&arguments);
         string_list_destroy(&environment);
         return 0;
@@ -691,7 +865,11 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                 _exit(126);
             if (capture_stdout && dup2(fileno(capture), STDOUT_FILENO) < 0)
                 _exit(126);
-            if (log_fd >= 0 && dup2(log_fd, STDERR_FILENO) < 0)
+            if (capture_stderr &&
+                dup2(fileno(stderr_capture), STDERR_FILENO) < 0)
+                _exit(126);
+            if (log_fd >= 0 && !capture_stderr &&
+                dup2(log_fd, STDERR_FILENO) < 0)
                 _exit(126);
             if (log_fd >= 0 && !capture_stdout &&
                 dup2(log_fd, STDOUT_FILENO) < 0)
@@ -723,112 +901,38 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             elapsed_milliseconds(&command_start, &command_end), 0, 0)) {
         if (capture != NULL)
             fclose(capture);
+        if (stderr_capture != NULL)
+            fclose(stderr_capture);
         free(executable);
         free(program);
         string_list_destroy(&arguments);
         string_list_destroy(&environment);
         return 0;
     }
-    if (capture_stdout) {
-        rewind(capture);
-        output_length = fread(output, 1, sizeof(output) - 1, capture);
-        output[output_length] = '\0';
-        if (log_path[0] != '\0' && output_length > 0) {
-            int output_fd = open(log_path, O_WRONLY | O_APPEND);
-            if (output_fd >= 0) {
-                write(output_fd, output, output_length);
-                close(output_fd);
-            }
-        }
-        if (output_length == sizeof(output) - 1 || fgetc(capture) != EOF) {
-            runtime_error(run, context, "CPDL-E4001",
-                          "process stdout exceeds the 64 KiB limit");
-            fclose(capture);
-            free(executable);
-            free(program);
-            string_list_destroy(&arguments);
-            string_list_destroy(&environment);
-            return 0;
-        }
-        if (stdout_value) {
-            while (output_length > 0 &&
-                   (output[output_length - 1] == '\n' ||
-                    output[output_length - 1] == '\r' ||
-                    output[output_length - 1] == ' ' ||
-                    output[output_length - 1] == '\t'))
-                output[--output_length] = '\0';
-            {
-                size_t leading = 0;
-                while (output[leading] == ' ' || output[leading] == '\t')
-                    ++leading;
-                if (leading != 0) {
-                    memmove(output, output + leading,
-                            output_length - leading + 1);
-                    output_length -= leading;
-                }
-            }
-            if (strchr(output, '\n') != NULL || strchr(output, '\r') != NULL) {
-                runtime_error(run, context, "CPDL-E4001",
-                              "process stdout must be one line");
-                fclose(capture);
-                free(executable);
-                free(program);
-                string_list_destroy(&arguments);
-                string_list_destroy(&environment);
-                return 0;
-            }
-        }
-        if (stdout_file) {
-            char *stdout_path = cbs_resolve_confined_path(stdout_file_logical,
-                                                            context);
-            int stdout_fd;
-            size_t written = 0;
-            if (stdout_path == NULL) {
-                runtime_error(run, context, "CPDL-E4001",
-                              "stdout file path is outside an execution root");
-                fclose(capture);
-                free(executable);
-                free(program);
-                string_list_destroy(&arguments);
-                string_list_destroy(&environment);
-                return 0;
-            }
-            stdout_fd = open(stdout_path, O_WRONLY | O_CREAT | O_TRUNC,
-                             0644);
-            if (stdout_fd < 0) {
-                runtime_error(run, context, "CPDL-E4001",
-                              "cannot open stdout file");
-                free(stdout_path);
-                fclose(capture);
-                free(executable);
-                free(program);
-                string_list_destroy(&arguments);
-                string_list_destroy(&environment);
-                return 0;
-            }
-            while (written < output_length) {
-                ssize_t count = write(stdout_fd, output + written,
-                                      output_length - written);
-                if (count <= 0) {
-                    close(stdout_fd);
-                    free(stdout_path);
-                    runtime_error(run, context, "CPDL-E4001",
-                                  "cannot write stdout file");
-                    fclose(capture);
-                    free(executable);
-                    free(program);
-                    string_list_destroy(&arguments);
-                    string_list_destroy(&environment);
-                    return 0;
-                }
-                written += (size_t)count;
-            }
-            close(stdout_fd);
-            free(stdout_path);
-        }
-    }
+    if ((capture_stdout &&
+         !read_captured_stream(capture, output, &output_length, stdout_value,
+                               "stdout", run, context)) ||
+        (capture_stderr && !read_captured_stream(stderr_capture, stderr_output,
+                                                  &stderr_output_length,
+                                                  stderr_value, "stderr", run,
+                                                  context)))
+        goto capture_failure;
+    if (capture_stdout)
+        append_captured_log(log_path, output, output_length);
+    if (capture_stderr)
+        append_captured_log(log_path, stderr_output, stderr_output_length);
+    if (stdout_file &&
+        !write_captured_stream(stdout_file_logical, output, output_length,
+                               "stdout", run, context))
+        goto capture_failure;
+    if (stderr_file &&
+        !write_captured_stream(stderr_file_logical, stderr_output,
+                               stderr_output_length, "stderr", run, context))
+        goto capture_failure;
     if (capture)
         fclose(capture);
+    if (stderr_capture)
+        fclose(stderr_capture);
     mutable_context->current_log_path = NULL;
     mutable_context->current_arguments = NULL;
     mutable_context->current_environment_names = NULL;
@@ -861,41 +965,42 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         runtime_error(run, context, "CPDL-E4001", message);
         return 0;
     }
-    if (capture_stdout) {
+    if (capture_stdout || capture_stderr) {
         for (index = 0; index < run->child_count; ++index) {
             const CbsNode *item = run->children[index];
             if (item->kind == CBS_NODE_RUN_STDOUT_ASSERT) {
                 char *expected = cbs_resolve_value(item->value, item->flag,
                                                    context);
-                int matched = strstr(output, expected) != NULL;
+                const char *actual = item->stderr_stream ? stderr_output : output;
+                int matched = strstr(actual, expected) != NULL;
                 free(expected);
                 if (matched)
                     continue;
                 runtime_error(run, context, "CPDL-E4001",
-                              "stdout assertion failed");
+                              item->stderr_stream ? "stderr assertion failed"
+                                                   : "stdout assertion failed");
                 return 0;
             }
             if (item->kind == CBS_NODE_RUN_STDOUT_BIND) {
-                CbsExecutionContext *mutable_context =
-                    (CbsExecutionContext *)(void *)context;
-                if (mutable_context->output_binding_count ==
-                    mutable_context->output_binding_capacity) {
-                    size_t next = mutable_context->output_binding_capacity == 0
-                                       ? 4
-                                       : mutable_context->output_binding_capacity * 2;
-                    mutable_context->output_bindings = cbs_reallocate(
-                        mutable_context->output_bindings,
-                        next * sizeof(*mutable_context->output_bindings));
-                    mutable_context->output_binding_capacity = next;
-                }
-                mutable_context->output_bindings[
-                    mutable_context->output_binding_count].name = item->name;
-                mutable_context->output_bindings[
-                    mutable_context->output_binding_count].value =
-                    cbs_duplicate(output);
-                mutable_context->output_binding_count++;
+                const char *actual = item->stderr_stream ? stderr_output : output;
+                bind_captured_output((CbsExecutionContext *)(void *)context,
+                                     item, actual);
             }
         }
     }
     return 1;
+
+capture_failure:
+    if (capture)
+        fclose(capture);
+    if (stderr_capture)
+        fclose(stderr_capture);
+    mutable_context->current_log_path = NULL;
+    mutable_context->current_arguments = NULL;
+    mutable_context->current_environment_names = NULL;
+    free(executable);
+    free(program);
+    string_list_destroy(&arguments);
+    string_list_destroy(&environment);
+    return 0;
 }

@@ -521,6 +521,11 @@ Each command may have one `jobs`, `timeout`, and `expect exit N` option. The
 default expected status is zero. `allow_failure` is permitted only inside an
 `on_fail` block and does not turn the original operation into a success.
 
+Commands may assert, bind, or capture either output stream independently:
+`expect { stderr contains "text" }`, `stderr "NAME"` (available later as
+`${stderr.NAME}`), and `stderr file PATH` are the stderr equivalents of the
+stdout forms. Captures are bounded at 64 KiB and the streams are not merged.
+
 ### 11.5 Filesystem operations
 
 Use `$src`, `$build`, and `$dest` rather than host paths. Common operations are:

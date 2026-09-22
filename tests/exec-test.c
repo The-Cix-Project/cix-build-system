@@ -110,6 +110,8 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     CbsExecutionContext context;
     char current_directory[4096];
     char build_directory[4096];
+    char stderr_path[4096];
+    char *stderr_text = NULL;
     size_t index;
     int result = 1;
 
@@ -125,7 +127,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     if (!cbs_validate(document, recipe_path, source))
         goto cleanup_document;
     phase = find_phase(document, "build");
-    if (phase == NULL || phase->child_count != 7)
+    if (phase == NULL || phase->child_count != 10)
         goto cleanup_document;
     if (getcwd(current_directory, sizeof(current_directory)) == NULL)
         goto cleanup_document;
@@ -178,13 +180,21 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
         !expected_runtime_failure(phase->children[3], &context, "CPDL-E4003") ||
         !expected_runtime_failure(phase->children[4], &context, "CPDL-E4002") ||
         !cbs_execute_run(phase->children[5], &context) ||
-        !cbs_execute_run(phase->children[6], &context))
+        !cbs_execute_run(phase->children[6], &context) ||
+        !cbs_execute_run(phase->children[7], &context) ||
+        !cbs_execute_run(phase->children[8], &context) ||
+        !cbs_execute_run(phase->children[9], &context) ||
+        snprintf(stderr_path, sizeof(stderr_path), "%s/stderr-output", base) >=
+            (int)sizeof(stderr_path) ||
+        (stderr_text = read_file(stderr_path, &source_length)) == NULL ||
+        strcmp(stderr_text, "stderr version 2.19.1\n") != 0)
         goto cleanup_document;
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
     result = 0;
 
 cleanup_document:
+    free(stderr_text);
     cbs_node_destroy(document);
 cleanup_tokens:
     cbs_token_list_destroy(&tokens);
@@ -223,6 +233,10 @@ int main(int argc, char **argv) {
             return 4;
         if (getrlimit(RLIMIT_CPU, &limit) != 0 || limit.rlim_cur > 2)
             return 5;
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--probe-stderr") == 0) {
+        fputs("stderr version 2.19.1\n", stderr);
         return 0;
     }
     if (argc != 2) {
