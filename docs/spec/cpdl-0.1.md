@@ -863,10 +863,13 @@ non-empty (`CPDL-E2003`). The bound name is a parse-time placeholder, not a
 runtime variable: `explain` counts the expanded operations, and there is no
 runtime state, condition, or loop.
 
-### 4.9 Staging sandbox libraries
+### 4.9 Staging build-image files and libraries
 
 ```ebnf
-stage-operation = "stage", "library", string, "into", path-value ;
+stage-operation = stage-library | stage-file | stage-tree ;
+stage-library = "stage", "library", string, "into", path-value ;
+stage-file = "stage", "file", string, "from", string, "into", path-value ;
+stage-tree = "stage", "tree", string, "from", string, "into", path-value ;
 ```
 
 `stage library` copies one shared library out of the build sandbox into the
@@ -890,6 +893,16 @@ searched, and asks for the build dependency that provides it to be declared.
 This is the one operation whose source lies outside the confined roots. The
 candidate directories are the build image's library layout, never a
 recipe-supplied path (ADR-0036).
+
+`stage file` and `stage tree` copy an absolute path from the composed build
+image into the staged tree. The path must be found beneath one of the
+approved command or library roots; CBS never opens the recipe's absolute path
+directly. `stage file` copies one regular file or symbolic link into the
+destination directory, while `stage tree` recursively copies one directory
+without following directory symlinks. Both forms require `from "PACKAGE"`.
+The package name is retained in the operation for dependency declaration and
+provenance; ownership of the selected path is checked by the embedder's
+package index because CBS does not own that index.
 
 ## 5. Validation contract
 

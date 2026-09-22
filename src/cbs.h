@@ -115,7 +115,7 @@ typedef enum {
     /* CBS-owned compiler/tool adaptation declarations. */
     CBS_NODE_TOOLS,
     CBS_NODE_TOOL,
-    /* stage library "NAME" into PATH: ship a build-dependency library. */
+    /* stage library/file/tree from an approved build image root. */
     CBS_NODE_STAGE
 } CbsNodeKind;
 

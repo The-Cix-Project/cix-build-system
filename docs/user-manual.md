@@ -268,7 +268,7 @@ made inside the body last for that item only. It is expanded when the recipe
 is parsed, so `explain` counts every expanded operation.
 
 `replace`, `insert`, `write`, `copy`, `move`, `remove`, `symlink`, `extract`,
-`materialize`, `stage library`,
+`materialize`, `stage library`, `stage file`, `stage tree`,
 `require`, globbing, environment bindings, timeouts, expected exit status, and
 `on_fail` diagnostics are specified in the [CPDL specification](spec/cpdl-0.1.md).
 

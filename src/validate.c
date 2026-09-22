@@ -543,14 +543,57 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                              "invalid permission mode");
         break;
     case CBS_NODE_STAGE:
+        if (operation->name == NULL ||
+            (strcmp(operation->name, "library") != 0 &&
+             strcmp(operation->name, "file") != 0 &&
+             strcmp(operation->name, "tree") != 0))
+            validation_error(validator, operation, "CPDL-E3004",
+                             "stage kind must be library, file, or tree");
         validate_value(validator, operation, operation->value);
         validate_secondary_value(validator, operation, operation->second_value);
-        if (operation->value == NULL || operation->value[0] == '\0' ||
-            strchr(operation->value, '/') != NULL ||
-            strcmp(operation->value, ".") == 0 ||
-            strcmp(operation->value, "..") == 0)
+        if (operation->name != NULL &&
+            strcmp(operation->name, "library") == 0) {
+            if (operation->value == NULL || operation->value[0] == '\0' ||
+                strchr(operation->value, '/') != NULL ||
+                strcmp(operation->value, ".") == 0 ||
+                strcmp(operation->value, "..") == 0)
+                validation_error(validator, operation, "CPDL-E3004",
+                                 "stage library name must be a bare file name");
+        } else if ((operation->name != NULL &&
+                    (strcmp(operation->name, "file") == 0 ||
+                     strcmp(operation->name, "tree") == 0)) &&
+                   (operation->value == NULL || operation->value[0] == '\0' ||
+                   (operation->value[0] != '/' &&
+                    strncmp(operation->value, "${", 2) != 0))) {
             validation_error(validator, operation, "CPDL-E3004",
-                             "stage library name must be a bare file name");
+                             "stage file or tree source must be an absolute image path");
+        }
+        {
+            size_t providers = 0;
+            for (index = 0; index < operation->child_count; ++index) {
+                const CbsNode *property = operation->children[index];
+                if (property->name == NULL ||
+                    strcmp(property->name, "from") != 0) {
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "stage accepts only a from package declaration");
+                    continue;
+                }
+                ++providers;
+                if (property->value == NULL ||
+                    !valid_package_name(property->value))
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "stage provider must be a valid package name");
+            }
+            if (operation->name != NULL &&
+                strcmp(operation->name, "library") == 0 && providers != 0)
+                validation_error(validator, operation, "CPDL-E3004",
+                                 "stage library does not accept a from package declaration");
+            if (operation->name != NULL &&
+                (strcmp(operation->name, "file") == 0 ||
+                 strcmp(operation->name, "tree") == 0) && providers != 1)
+                validation_error(validator, operation, "CPDL-E3004",
+                                 "stage file and tree require exactly one from package declaration");
+        }
         break;
     case CBS_NODE_SYMLINK:
         validate_value(validator, operation, operation->value);

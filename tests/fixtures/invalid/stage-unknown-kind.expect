@@ -1,1 +1,1 @@
-expected `library`
+stage kind must be library, file, or tree

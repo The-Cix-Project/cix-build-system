@@ -1219,6 +1219,146 @@ done:
     return result;
 }
 
+/* Find an image path only within the caller-approved search roots.  The
+ * recipe names the image-visible path, while the roots identify the actual
+ * composed image directories.  Never fall back to opening the host path. */
+static char *stage_image_source(const char *source, const char *search_path,
+                                int want_tree, char *searched,
+                                size_t searched_size) {
+    const char *cursor = search_path;
+    size_t searched_length = strlen(searched);
+
+    while (1) {
+        const char *end = strchr(cursor, ':');
+        size_t root_length = end == NULL ? strlen(cursor)
+                                         : (size_t)(end - cursor);
+        const char *suffix = NULL;
+        char *candidate;
+        struct stat status;
+
+        if (root_length == 1 && cursor[0] == '/') {
+            suffix = source;
+        } else if (strncmp(source, cursor, root_length) == 0 &&
+                   source[root_length] == '/') {
+            suffix = source + root_length;
+        }
+        candidate = suffix == NULL
+                        ? NULL
+                        : cbs_allocate(root_length + strlen(suffix) + 1);
+        if (candidate != NULL) {
+            memcpy(candidate, cursor, root_length);
+            strcpy(candidate + root_length, suffix);
+        }
+        if (searched_length + 1 < searched_size)
+            searched_length += (size_t)snprintf(
+                searched + searched_length, searched_size - searched_length,
+                "%s%.*s", searched_length == 0 ? "" : ", ",
+                (int)root_length, cursor);
+        if (searched_length >= searched_size)
+            searched_length = searched_size - 1;
+        if (candidate != NULL && lstat(candidate, &status) == 0 &&
+            (want_tree ? (S_ISDIR(status.st_mode) && !S_ISLNK(status.st_mode))
+                       : (S_ISREG(status.st_mode) || S_ISLNK(status.st_mode))))
+            return candidate;
+        free(candidate);
+        if (end == NULL)
+            break;
+        cursor = end + 1;
+    }
+    errno = ENOENT;
+    return NULL;
+}
+
+/* Return the package named by `from`, when the syntax supplied one.  CBS
+ * records this declaration in the AST; package-file ownership is verified by
+ * the composing embedder, which owns the package index. */
+static const char *stage_provider(const CbsNode *operation) {
+    size_t index;
+    for (index = 0; index < operation->child_count; ++index) {
+        const CbsNode *property = operation->children[index];
+        if (property->name != NULL && strcmp(property->name, "from") == 0)
+            return property->value;
+    }
+    return NULL;
+}
+
+/* Stage one file or an entire directory from approved image roots. */
+static int stage_image_path(const CbsNode *operation,
+                            const CbsExecutionContext *context, int want_tree) {
+    char *source = cbs_resolve_value(operation->value, CBS_TOKEN_STRING,
+                                     context);
+    const char *command_path = context->command_path == NULL
+                                   ? CBS_DEFAULT_COMMAND_PATH
+                                   : context->command_path;
+    const char *library_path = context->library_path == NULL
+                                   ? CBS_DEFAULT_LIBRARY_PATH
+                                   : context->library_path;
+    const char *provider = stage_provider(operation);
+    char searched[2048];
+    char *candidate = NULL;
+    char *destination = NULL;
+    const char *root = NULL;
+    struct stat status;
+    int result = 0;
+
+    searched[0] = '\0';
+    if (source == NULL || source[0] != '/') {
+        errno = EINVAL;
+        fs_error(operation, context, operation->value,
+                 "stage source must be an absolute image path");
+        goto done;
+    }
+    if (!cbs_command_path_is_valid(command_path) ||
+        !cbs_library_path_is_valid(library_path)) {
+        errno = EINVAL;
+        fs_error(operation, context, source,
+                 "stage search path policy is invalid");
+        goto done;
+    }
+    candidate = stage_image_source(source, command_path, want_tree, searched,
+                                   sizeof(searched));
+    if (candidate == NULL)
+        candidate = stage_image_source(source, library_path, want_tree,
+                                       searched, sizeof(searched));
+    if (candidate == NULL) {
+        char detail[2400];
+        snprintf(detail, sizeof(detail),
+                 "stage source is not in the approved build image (searched "
+                 "%s)%s", searched,
+                 provider == NULL ? "" : "; declare the package that provides it");
+        fs_error(operation, context, source, detail);
+        goto done;
+    }
+    destination = resolve_path(operation->second_value, context, &root);
+    if (destination == NULL || !safe_parents(destination, root)) {
+        fs_error(operation, context, operation->second_value,
+                 "stage destination is not a confined directory");
+        goto done;
+    }
+    if (lstat(destination, &status) != 0) {
+        if (errno != ENOENT || !ensure_directories(destination, root, 0755)) {
+            fs_error(operation, context, operation->second_value,
+                     "cannot create stage destination");
+            goto done;
+        }
+    } else if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode)) {
+        errno = ENOTDIR;
+        fs_error(operation, context, operation->second_value,
+                 "stage destination is not a directory");
+        goto done;
+    }
+    result = want_tree ? copy_tree(candidate, destination)
+                       : copy_one(candidate, destination);
+    if (!result)
+        fs_error(operation, context, candidate,
+                 want_tree ? "cannot stage tree" : "cannot stage file");
+done:
+    free(destination);
+    free(candidate);
+    free(source);
+    return result;
+}
+
 int cbs_execute_filesystem(const CbsNode *operation,
                            const CbsExecutionContext *context) {
     char *first = NULL;
@@ -1248,7 +1388,12 @@ int cbs_execute_filesystem(const CbsNode *operation,
             atomic_write_bytes(first, (const unsigned char *)second,
                                strlen(second), parse_mode(mode_text, 0644));
     } else if (operation->kind == CBS_NODE_STAGE) {
-        return stage_library(operation, context);
+        if (operation->name == NULL ||
+            strcmp(operation->name, "library") == 0)
+            return stage_library(operation, context);
+        return stage_image_path(operation, context,
+                                operation->name != NULL &&
+                                    strcmp(operation->name, "tree") == 0);
     } else if (operation->kind == CBS_NODE_SYMLINK) {
         first = resolve_path(operation->second_value, context, &root);
         second = cbs_resolve_value(operation->value,

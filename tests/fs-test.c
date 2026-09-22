@@ -397,6 +397,68 @@ static int run_test(const char *recipe_path) {
         }
     }
 
+    /* stage file/tree: sources are accepted only beneath an approved image
+     * root, and the required provider is carried on the operation. */
+    {
+        char image[4160], image_bin[4160], image_share[4160], image_tree[4160],
+            image_file[4160];
+        char staged_file[4160], staged_tree_file[4160];
+        CbsNode file_stage, tree_stage, provider;
+        CbsNode *provider_children[1] = {&provider};
+        FILE *file;
+
+        if (!path_join(image, sizeof(image), base, "image") ||
+            !path_join(image_bin, sizeof(image_bin), image, "bin") ||
+            !path_join(image_share, sizeof(image_share), image, "share") ||
+            !path_join(image_tree, sizeof(image_tree), image_share, "data") ||
+            !path_join(image_file, sizeof(image_file), image_bin, "tool") ||
+            mkdir(image, 0755) != 0 || mkdir(image_bin, 0755) != 0 ||
+            mkdir(image_share, 0755) != 0 || mkdir(image_tree, 0755) != 0)
+            FS_FAIL();
+        file = fopen(image_file, "wb");
+        if (file == NULL || fputs("staged tool", file) == EOF ||
+            fclose(file) != 0)
+            FS_FAIL();
+        path_join(path, sizeof(path), image_tree, "answer");
+        file = fopen(path, "wb");
+        if (file == NULL || fputs("staged tree", file) == EOF ||
+            fclose(file) != 0)
+            FS_FAIL();
+        context.command_path = image_bin;
+        memset(&provider, 0, sizeof(provider));
+        provider.kind = CBS_NODE_PROPERTY;
+        provider.name = "from";
+        provider.value = "tool-package";
+        memset(&file_stage, 0, sizeof(file_stage));
+        file_stage.kind = CBS_NODE_STAGE;
+        file_stage.name = "file";
+        file_stage.value = image_file;
+        file_stage.second_value = "${dest}/usr/bin";
+        file_stage.children = provider_children;
+        file_stage.child_count = 1;
+        if (!cbs_execute_filesystem(&file_stage, &context))
+            FS_FAIL();
+        path_join(staged_file, sizeof(staged_file), dest, "usr/bin/tool");
+        if (!regular_with(staged_file, "staged tool", 0644))
+            FS_FAIL();
+        context.library_path = image_share;
+        memset(&tree_stage, 0, sizeof(tree_stage));
+        tree_stage.kind = CBS_NODE_STAGE;
+        tree_stage.name = "tree";
+        tree_stage.value = image_tree;
+        tree_stage.second_value = "${dest}/usr/share";
+        tree_stage.children = provider_children;
+        tree_stage.child_count = 1;
+        if (!cbs_execute_filesystem(&tree_stage, &context))
+            FS_FAIL();
+        path_join(staged_tree_file, sizeof(staged_tree_file), dest,
+                  "usr/share/answer");
+        if (!regular_with(staged_tree_file, "staged tree", 0644))
+            FS_FAIL();
+        context.command_path = NULL;
+        context.library_path = NULL;
+    }
+
     {
         CbsNode empty;
         memset(&empty, 0, sizeof(empty));

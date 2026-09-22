@@ -1052,22 +1052,36 @@ static CbsNode *parse_each(CbsParser *parser, int diagnostic_only) {
     return expansion;
 }
 
-/* Parse `stage library "NAME" into PATH`: copy one shared library out of the
- * build sandbox's library directories into the staged tree. */
+/* Parse a stage operation from the approved image roots into the staged tree. */
 static CbsNode *parse_stage(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "stage");
+    CbsToken *kind;
     CbsToken *name;
+    CbsToken *package = NULL;
     CbsToken *destination;
     CbsNode *node = cbs_node_create(CBS_NODE_STAGE, keyword->location);
 
-    consume_word(parser, "library");
-    name = consume_kind(parser, CBS_TOKEN_STRING, "library file name string");
+    kind = consume_kind(parser, CBS_TOKEN_WORD, "library, file, or tree");
+    if (kind != NULL)
+        node->name = cbs_duplicate(kind->text);
+    name = consume_kind(parser, CBS_TOKEN_STRING, "stage source path");
+    if (kind != NULL && (strcmp(kind->text, "file") == 0 ||
+                         strcmp(kind->text, "tree") == 0)) {
+        consume_word(parser, "from");
+        package = consume_kind(parser, CBS_TOKEN_STRING,
+                               "providing package name");
+    }
     consume_word(parser, "into");
     destination = consume_path(parser);
     if (name != NULL)
         node->value = cbs_duplicate(name->text);
     if (destination != NULL)
         node->second_value = cbs_duplicate(destination->text);
+    if (package != NULL) {
+        CbsNode *property = node_from_token(CBS_NODE_PROPERTY, package);
+        property->name = cbs_duplicate("from");
+        cbs_node_add(node, property);
+    }
     return node;
 }
 
