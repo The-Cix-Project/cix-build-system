@@ -696,6 +696,17 @@ int cbs_execute_glob_binding(const CbsNode *operation,
         path_list_destroy(&paths);
         return 0;
     }
+    for (next = 0; next < mutable_context->glob_binding_count; ++next) {
+        if (strcmp(mutable_context->glob_bindings[next].name,
+                   operation->name) == 0) {
+            free(mutable_context->glob_bindings[next].value);
+            mutable_context->glob_bindings[next].value =
+                cbs_duplicate(paths.items[0]);
+            free(pattern);
+            path_list_destroy(&paths);
+            return 1;
+        }
+    }
     next = mutable_context->glob_binding_count;
     if (next == mutable_context->glob_binding_capacity) {
         size_t capacity = next == 0 ? 4 : next * 2;

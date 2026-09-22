@@ -164,6 +164,17 @@ static void environment_destroy(EnvironmentList *list) {
     free(list->items);
 }
 
+/* Glob bindings are recipe-scoped state. Propagate additions made in a
+ * phase-local context back to the context that owns the phase sequence. */
+static void adopt_glob_bindings(CbsExecutionContext *destination,
+                                const CbsExecutionContext *source) {
+    if (source->glob_binding_count > destination->glob_binding_count) {
+        destination->glob_bindings = source->glob_bindings;
+        destination->glob_binding_count = source->glob_binding_count;
+        destination->glob_binding_capacity = source->glob_binding_capacity;
+    }
+}
+
 /* Execute best-effort diagnostic operations after a primary failure. */
 static int execute_diagnostics(const CbsNode *on_fail,
                                const CbsExecutionContext *context) {
@@ -230,6 +241,7 @@ static int execute_block_internal(const CbsNode *block,
     if (!result && on_fail != NULL)
         execute_diagnostics(on_fail, &local);
     environment_destroy(&environment);
+    adopt_glob_bindings((CbsExecutionContext *)(void *)context, &local);
     return result;
 }
 
@@ -255,6 +267,7 @@ static int execute_cd(const CbsNode *operation,
     }
     nested.working_directory = path;
     result = execute_block_internal(operation, &nested);
+    adopt_glob_bindings((CbsExecutionContext *)(void *)context, &nested);
     free(path);
     return result;
 }

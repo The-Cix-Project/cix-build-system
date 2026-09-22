@@ -33,8 +33,8 @@ grep -q '"requires":{}' "$temporary_dir/explain.json"
 "$cbs" explain "$tests_dir/fixtures/execution/each.cbs" --json \
     >"$temporary_dir/each.json" 2>"$temporary_dir/each.err"
 test ! -s "$temporary_dir/each.err"
-grep -q '"name":"build","operations":23' "$temporary_dir/each.json"
-grep -q '"name":"check","operations":9' "$temporary_dir/each.json"
+grep -q '"name":"build","operations":24' "$temporary_dir/each.json"
+grep -q '"name":"check","operations":10' "$temporary_dir/each.json"
 printf '%s\n' 'package "broken" {' '}' >"$temporary_dir/broken.cbs"
 if "$cbs" check "$temporary_dir/broken.cbs" --json \
     >"$temporary_dir/broken.out" 2>"$temporary_dir/broken.json"; then
