@@ -652,7 +652,7 @@ replace-operation = "replace", source-edit-target, "{",
                     "}" ;
 
 insert-operation = "insert", source-edit-target, "{",
-                   "after", text-value,
+                   ( "before" | "after" ), text-value,
                    "write", text-value,
                    "exactly", integer,
                    "}" ;
@@ -686,9 +686,10 @@ language; the delimiter is never part of the match and the count rule is
 unchanged, so an edit that matches nothing still fails. `insert` has no
 `until`.
 
-`insert` counts non-overlapping byte-for-byte matches of `after`. The count must
-equal `exactly` before mutation. It inserts `write` immediately after every
-matched byte sequence. An empty `after` is invalid.
+`insert` counts non-overlapping byte-for-byte matches of its anchor. The count
+must equal `exactly` before mutation. `after` inserts `write` immediately after
+each matched byte sequence; `before` inserts it immediately before each match.
+An empty anchor is invalid.
 
 Both operations read and replace a regular file atomically, preserve its mode,
 and fail without modifying it when validation, counting, reading, or writing

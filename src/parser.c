@@ -473,7 +473,12 @@ static CbsNode *parse_edit(CbsParser *parser, int insert) {
         path = consume_path(parser);
     }
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
-    consume_word(parser, insert ? "after" : "from");
+    if (insert && is_word(parser, "before")) {
+        advance(parser);
+        node->insert_before = 1;
+    } else {
+        consume_word(parser, insert ? "after" : "from");
+    }
     first = consume_text_value(parser, "match value");
     if (is_word(parser, "until")) {
         /* The match extends from the literal prefix to a delimiter. */

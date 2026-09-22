@@ -1394,7 +1394,8 @@ static unsigned char *
 edited_content(const unsigned char *content, size_t content_length,
                const unsigned char *needle, size_t needle_length,
                const unsigned char *replacement, size_t replacement_length,
-               size_t matches, int insert, int until, size_t *result_length) {
+               size_t matches, int insert, int insert_before, int until,
+               size_t *result_length) {
     size_t bound;
     unsigned char *result;
     size_t source_offset = 0;
@@ -1412,12 +1413,18 @@ edited_content(const unsigned char *content, size_t content_length,
             memcmp(content + source_offset, needle, needle_length) == 0) {
             size_t extent = match_extent(content, content_length,
                                          source_offset, needle_length, until);
+            if (insert && insert_before) {
+                memcpy(result + result_offset, replacement, replacement_length);
+                result_offset += replacement_length;
+            }
             if (insert) {
                 memcpy(result + result_offset, needle, needle_length);
                 result_offset += needle_length;
             }
-            memcpy(result + result_offset, replacement, replacement_length);
-            result_offset += replacement_length;
+            if (!insert || !insert_before) {
+                memcpy(result + result_offset, replacement, replacement_length);
+                result_offset += replacement_length;
+            }
             source_offset += extent;
         } else {
             result[result_offset++] = content[source_offset++];
@@ -1576,7 +1583,7 @@ static int execute_edit(const CbsNode *operation,
             content, content_length, (const unsigned char *)needle,
             strlen(needle), (const unsigned char *)replacement,
             strlen(replacement), matches, operation->kind == CBS_NODE_INSERT,
-            until, &result_length);
+            operation->insert_before, until, &result_length);
     if (result == NULL)
         goto filesystem_failure;
     if (!atomic_write_bytes(path, result, result_length, mode))

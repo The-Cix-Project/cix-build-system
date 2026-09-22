@@ -41,6 +41,16 @@ package "edit-assert-test" {
             contains "new! middle"
             contains "middle new!"
         }
+        write "${build}/before.bin" "old middle old"
+        insert "${build}/before.bin" {
+            before "old"
+            write "!"
+            exactly 2
+        }
+        require file "${build}/before.bin" {
+            exists
+            contains "!old middle !old"
+        }
         require directory "${build}/matches" {
             exists
         }

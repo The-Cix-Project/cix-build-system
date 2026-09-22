@@ -132,6 +132,8 @@ struct CbsNode {
     int second_flag;
     /* Whether a source-edit target is a glob selector. */
     int selector_glob;
+    /* Whether an insert operation writes before, rather than after, a match. */
+    int insert_before;
     /* Child nodes in source order. */
     CbsNode **children;
     /* Number of initialized child pointers. */
