@@ -1308,6 +1308,50 @@ static CbsNode *parse_opaque_metadata(CbsParser *parser) {
     return node;
 }
 
+/* Parse CBS-owned compiler alias and exact argument rewrite declarations. */
+static CbsNode *parse_tools(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "tools");
+    CbsNode *node = cbs_node_create(CBS_NODE_TOOLS, keyword->location);
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        CbsToken *kind = current(parser);
+        CbsNode *tool;
+        CbsToken *name;
+        if (!is_word(parser, "compiler")) {
+            expected(parser, "compiler declaration");
+            break;
+        }
+        advance(parser);
+        tool = cbs_node_create(CBS_NODE_TOOL, kind->location);
+        tool->name = cbs_duplicate(kind->text);
+        if (is_word(parser, "alias")) {
+            advance(parser);
+            name = consume_kind(parser, CBS_TOKEN_STRING, "alias name");
+            if (name != NULL)
+                tool->value = cbs_duplicate(name->text);
+            tool->second_flag = 1;
+        } else if (is_word(parser, "rewrite")) {
+            advance(parser);
+            name = consume_kind(parser, CBS_TOKEN_STRING, "rewrite source");
+            consume_word(parser, "to");
+            if (name != NULL)
+                tool->value = cbs_duplicate(name->text);
+            name = consume_kind(parser, CBS_TOKEN_STRING, "rewrite target");
+            if (name != NULL)
+                tool->second_value = cbs_duplicate(name->text);
+            tool->second_flag = 2;
+        } else {
+            expected(parser, "alias or rewrite");
+            cbs_node_destroy(tool);
+            break;
+        }
+        cbs_node_add(node, tool);
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 /* Parse the next package-level declaration or phase. */
 static CbsNode *parse_package_item(CbsParser *parser) {
     CbsToken *keyword = current(parser);
@@ -1365,6 +1409,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_build_metadata(parser, CBS_NODE_UPSTREAM);
     if (is_word(parser, "metadata"))
         return parse_opaque_metadata(parser);
+    if (is_word(parser, "tools"))
+        return parse_tools(parser);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);

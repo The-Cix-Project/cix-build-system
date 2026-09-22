@@ -80,6 +80,7 @@ test: $(TARGET) upstream-test recipe-test
 	rm -f tests/finalize-helper
 	./tests/cli-contract-test.sh ./$(TARGET)
 	./tests/command-path-test.sh ./$(TARGET)
+	./tests/tool-policy-test.sh ./$(TARGET)
 	./tests/library-path-test.sh ./$(TARGET)
 	./tests/stdout-test.sh ./$(TARGET)
 	./tests/observability-test.sh ./$(TARGET)

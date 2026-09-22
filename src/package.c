@@ -33,6 +33,137 @@ static const char *declared_compiler(const CbsNode *document) {
     return NULL;
 }
 
+static const CbsNode *declared_tools(const CbsNode *document) {
+    const CbsNode *package;
+    size_t index;
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_TOOLS)
+            return package->children[index];
+    return NULL;
+}
+
+/* Resolve and publish CBS-owned tool entries before any phase runs. */
+static int materialize_tools(const CbsNode *tools,
+                             CbsExecutionContext *context, char *path,
+                             size_t path_size) {
+    char tool_directory[4096];
+    char executable[4096];
+    char **targets = NULL;
+    ssize_t executable_length;
+    struct stat status;
+    size_t index;
+    const char *rewrite_name = NULL;
+    int rewrite_published = 0;
+    int published = 0;
+    int result = 0;
+    if (tools == NULL)
+        return 1;
+    if (context->build == NULL || stat(context->build, &status) != 0 ||
+        !S_ISDIR(status.st_mode) ||
+        snprintf(path, path_size, "%s/.cbs-tools", context->build) >=
+            (int)path_size)
+        return 0;
+    if (snprintf(tool_directory, sizeof(tool_directory), "%s", path) >=
+        (int)sizeof(tool_directory))
+        return 0;
+    targets = calloc(tools->child_count, sizeof(*targets));
+    if (targets == NULL)
+        return 0;
+
+    /* Resolve every target before creating the published directory.  A
+     * failed declaration must not leave a partially usable tool namespace. */
+    for (index = 0; index < tools->child_count; ++index) {
+        const CbsNode *tool = tools->children[index];
+        const char *target_name = context->compiler;
+        if (tool->kind != CBS_NODE_TOOL || tool->value == NULL ||
+            strcmp(tool->name, "compiler") != 0 || tool->second_flag == 0 ||
+            target_name == NULL)
+            goto done;
+        if (!cbs_command_path_is_valid(context->command_path))
+            goto done;
+        targets[index] = cbs_resolve_executable(
+            target_name, context->working_directory, context->command_path);
+        if (targets[index] == NULL)
+            goto done;
+        if (tool->second_flag == 2) {
+            rewrite_name = target_name;
+        }
+    }
+    if (mkdir(path, 0755) != 0 && errno != EEXIST)
+        goto done;
+    executable_length = readlink("/proc/self/exe", executable,
+                                 sizeof(executable) - 1);
+    if (executable_length <= 0 ||
+        (size_t)executable_length >= sizeof(executable) - 1)
+        goto done;
+    executable[executable_length] = '\0';
+    for (index = 0; index < tools->child_count; ++index) {
+        const CbsNode *tool = tools->children[index];
+        char link_path[4096];
+        const char *published_name = tool->second_flag == 2
+                                         ? rewrite_name
+                                         : tool->value;
+        if (snprintf(link_path, sizeof(link_path), "%s/%s", path,
+                     published_name) >= (int)sizeof(link_path))
+            goto done;
+        if (tool->second_flag == 1) {
+            unlink(link_path);
+            if (symlink(targets[index], link_path) != 0)
+                goto done;
+        } else if (tool->second_flag == 2) {
+            char policy_path[4096];
+            FILE *policy;
+            size_t policy_index;
+            if (rewrite_published)
+                continue;
+            if (snprintf(policy_path, sizeof(policy_path), "%s/.%s.policy",
+                         path, published_name) >= (int)sizeof(policy_path))
+                goto done;
+            unlink(link_path);
+            if (symlink(executable, link_path) != 0)
+                goto done;
+            policy = fopen(policy_path, "w");
+            if (policy == NULL || fprintf(policy, "%s\n", targets[index]) < 0)
+                goto done;
+            for (policy_index = 0; policy_index < tools->child_count;
+                 ++policy_index) {
+                const CbsNode *rewrite = tools->children[policy_index];
+                if (rewrite->second_flag == 2 &&
+                    fprintf(policy, "%s\n%s\n", rewrite->value,
+                            rewrite->second_value) < 0) {
+                    fclose(policy);
+                    goto done;
+                }
+            }
+            if (fclose(policy) != 0)
+                goto done;
+            rewrite_published = 1;
+        } else {
+            goto done;
+        }
+        published = 1;
+    }
+    if (published && snprintf(path + strlen(path), path_size - strlen(path),
+                              ":%s", context->command_path) >=
+                         (int)(path_size - strlen(path)))
+        goto done;
+    context->tool_directory = cbs_duplicate(tool_directory);
+    if (result == 0 && context->tool_directory != NULL)
+        context->tool_target = cbs_duplicate(targets[0]);
+    result = context->tool_directory != NULL &&
+             (context->tool_target != NULL || tools->child_count == 0);
+done:
+    if (targets != NULL) {
+        for (index = 0; index < tools->child_count; ++index)
+            free(targets[index]);
+        free(targets);
+    }
+    return result;
+}
+
 /* Append provenance facts to the canonical manifest before it is packaged. */
 static int append_provenance(const char *manifest, const char *recipe,
                              const char *recipe_text, const CbsSourceSet *sources,
@@ -54,6 +185,21 @@ static int append_provenance(const char *manifest, const char *recipe,
                                                ? "none"
                                                : context->compiler) < 0)
         goto failure;
+    if (context->tool_policy != NULL) {
+        if (context->tool_target != NULL &&
+            fprintf(file, "m tool_policy_target compiler %s\n",
+                    context->tool_target) < 0)
+            goto failure;
+        for (index = 0; index < context->tool_policy->child_count; ++index) {
+            const CbsNode *tool = context->tool_policy->children[index];
+            if (fprintf(file, "m tool_policy %s %s %s%s%s\n", tool->name,
+                        tool->second_flag == 1 ? "alias" : "rewrite",
+                        tool->value,
+                        tool->second_flag == 2 ? " " : "",
+                        tool->second_flag == 2 ? tool->second_value : "") < 0)
+                goto failure;
+        }
+    }
     for (index = 0; index < sources->count; ++index) {
         const CbsSource *source = &sources->items[index];
         if (source->url_count == 0 ||
@@ -310,6 +456,7 @@ int cbs_build_standalone_with_events_policy_path(
     size_t entry_count = 0;
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         manifest_error[512], *package_identity = NULL;
+    char tool_command_path[8192];
     unsigned flags = 0;
     int ok;
     if (!recipe || !workspace || !architecture ||
@@ -405,7 +552,19 @@ int cbs_build_standalone_with_events_policy_path(
             context.library_path = library_path == NULL
                                        ? CBS_DEFAULT_LIBRARY_PATH
                                        : library_path;
-            ok = cbs_sources_apply_execution_context(&sources, &context);
+            context.tool_policy = declared_tools(document);
+            if (!materialize_tools(context.tool_policy, &context,
+                                   tool_command_path,
+                                   sizeof(tool_command_path))) {
+                pipeline_error(recipe, text, document->location, "tools",
+                               "cannot resolve or materialize tool policy");
+                ok = 0;
+            } else if (context.tool_policy != NULL &&
+                       context.tool_directory != NULL) {
+                context.command_path = tool_command_path;
+            }
+            if (ok)
+                ok = cbs_sources_apply_execution_context(&sources, &context);
             if (!ok)
                 pipeline_error(recipe, text, document->location, "sources",
                                "cannot apply verified source bindings");

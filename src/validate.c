@@ -240,6 +240,26 @@ static void duplicate_option(Validator *validator, const CbsNode *node,
     *seen = 1;
 }
 
+/* A declared CBS tool policy may intentionally publish a compiler alias. */
+static int declared_tool_command(const Validator *validator, const char *value) {
+    size_t index;
+    if (validator->package == NULL || value == NULL)
+        return 0;
+    for (index = 0; index < validator->package->child_count; ++index) {
+        const CbsNode *item = validator->package->children[index];
+        size_t child;
+        if (item->kind != CBS_NODE_TOOLS)
+            continue;
+        for (child = 0; child < item->child_count; ++child) {
+            const CbsNode *tool = item->children[child];
+            if (tool->second_flag == 1 && tool->value != NULL &&
+                strcmp(tool->value, value) == 0)
+                return 1;
+        }
+    }
+    return 0;
+}
+
 /* Validate command, argument, environment, and limit options. */
 static void validate_run(Validator *validator, const CbsNode *run,
                          int in_on_fail) {
@@ -253,8 +273,10 @@ static void validate_run(Validator *validator, const CbsNode *run,
     size_t other;
 
     validate_value(validator, run, run->value);
-    if (run->value != NULL && (cbs_is_forbidden_executable(run->value) ||
-                               cbs_is_forbidden_compiler(run->value)))
+    if (run->value != NULL &&
+        (cbs_is_forbidden_executable(run->value) ||
+         (cbs_is_forbidden_compiler(run->value) &&
+          !declared_tool_command(validator, run->value))))
         validation_error(validator, run, "CPDL-E3006",
                          "command interpreters are not valid run executables");
     for (index = 0; index < run->child_count; ++index) {
@@ -267,6 +289,9 @@ static void validate_run(Validator *validator, const CbsNode *run,
             if (!valid_environment_name(item->name))
                 validation_error(validator, item, "CPDL-E3004",
                                  "invalid environment name");
+            if (item->name != NULL && strcmp(item->name, "PATH") == 0)
+                validation_error(validator, item, "CPDL-E3006",
+                                 "recipe PATH overrides are forbidden; use tools");
             validate_value(validator, item, item->value);
             for (other = 0; other < index; ++other) {
                 const CbsNode *prior = run->children[other];
@@ -690,6 +715,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_CAPABILITY:
     case CBS_NODE_TOOLCHAIN:
     case CBS_NODE_METADATA:
+    case CBS_NODE_TOOLS:
         return 7;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
@@ -866,6 +892,43 @@ static void validate_package(Validator *validator) {
                                  "duplicate package declaration");
         }
         switch (item->kind) {
+        case CBS_NODE_TOOLS:
+            {
+            size_t tool_index;
+            if (item->child_count == 0)
+                validation_error(validator, item, "CPDL-E3001",
+                                 "tools block must not be empty");
+            for (tool_index = 0; tool_index < item->child_count;
+                 ++tool_index) {
+                const CbsNode *tool = item->children[tool_index];
+                size_t earlier_tool;
+                if (strcmp(tool->name, "compiler") != 0)
+                    validation_error(validator, tool, "CPDL-E3004",
+                                     "only compiler tool policies are supported");
+                if (tool->value == NULL || tool->value[0] == '\0' ||
+                    strchr(tool->value, '/') != NULL)
+                    validation_error(validator, tool, "CPDL-E3004",
+                                     "tool alias/rewrite name must be bare");
+                if (tool->second_flag == 2 &&
+                    (tool->second_value == NULL ||
+                     tool->second_value[0] == '\0'))
+                    validation_error(validator, tool, "CPDL-E3004",
+                                     "tool rewrite target must not be empty");
+                if (tool->second_flag == 2 &&
+                    strchr(tool->second_value, '/') != NULL)
+                    validation_error(validator, tool, "CPDL-E3004",
+                                     "tool rewrite target must be bare");
+                for (earlier_tool = 0; earlier_tool < tool_index;
+                     ++earlier_tool) {
+                    const CbsNode *prior_tool = item->children[earlier_tool];
+                    if (prior_tool->value != NULL &&
+                        strcmp(prior_tool->value, tool->value) == 0)
+                        validation_error(validator, tool, "CPDL-E3002",
+                                         "duplicate tool policy name");
+                }
+            }
+            }
+            break;
         case CBS_NODE_VERSION:
             ++versions;
             if (item->value == NULL || item->value[0] == '\0' ||

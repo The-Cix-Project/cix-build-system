@@ -421,6 +421,24 @@ static char *resolve_executable(const char *program,
     return NULL;
 }
 
+char *cbs_resolve_executable(const char *program,
+                             const char *working_directory,
+                             const char *command_path) {
+    StringList environment;
+    char *entry;
+    char *result;
+    memset(&environment, 0, sizeof(environment));
+    if (program == NULL || working_directory == NULL ||
+        !cbs_command_path_is_valid(command_path))
+        return NULL;
+    entry = cbs_allocate(strlen(command_path) + 6);
+    snprintf(entry, strlen(command_path) + 6, "PATH=%s", command_path);
+    string_list_add(&environment, entry);
+    result = resolve_executable(program, working_directory, &environment);
+    string_list_destroy(&environment);
+    return result;
+}
+
 /* Parse a validated CPDL duration into milliseconds. */
 static long duration_milliseconds(const char *duration) {
     char *end;
@@ -701,6 +719,13 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         snprintf(path_environment, strlen(command_path) + 6, "PATH=%s",
                  command_path);
         string_list_add(&environment, path_environment);
+    }
+    if (context->tool_directory != NULL) {
+        char *tool_policy_environment =
+            cbs_allocate(strlen(context->tool_directory) + 20);
+        snprintf(tool_policy_environment, strlen(context->tool_directory) + 20,
+                 "CBS_TOOL_DIRECTORY=%s", context->tool_directory);
+        string_list_add(&environment, tool_policy_environment);
     }
     /* Give reproducible-build-aware tools a stable epoch instead of the wall
      * clock. An explicit CPDL epoch binding can replace this default later. */

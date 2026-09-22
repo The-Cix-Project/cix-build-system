@@ -105,6 +105,9 @@ typedef struct {
     const char *working_directory;
     const char *command_path;
     const char *library_path;
+    const CbsNode *tool_policy;
+    const char *tool_directory;
+    const char *tool_target;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -184,6 +187,7 @@ char *cbs_duplicate(const char *);
 char *cbs_duplicate_range(const char *, size_t);
 int cbs_command_path_is_valid(const char *);
 int cbs_library_path_is_valid(const char *);
+char *cbs_resolve_executable(const char *, const char *, const char *);
 
 int cbs_cli_fetch_service(CbsFetchService *, char *, size_t);
 int cbs_cli_fetch_service_with_ca(CbsFetchService *, char *, size_t,

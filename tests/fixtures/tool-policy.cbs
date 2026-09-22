@@ -1,0 +1,22 @@
+package "tool-policy" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    requires {
+        build {
+            compiler "tcc"
+        }
+    }
+
+    tools {
+        compiler alias "cc"
+        compiler rewrite "-MMD" to "-MD"
+    }
+
+    build {
+        run "cc" { "alias-argument" }
+        run "tcc" { "-MMD" }
+        write "${dest}/tool-policy.txt" "ok"
+    }
+}

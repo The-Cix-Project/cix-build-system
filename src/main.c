@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+extern char **environ;
+
 #ifndef CBS_VERSION
 #define CBS_VERSION "unknown"
 #endif
@@ -19,6 +21,82 @@
 static int has_cbs_extension(const char *path) {
     size_t length = strlen(path);
     return length >= 4 && strcmp(path + length - 4, ".cbs") == 0;
+}
+
+/* Execute a CBS-owned exact-token rewrite proxy. Alias entries are symlinks
+ * to their resolved target; only rewrite entries invoke this path. */
+static int run_tool_proxy(const char *argv0, int argc, char **argv) {
+    const char *slash = strrchr(argv0, '/');
+    const char *name = slash == NULL ? argv0 : slash + 1;
+    const char *tool_directory = getenv("CBS_TOOL_DIRECTORY");
+    char policy_path[4096];
+    char target[4096], from[64][4096], to[64][4096], line[4096];
+    FILE *policy;
+    char **rewritten;
+    size_t rule_count = 0;
+    int index;
+    if (strcmp(name, "cbs") == 0 ||
+        (slash == NULL && tool_directory == NULL) ||
+        (slash != NULL &&
+         snprintf(policy_path, sizeof(policy_path), "%.*s/.%s.policy",
+                  (int)(slash - argv0), argv0, name) >=
+             (int)sizeof(policy_path)) ||
+        (slash == NULL &&
+         snprintf(policy_path, sizeof(policy_path), "%s/.%s.policy",
+                  tool_directory, name) >= (int)sizeof(policy_path)))
+        return 0;
+    if (slash == NULL)
+        snprintf(policy_path, sizeof(policy_path), "%s/.%s.policy",
+                 tool_directory, name);
+    policy = fopen(policy_path, "r");
+    if (policy == NULL)
+        return 0;
+    if (fgets(target, sizeof(target), policy) == NULL) {
+        fclose(policy);
+        return 127;
+    }
+    target[strcspn(target, "\r\n")] = '\0';
+    while (fgets(line, sizeof(line), policy) != NULL) {
+        if (rule_count >= sizeof(from) / sizeof(from[0]) ||
+            line[0] == '\0' ||
+            (strchr(line, '\n') == NULL && !feof(policy))) {
+            fclose(policy);
+            return 127;
+        }
+        snprintf(from[rule_count], sizeof(from[rule_count]), "%s", line);
+        from[rule_count][strcspn(from[rule_count], "\r\n")] = '\0';
+        if (fgets(to[rule_count], sizeof(to[rule_count]), policy) == NULL) {
+            fclose(policy);
+            return 127;
+        }
+        to[rule_count][strcspn(to[rule_count], "\r\n")] = '\0';
+        if (from[rule_count][0] == '\0' || to[rule_count][0] == '\0') {
+            fclose(policy);
+            return 127;
+        }
+        ++rule_count;
+    }
+    fclose(policy);
+    if (target[0] == '\0' || rule_count == 0)
+        return 127;
+    rewritten = cbs_allocate((size_t)(argc + 1) * sizeof(*rewritten));
+    {
+        char *target_name = strrchr(target, '/');
+        rewritten[0] = target_name == NULL ? target : target_name + 1;
+    }
+    for (index = 1; index < argc; ++index) {
+        size_t rule;
+        rewritten[index] = argv[index];
+        for (rule = 0; rule < rule_count; ++rule)
+            if (strcmp(argv[index], from[rule]) == 0) {
+                rewritten[index] = to[rule];
+                break;
+            }
+        }
+    rewritten[argc] = NULL;
+    execve(target, rewritten, environ);
+    free(rewritten);
+    return 127;
 }
 
 /* Read and normalize one recipe file for the lexer. */
@@ -307,6 +385,15 @@ static size_t count_plan_operations(const CbsNode *block) {
     return total;
 }
 
+static const CbsNode *explained_tools(const CbsNode *document) {
+    const CbsNode *package = document->children[0];
+    size_t index;
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_TOOLS)
+            return package->children[index];
+    return NULL;
+}
+
 /* Validate a recipe and print its execution metadata and plan. */
 static int explain_file(const char *path, int json) {
     char *source;
@@ -507,7 +594,33 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("},\"command_path\":", stdout);
+        fputs("},\"tools\":[", stdout);
+        {
+            const CbsNode *tools = explained_tools(document);
+            int first_tool = 1;
+            if (tools != NULL) {
+                for (child_index = 0; child_index < tools->child_count;
+                     ++child_index) {
+                    const CbsNode *tool = tools->children[child_index];
+                    if (!first_tool)
+                        putchar(',');
+                    first_tool = 0;
+                    fputs("{\"kind\":", stdout);
+                    print_json_string(tool->name);
+                    fputs(",\"policy\":", stdout);
+                    print_json_string(tool->second_flag == 1 ? "alias"
+                                                              : "rewrite");
+                    fputs(",\"source\":", stdout);
+                    print_json_string(tool->value);
+                    if (tool->second_flag == 2) {
+                        fputs(",\"target\":", stdout);
+                        print_json_string(tool->second_value);
+                    }
+                    putchar('}');
+                }
+            }
+        }
+        fputs("],\"command_path\":", stdout);
         print_json_string(CBS_DEFAULT_COMMAND_PATH);
         fputs(",\"library_path\":", stdout);
         print_json_string(CBS_DEFAULT_LIBRARY_PATH);
@@ -527,6 +640,21 @@ static int explain_file(const char *path, int json) {
                metadata.capability_count);
         printf("command-path %s\n", CBS_DEFAULT_COMMAND_PATH);
         printf("library-path %s\n", CBS_DEFAULT_LIBRARY_PATH);
+        {
+            const CbsNode *tools = explained_tools(document);
+            if (tools != NULL) {
+                size_t tool_index;
+                for (tool_index = 0; tool_index < tools->child_count;
+                     ++tool_index) {
+                    const CbsNode *tool = tools->children[tool_index];
+                    printf("tool-policy %s %s %s%s%s\n", tool->name,
+                           tool->second_flag == 1 ? "alias" : "rewrite",
+                           tool->value,
+                           tool->second_flag == 2 ? " to " : "",
+                           tool->second_flag == 2 ? tool->second_value : "");
+                }
+            }
+        }
         for (index = 0; index < plan.count; ++index)
             printf("%zu %s operations=%zu\n", index + 1,
                    plan.phases[index]->name,
@@ -737,6 +865,9 @@ static int inspect_file(const char *path, const char *artifact) {
 
 /* Dispatch the command-line request selected by the user. */
 int main(int argc, char **argv) {
+    int proxy_status = run_tool_proxy(argv[0], argc, argv);
+    if (proxy_status != 0)
+        return proxy_status;
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         usage(stdout);

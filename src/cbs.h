@@ -112,6 +112,9 @@ typedef enum {
     CBS_NODE_TOOLCHAIN,
     CBS_NODE_UPSTREAM,
     CBS_NODE_METADATA,
+    /* CBS-owned compiler/tool adaptation declarations. */
+    CBS_NODE_TOOLS,
+    CBS_NODE_TOOL,
     /* stage library "NAME" into PATH: ship a build-dependency library. */
     CBS_NODE_STAGE
 } CbsNodeKind;
@@ -356,6 +359,10 @@ typedef struct {
     const char *command_path;
     /* Colon-separated absolute roots used to locate staged libraries. */
     const char *library_path;
+    /* Validated package tool declarations, materialized before phases. */
+    const CbsNode *tool_policy;
+    const char *tool_directory;
+    const char *tool_target;
     const char *log_directory;
     const char *current_log_path;
     const char *current_arguments;
@@ -416,6 +423,10 @@ char *cbs_duplicate_range(const char *start, size_t length);
 int cbs_command_path_is_valid(const char *command_path);
 /* Validate a colon-separated library-root policy. */
 int cbs_library_path_is_valid(const char *library_path);
+/* Resolve one bare command using the approved command search path. */
+char *cbs_resolve_executable(const char *program,
+                             const char *working_directory,
+                             const char *command_path);
 
 /* Create, attach, and destroy nodes in the CPDL abstract syntax tree. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location);

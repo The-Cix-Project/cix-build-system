@@ -32,6 +32,23 @@ CBS validates and plans the recipe, executes its phases, runs the embedder
 finalization policy, computes the typed manifest, and writes/verifies CIXPKG v2.
 The container has no network requirement: source fetching is cache-first.
 
+Recipes can declare CBS-owned compiler tool policy:
+
+```text
+tools {
+    compiler alias "cc"
+    compiler rewrite "-MMD" to "-MD"
+}
+```
+
+CBS resolves the compiler once using the approved command path, materializes
+the alias/proxy directory before phases begin, and prepends it to the child
+PATH for the whole build. Rewrites are exact-token transformations performed
+by a CBS proxy, so they also apply when `make`, `configure`, or another build
+tool invokes the compiler as a grandchild. The absolute target and effective
+policy are recorded in the proxy sidecar and package provenance. A recipe
+`PATH` override is rejected; the composer supplies the command-path policy.
+
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,
 synchronous `build-begin`, source cache, `phase-begin`, `command-begin`,
