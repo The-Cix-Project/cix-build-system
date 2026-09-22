@@ -14,6 +14,7 @@ package "tool-policy" {
     }
 
     build {
+        require tool "cc"
         run "cc" { "alias-argument" }
         write "${dest}/tool-policy.txt" "ok"
     }

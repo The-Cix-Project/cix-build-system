@@ -674,7 +674,7 @@ static CbsNode *parse_require(CbsParser *parser) {
     CbsNode *node = cbs_node_create(CBS_NODE_REQUIRE, keyword->location);
 
     kind = consume_kind(parser, CBS_TOKEN_WORD,
-                        "file, directory, symlink, glob, or config");
+                        "file, directory, symlink, glob, config, or tool");
     if (kind != NULL)
         node->name = cbs_duplicate(kind->text);
     if (kind != NULL && strcmp(kind->text, "glob") == 0)
@@ -683,6 +683,8 @@ static CbsNode *parse_require(CbsParser *parser) {
         target = consume_path(parser);
     if (target != NULL)
         node->value = cbs_duplicate(target->text);
+    if (kind != NULL && strcmp(kind->text, "tool") == 0)
+        return node;
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
     if (kind != NULL && strcmp(kind->text, "config") == 0) {
         while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&

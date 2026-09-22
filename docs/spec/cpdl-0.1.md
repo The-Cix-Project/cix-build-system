@@ -769,7 +769,8 @@ does not publish a binding.
 require-operation = require-file
                   | require-directory
                   | require-symlink
-                  | require-glob ;
+                  | require-glob
+                  | require-tool ;
 
 require-file = "require", "file", path-value, "{",
                "exists",
@@ -789,6 +790,8 @@ require-symlink = "require", "symlink", path-value, "{",
 require-glob = "require", "glob", string, "{",
                ( "exactly" | "count" ), integer,
                "}" ;
+
+require-tool = "require", "tool", string ;
 ```
 
 Any require operation may be followed by `for { text-value ... }`. Each value
@@ -807,6 +810,10 @@ dangling link satisfies `exists`; `target` compares the link text literally,
 after substitution, with the value given. Each `contains` performs a literal
 byte search. `same_as` compares two confined regular files byte-for-byte.
 `require glob` requires exactly the stated number of matches.
+`require tool` resolves a bare executable name through the approved command
+PATH and requires that it is executable. It does not execute the tool or
+depend on a tool-specific option such as `--version`, and it can verify a
+CBS-owned alias from `tools`.
 
 A failed `require file`, `require directory`, or `require symlink` names the
 path and what was found there: a symbolic link, a directory, a regular file,

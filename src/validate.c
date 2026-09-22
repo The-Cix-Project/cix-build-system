@@ -637,12 +637,21 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
              strcmp(operation->name, "directory") != 0 &&
              strcmp(operation->name, "symlink") != 0 &&
              strcmp(operation->name, "glob") != 0 &&
-             strcmp(operation->name, "config") != 0)) {
+             strcmp(operation->name, "config") != 0 &&
+             strcmp(operation->name, "tool") != 0)) {
             validation_error(validator, operation, "CPDL-E3004",
                              "require kind must be file, directory, symlink, "
-                             "glob, or config");
+                             "glob, config, or tool");
         }
         validate_value(validator, operation, operation->value);
+        if (operation->name != NULL && strcmp(operation->name, "tool") == 0) {
+            if (operation->value == NULL || operation->value[0] == '\0' ||
+                strchr(operation->value, '/') != NULL ||
+                operation->child_count != 0)
+                validation_error(validator, operation, "CPDL-E3004",
+                                 "require tool needs one bare tool name");
+            break;
+        }
         if (operation->name != NULL && strcmp(operation->name, "glob") == 0 &&
             operation->value != NULL && !valid_glob(operation->value))
             validation_error(validator, operation, "CPDL-E3004",

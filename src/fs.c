@@ -2017,6 +2017,21 @@ int cbs_execute_edit_assertion(const CbsNode *operation,
         operation->kind == CBS_NODE_TRUNCATE)
         return execute_edit(operation, context);
     if (operation->kind == CBS_NODE_REQUIRE) {
+        if (strcmp(operation->name, "tool") == 0) {
+            char *resolved = cbs_resolve_executable(
+                operation->value, context->working_directory,
+                context->command_path);
+            if (resolved == NULL) {
+                char message[512];
+                snprintf(message, sizeof(message),
+                         "required tool `%s` is not executable in the approved command PATH",
+                         operation->value);
+                assertion_error(operation, context, message);
+                return 0;
+            }
+            free(resolved);
+            return 1;
+        }
         if (strcmp(operation->name, "glob") == 0)
             return require_glob(operation, context);
         if (strcmp(operation->name, "config") == 0)
