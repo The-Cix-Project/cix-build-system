@@ -376,6 +376,78 @@ int cbs_sources_fetch(CbsSourceSet *set, const char *cache_directory,
                                 recipe_source, location, NULL);
 }
 
+/* Derive a safe leaf name for a preserved non-archive source. */
+static int source_leaf_name(const CbsSource *source, char output[4096]) {
+    const char *url;
+    const char *leaf;
+    const char *end;
+    size_t length;
+
+    if (source == NULL || source->url_count == 0 || source->urls[0] == NULL)
+        return 0;
+    url = source->urls[0];
+    leaf = strrchr(url, '/');
+    leaf = leaf == NULL ? url : leaf + 1;
+    end = strpbrk(leaf, "?#");
+    length = end == NULL ? strlen(leaf) : (size_t)(end - leaf);
+    if (length == 0 || length >= 4096 ||
+        (length == 1 && leaf[0] == '.') ||
+        (length == 2 && leaf[0] == '.' && leaf[1] == '.') ||
+        memchr(leaf, '\\', length) != NULL)
+        return 0;
+    memcpy(output, leaf, length);
+    output[length] = '\0';
+    return 1;
+}
+
+/* Preserve a verified ordinary file beneath its main-source directory. */
+static int preserve_source_file(const CbsSource *source,
+                                const char *destination, const char *recipe,
+                                const char *text, CbsLocation location) {
+    char leaf[4096], path[4096];
+    int input = -1, output = -1;
+    unsigned char buffer[32768];
+    ssize_t received;
+    int ok = 0;
+
+    if (!source_leaf_name(source, leaf) ||
+        snprintf(path, sizeof(path), "%s/%s", destination, leaf) >=
+            (int)sizeof(path))
+        goto failure;
+    input = open(source->verified_path, O_RDONLY | O_CLOEXEC);
+    output = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    if (input < 0 || output < 0)
+        goto failure;
+    while ((received = read(input, buffer, sizeof(buffer))) > 0) {
+        ssize_t offset = 0;
+        while (offset < received) {
+            ssize_t written = write(output, buffer + offset,
+                                    (size_t)(received - offset));
+            if (written < 0 && errno == EINTR)
+                continue;
+            if (written <= 0)
+                goto failure;
+            offset += written;
+        }
+    }
+    if (received < 0 || close(output) != 0)
+        goto failure;
+    output = -1;
+    ok = 1;
+failure:
+    if (input >= 0)
+        close(input);
+    if (output >= 0)
+        close(output);
+    if (!ok) {
+        unlink(path);
+        cbs_diagnostic(recipe, text, location, "error", "CPDL-E5001",
+                       CBS_DIAG_SOURCE,
+                       "cannot preserve non-archive source in the source tree");
+    }
+    return ok;
+}
+
 /* Fetch and extract all sources into the build source directory. */
 int cbs_prepare_sources_with_events(
     CbsSourceSet *set, const char *cache_directory, const char *source_root,
@@ -390,11 +462,21 @@ int cbs_prepare_sources_with_events(
         return 0;
     for (i = 0; i < set->count; ++i) {
         CbsSource *source = &set->items[i];
+        int archive_kind;
         if (source->verified_path == NULL || source->name == NULL ||
-            snprintf(destination, sizeof(destination), "%s/%s", source_root,
+            source->kind == NULL || strcmp(source->kind, "main") != 0)
+            continue;
+        if (snprintf(destination, sizeof(destination), "%s/%s", source_root,
                      source->name) >= (int)sizeof(destination) ||
             (mkdir(destination, 0700) != 0 && errno != EEXIST))
             return 0;
+        archive_kind = cbs_archive_probe(source->verified_path);
+        if (archive_kind == 0) {
+            if (!preserve_source_file(source, destination,
+                                      recipe_path, recipe_source, location))
+                return 0;
+            continue;
+        }
         if (!cbs_extract_archive(source->verified_path, destination,
                                  source->name, recipe_path, recipe_source,
                                  location))

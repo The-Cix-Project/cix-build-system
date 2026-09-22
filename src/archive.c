@@ -41,6 +41,36 @@ static int supported_format(const char *name) {
             strstr(name, "ZIP") != NULL);
 }
 
+/* Classify a verified input before source preparation decides whether to
+ * extract it or preserve it as one ordinary file. */
+int cbs_archive_probe(const char *archive_path) {
+    struct archive *reader = archive_read_new();
+    struct archive_entry *entry;
+    const char *format;
+    int header_result;
+    int result;
+
+    if (reader == NULL)
+        return -1;
+    archive_read_support_filter_all(reader);
+    archive_read_support_format_all(reader);
+    if (archive_read_open_filename(reader, archive_path, 65536) != ARCHIVE_OK) {
+        archive_read_free(reader);
+        return 0;
+    }
+    header_result = archive_read_next_header(reader, &entry);
+    format = archive_format_name(reader);
+    if (format == NULL || format[0] == '\0')
+        result = 0;
+    else if (supported_format(format))
+        result = 1;
+    else
+        result = -1;
+    (void)header_result;
+    archive_read_free(reader);
+    return result;
+}
+
 /* A link target is interpreted relative to the archive member's directory. */
 static int safe_link_target(const char *name, const char *target) {
     const char *part;

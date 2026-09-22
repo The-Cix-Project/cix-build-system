@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static char *read_all(const char *path, size_t *length) {
@@ -34,7 +35,8 @@ static int write_value(const char *path, const char *value) {
 /* Verify named sources, mirrors, digests, and execution bindings. */
 int main(int argc, char **argv) {
     char base[4096], good[4160], empty[4160], bad[4160];
-    char *text, *resolved;
+    char source_root[4160], cache_root[4160], cached[4160], result[4160];
+    char *text, *resolved = NULL;
     size_t length;
     CbsTokenList tokens;
     CbsNode *doc;
@@ -95,7 +97,32 @@ int main(int argc, char **argv) {
         if (!strstr(resolved, good) || !strstr(resolved, empty))
             ok = 0;
         free(resolved);
+        resolved = NULL;
     }
+    if (ok && (snprintf(source_root, sizeof(source_root), "%s/src", base) >=
+                   (int)sizeof(source_root) ||
+               snprintf(cache_root, sizeof(cache_root), "%s/cache", base) >=
+                   (int)sizeof(cache_root) || mkdir(source_root, 0700) != 0 ||
+               mkdir(cache_root, 0700) != 0 ||
+               snprintf(cached, sizeof(cached), "%s/%s", cache_root,
+                        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") >=
+                   (int)sizeof(cached) ||
+               !write_value(cached, "abc") ||
+               snprintf(cached, sizeof(cached), "%s/%s", cache_root,
+                        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") >=
+                   (int)sizeof(cached) ||
+               !write_value(cached, "") ||
+               !cbs_prepare_sources(&set, cache_root, source_root, NULL,
+                                    argv[1], text, doc->location)))
+        ok = 0;
+    if (ok && (snprintf(result, sizeof(result), "%s/upstream/upstream",
+                        source_root) >= (int)sizeof(result) ||
+               (resolved = read_all(result, &length)) == NULL ||
+               length != 3 || strcmp(resolved, "abc") != 0 ||
+               snprintf(cached, sizeof(cached), "%s/empty", source_root) >=
+                   (int)sizeof(cached) || access(cached, F_OK) == 0))
+        ok = 0;
+    free(resolved);
     cbs_source_set_destroy(&set);
     cbs_node_destroy(doc);
     cbs_token_list_destroy(&tokens);

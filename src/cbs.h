@@ -656,6 +656,9 @@ int cbs_sources_fetch(CbsSourceSet *sources, const char *cache_directory,
 int cbs_extract_archive(const char *archive_path, const char *destination,
                         const char *source_name, const char *recipe_path,
                         const char *recipe_source, CbsLocation location);
+/* Probe whether a verified file is a supported archive (1), an ordinary
+ * non-archive file (0), or a recognized but invalid/unsupported archive (-1). */
+int cbs_archive_probe(const char *archive_path);
 /* Fetch and extract all sources into the build source directory. */
 int cbs_prepare_sources(CbsSourceSet *sources, const char *cache_directory,
                         const char *source_root, const CbsFetchService *service,

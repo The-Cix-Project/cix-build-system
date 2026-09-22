@@ -426,8 +426,9 @@ sources {
 
 CBS tries mirrors in order, verifies every downloaded or cached file before
 exposing it, and caches verified bytes by digest. The main source is extracted
-under `$src/<source-name>`. An extra source remains a verified file and must be
-used explicitly:
+under `$src/<source-name>` when it is an archive; a non-archive main source is
+preserved at `$src/<source-name>/<basename>`. An extra source remains a
+verified file and must be used explicitly:
 
 ```cbs
 prepare {

@@ -327,8 +327,10 @@ not select permitted network schemes. A SHA-256 value must contain exactly 64
 lowercase hexadecimal digits.
 
 CBS fetches and verifies all declared sources. It extracts the main source into
-`$src`. Extra sources remain named verified inputs available as `$source.NAME`
-until an explicit `extract` operation uses them.
+`$src` when it is a supported archive. A verified main source that is not an
+archive is preserved byte-for-byte at `$src/<name>/<basename>` instead. Extra
+sources remain named verified inputs available as `$source.NAME` until an
+explicit `extract` or `materialize` operation uses them.
 
 No `$source.NAME` bindings are exposed until every declared source has been
 verified. A mismatch names the source and both expected and computed digests.
