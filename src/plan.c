@@ -10,6 +10,10 @@ static long plan_elapsed_ms(const struct timespec *start,
            (end->tv_nsec - start->tv_nsec) / 1000000L;
 }
 
+static int is_check_phase(const CbsNode *phase) {
+    return phase->name != NULL && strcmp(phase->name, "check") == 0;
+}
+
 #include <string.h>
 
 /* Collect the five ordered phase slots from a validated package. */
@@ -57,47 +61,61 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
 }
 
 /* Execute phases in order and emit optional begin/end events. */
-int cbs_execute_plan(const CbsBuildPlan *plan,
-                     const CbsExecutionContext *context) {
+static int execute_phase(const CbsNode *phase,
+                         CbsExecutionContext *context) {
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     struct timespec phase_start;
     struct timespec phase_end;
-    size_t index;
-    if (plan == NULL || context == NULL)
-        return 0;
-    for (index = 0; index < plan->count; ++index) {
-        mutable_context->current_phase = plan->phases[index]->name;
+    mutable_context->current_phase = phase->name;
         clock_gettime(CLOCK_MONOTONIC, &phase_start);
         if (context->phase_event != NULL &&
-            !context->phase_event("phase-begin", plan->phases[index]->name, 0,
+            !context->phase_event("phase-begin", phase->name, 0,
                                   context->phase_event_user))
             return 0;
         if (!cbs_emit_build_event(context, "phase-begin",
-                                  plan->phases[index]->name, NULL, NULL, 0, 0,
+                                  phase->name, NULL, NULL, 0, 0,
                                   0, 0))
             return 0;
-        if (!cbs_execute_block(plan->phases[index], context)) {
+        if (!cbs_execute_block(phase, context)) {
             clock_gettime(CLOCK_MONOTONIC, &phase_end);
             if (context->phase_event != NULL)
-                context->phase_event("phase-end", plan->phases[index]->name, 1,
+                context->phase_event("phase-end", phase->name, 1,
                                      context->phase_event_user);
             cbs_emit_build_event(context, "phase-end",
-                                 plan->phases[index]->name, NULL,
+                                 phase->name, NULL,
                                  "phase failed", 1,
                                  plan_elapsed_ms(&phase_start, &phase_end), 0,
                                  0);
             return 0;
         }
         if (context->phase_event != NULL &&
-            !context->phase_event("phase-end", plan->phases[index]->name, 0,
+            !context->phase_event("phase-end", phase->name, 0,
                                   context->phase_event_user))
             return 0;
         clock_gettime(CLOCK_MONOTONIC, &phase_end);
         if (!cbs_emit_build_event(context, "phase-end",
-                                  plan->phases[index]->name, NULL, NULL, 0,
+                                  phase->name, NULL, NULL, 0,
                                   plan_elapsed_ms(&phase_start, &phase_end), 0,
                                   0))
             return 0;
-    }
+    return 1;
+}
+
+int cbs_execute_plan(const CbsBuildPlan *plan,
+                     const CbsExecutionContext *context) {
+    CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
+    size_t index;
+    if (plan == NULL || context == NULL)
+        return 0;
+    /* A check validates the installed tree, so defer it until every other
+     * declared phase (especially install) has completed. */
+    for (index = 0; index < plan->count; ++index)
+        if (!is_check_phase(plan->phases[index]) &&
+            !execute_phase(plan->phases[index], mutable_context))
+            return 0;
+    for (index = 0; index < plan->count; ++index)
+        if (is_check_phase(plan->phases[index]) &&
+            !execute_phase(plan->phases[index], mutable_context))
+            return 0;
     return 1;
 }

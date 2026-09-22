@@ -396,6 +396,7 @@ operation = run-operation
           | patch-operation
           | require-operation
           | each-operation
+          | case-operation
           | stage-operation ;
 
 on-fail = "on_fail", "{", { diagnostic-operation }, "}" ;
@@ -405,8 +406,9 @@ diagnostic-operation = run-operation
 ```
 
 Each phase is optional and may occur at most once. Present phases appear in the
-fixed order `prepare`, `configure`, `build`, `check`, `install`. Operations
-execute in source order.
+fixed declaration order `prepare`, `configure`, `build`, `check`, `install`.
+CBS executes `check` after `install` so checks can inspect the staged artifact;
+all other operations execute in source order.
 
 An `on_fail` block may occur only once and only as the final member of its phase
 or `cd` block. It executes only after an operation in its associated block
@@ -686,6 +688,19 @@ patch-operation = "patch", string, "{", "sha256", string,
 
 source-edit-target = path-value | "glob", string ;
 ```
+
+Within `check`, a named case groups existing operations into one reported
+verification unit:
+
+```ebnf
+case-operation = "case", string, operation-block ;
+```
+
+`${case.dir}` resolves to a private scratch directory for the case. CBS
+creates it before the case, removes it afterward, and reports every case even
+when an earlier case fails. A case fails on its first failed operation; the
+check phase fails if any case fails. Case lifecycle events use `case-begin` and
+`case-end` and carry the case name in the event message.
 
 `replace` counts non-overlapping byte-for-byte matches of `from`. The count must
 equal `exactly` before any mutation occurs. For a glob target the count is the

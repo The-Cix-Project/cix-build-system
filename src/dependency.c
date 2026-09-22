@@ -10,6 +10,8 @@ static int role_selected(const char *role, const char *phase) {
         return strcmp(phase, "install") != 0;
     if (strcmp(role, "test") == 0)
         return strcmp(phase, "check") == 0;
+    if (strcmp(role, "runtime") == 0)
+        return strcmp(phase, "check") == 0 || strcmp(phase, "install") == 0;
     return strcmp(phase, "install") == 0;
 }
 

@@ -42,11 +42,12 @@ int main(int argc, char **argv) {
     if (ok && (!cbs_dependencies_for_phase(document, "build", &build) ||
                !cbs_dependencies_for_phase(document, "check", &check) ||
                !cbs_dependencies_for_phase(document, "install", &install) ||
-               build.count != 3 || check.count != 4 || install.count != 1 ||
+               build.count != 3 || check.count != 5 || install.count != 1 ||
                !cbs_dependency_set_contains(&build, "compiler", "tcc") ||
                !cbs_dependency_set_contains(&build, "tool", "make") ||
                cbs_dependency_set_contains(&build, "tool", "tester") ||
                !cbs_dependency_set_contains(&check, "tool", "tester") ||
+               !cbs_dependency_set_contains(&check, "library", "libexample") ||
                !cbs_dependency_set_contains(&install, "library", "libexample")))
         ok = 0;
     if (ok)

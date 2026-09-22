@@ -56,6 +56,62 @@ typedef struct {
 /* Dispatch one operation to its specialized runtime implementation. */
 static int execute_operation(const CbsNode *operation,
                              const CbsExecutionContext *context);
+static int execute_block_internal(const CbsNode *block,
+                                  const CbsExecutionContext *context);
+
+static int remove_tree(const char *path) {
+    DIR *directory;
+    struct dirent *entry;
+    struct stat status;
+    char child[4096];
+
+    if (lstat(path, &status) != 0)
+        return errno == ENOENT;
+    if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode))
+        return unlink(path) == 0;
+    directory = opendir(path);
+    if (directory == NULL)
+        return 0;
+    while ((entry = readdir(directory)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        if (snprintf(child, sizeof(child), "%s/%s", path, entry->d_name) >=
+                (int)sizeof(child) ||
+            !remove_tree(child)) {
+            closedir(directory);
+            return 0;
+        }
+    }
+    closedir(directory);
+    return rmdir(path) == 0;
+}
+
+static int execute_case(const CbsNode *operation,
+                        const CbsExecutionContext *context) {
+    CbsExecutionContext case_context = *context;
+    char directory[4096];
+    int result;
+
+    if (snprintf(directory, sizeof(directory), "%s/.cbs-case-%zu",
+                 context->build, operation->location.offset) >=
+        (int)sizeof(directory) ||
+        mkdir(directory, 0700) != 0) {
+        cbs_diagnostic(context->recipe_path, context->recipe_source,
+                       operation->location, "error", "CPDL-E4004",
+                       CBS_DIAG_RUNTIME, "cannot create check case directory");
+        return 0;
+    }
+    case_context.case_directory = directory;
+    cbs_emit_build_event(&case_context, "case-begin", "check", NULL,
+                         operation->name, 0, 0, 0, 0);
+    result = execute_block_internal(operation, &case_context);
+    cbs_emit_build_event(&case_context, "case-end", "check", NULL,
+                         operation->name, result ? 0 : 1, 0, 0, 0);
+    if (!remove_tree(directory))
+        result = 0;
+    return result;
+}
 
 /* Identify operations that modify the staged filesystem. */
 static int is_filesystem(CbsNodeKind kind) {
@@ -203,6 +259,8 @@ static int execute_block_internal(const CbsNode *block,
     EnvironmentList environment;
     const CbsNode *on_fail = NULL;
     size_t index;
+    size_t case_count = 0;
+    size_t case_passed = 0;
     int result = 1;
 
     memset(&environment, 0, sizeof(environment));
@@ -230,6 +288,19 @@ static int execute_block_internal(const CbsNode *block,
             local.environment_count = environment.count;
             continue;
         }
+        if (operation->kind == CBS_NODE_CASE &&
+            block->kind == CBS_NODE_PHASE && block->name != NULL &&
+            strcmp(block->name, "check") == 0) {
+            ++case_count;
+            if (!execute_captured(operation, &local, &diagnostic)) {
+                if (diagnostic != NULL)
+                    fputs(diagnostic, stderr);
+                free(diagnostic);
+                result = 0;
+            } else
+                ++case_passed;
+            continue;
+        }
         if (!execute_captured(operation, &local, &diagnostic)) {
             if (diagnostic != NULL)
                 fputs(diagnostic, stderr);
@@ -237,6 +308,13 @@ static int execute_block_internal(const CbsNode *block,
             result = 0;
             break;
         }
+    }
+    if (case_count > 0) {
+        char summary[128];
+        snprintf(summary, sizeof(summary), "%zu cases, %zu passed",
+                 case_count, case_passed);
+        cbs_emit_build_event(&local, "case-summary", "check", NULL, summary,
+                             case_passed == case_count ? 0 : 1, 0, 0, 0);
     }
     if (!result && on_fail != NULL)
         execute_diagnostics(on_fail, &local);
@@ -416,6 +494,8 @@ static int execute_operation(const CbsNode *operation,
                 return 0;
         return 1;
     }
+    if (operation->kind == CBS_NODE_CASE)
+        return execute_case(operation, context);
     if (operation->kind == CBS_NODE_RUN)
         return cbs_execute_run(operation, context);
     if (is_filesystem(operation->kind)) {

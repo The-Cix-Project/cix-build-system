@@ -101,6 +101,7 @@ typedef enum {
     CBS_NODE_PATCH,
     CBS_NODE_REQUIRE,
     CBS_NODE_LIST,
+    CBS_NODE_CASE,
     CBS_NODE_ON_FAIL,
     CBS_NODE_PROPERTY,
     CBS_NODE_BUILD_IMAGE,
@@ -341,6 +342,8 @@ typedef struct {
     const char *src;
     const char *build;
     const char *dest;
+    /* Per-check-case scratch directory, or NULL outside a case. */
+    const char *case_directory;
     /* Caller-supplied, validated firmware tree for executor integrations. */
     const char *firmware_root;
     long jobs;

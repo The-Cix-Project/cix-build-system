@@ -4,6 +4,7 @@
 #include "cbs.h"
 #include "temp.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,6 +74,21 @@ static CbsNode *phase_named(CbsNode *document, const char *name) {
 static int exists(const char *path) {
     struct stat status;
     return lstat(path, &status) == 0;
+}
+
+static int has_case_scratch(const char *path) {
+    DIR *directory = opendir(path);
+    struct dirent *entry;
+    int found = 0;
+    if (directory == NULL)
+        return 1;
+    while ((entry = readdir(directory)) != NULL)
+        if (strncmp(entry->d_name, ".cbs-case-", 10) == 0) {
+            found = 1;
+            break;
+        }
+    closedir(directory);
+    return found;
 }
 
 static int probe(int argc, char **argv) {
@@ -173,7 +189,8 @@ static int run_parent(const char *recipe_path, const char *self) {
         fputs(diagnostics, stderr);
         goto cleanup;
     }
-    if (!cbs_execute_block(check_phase, &context) || exists(success_diagnostic))
+    if (!cbs_execute_block(check_phase, &context) || exists(success_diagnostic) ||
+        has_case_scratch(build))
         goto cleanup;
     result = 0;
     goto cleanup;

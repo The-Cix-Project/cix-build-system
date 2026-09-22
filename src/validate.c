@@ -114,6 +114,8 @@ static int known_value_name(Validator *validator, const char *name,
         return 1;
     if (length > 5 && strncmp(name, "glob.", 5) == 0)
         return 1;
+    if (length == 8 && strncmp(name, "case.dir", length) == 0)
+        return 1;
     return 0;
 }
 
@@ -407,6 +409,12 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                 validate_operation(validator, operation->children[index],
                                    in_on_fail);
         break;
+    case CBS_NODE_CASE:
+        if (operation->name == NULL || operation->name[0] == '\0')
+            validation_error(validator, operation, "CPDL-E3004",
+                             "case name must not be empty");
+        validate_block(validator, operation, in_on_fail);
+        break;
     case CBS_NODE_RUN:
         validate_run(validator, operation, in_on_fail);
         break;
@@ -698,6 +706,16 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     }
 }
 
+static int contains_case(const CbsNode *node) {
+    size_t index;
+    if (node->kind == CBS_NODE_CASE)
+        return 1;
+    for (index = 0; index < node->child_count; ++index)
+        if (contains_case(node->children[index]))
+            return 1;
+    return 0;
+}
+
 /* Validate source names, URLs, digests, and duplicate declarations. */
 static void validate_sources(Validator *validator, const CbsNode *sources) {
     size_t index;
@@ -928,6 +946,9 @@ static void validate_package(Validator *validator) {
             if (phases > CBS_MAX_PHASES)
                 validation_error(validator, item, "CPDL-E3004",
                                  "package has more than five phases");
+            if (strcmp(item->name, "check") != 0 && contains_case(item))
+                validation_error(validator, item, "CPDL-E3006",
+                                 "case is valid only inside check");
             validate_block(validator, item, 0);
             break;
         default:

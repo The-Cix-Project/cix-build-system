@@ -33,8 +33,15 @@ package "failure-test" {
     }
 
     check {
-        run "${build}/runtime-test" {
-            "--succeed"
+        case "successful runtime check" {
+            write "${case.dir}/marker" "ok"
+            require file "${case.dir}/marker" {
+                exists
+                contains "ok"
+            }
+            run "${build}/runtime-test" {
+                "--succeed"
+            }
         }
         on_fail {
             run "${build}/runtime-test" {

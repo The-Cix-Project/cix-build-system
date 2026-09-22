@@ -201,6 +201,8 @@ static const char *context_value(const CbsExecutionContext *context,
         return context->build;
     if (length == 4 && strncmp(name, "dest", length) == 0)
         return context->dest;
+    if (length == 8 && strncmp(name, "case.dir", length) == 0)
+        return context->case_directory;
     if (length == 8 && strncmp(name, "firmware", length) == 0)
         return context->firmware_root;
     if (length == 4 && strncmp(name, "jobs", length) == 0) {

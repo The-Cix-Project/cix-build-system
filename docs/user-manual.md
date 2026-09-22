@@ -360,8 +360,9 @@ Package items must appear in this order: identity (`version`, `release`,
 `format`, optional `license`), `upstream`, `sources`, `requires`, execution
 metadata (`build_image`, `capability`, `toolchain`, `metadata`), then phases.
 Each phase is optional and may appear once. Empty phases are allowed
-syntactically but are rarely useful. Phase order is always `prepare`,
-`configure`, `build`, `check`, `install`.
+syntactically but are rarely useful. Declaration order is always `prepare`,
+`configure`, `build`, `check`, `install`; CBS executes `check` after `install`
+so it can verify the staged artifact.
 
 `license` is an optional SPDX expression recorded in the artifact manifest.
 `metadata { "key" "value" }` carries opaque string pairs that CBS never
@@ -605,6 +606,21 @@ prepare {
     }
 }
 ```
+
+Named cases give checks a scratch directory and a stable name in human and
+machine-readable build output:
+
+```cbs
+check {
+    case "binary self-test" {
+        run "${dest}/usr/bin/example" { "--self-test" }
+        require file "${case.dir}/result" { exists }
+    }
+}
+```
+
+Cases run after `install`, so `${dest}` describes the staged artifact. Every
+case runs even if another case fails; the check phase fails if any case fails.
 
 An empty match and an unexpected count fail before mutation. Assertions include:
 

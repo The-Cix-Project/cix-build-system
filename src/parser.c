@@ -1069,6 +1069,16 @@ static CbsNode *parse_stage(CbsParser *parser) {
     return node;
 }
 
+/* Parse one named check case and its ordinary operation block. */
+static CbsNode *parse_case(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "case");
+    CbsToken *name = consume_kind(parser, CBS_TOKEN_STRING, "case name");
+    CbsNode *node = cbs_node_create(CBS_NODE_CASE, keyword->location);
+    if (name != NULL)
+        node->name = cbs_duplicate(name->text);
+    return parse_operation_block(parser, node, 0);
+}
+
 /* Parse any operation allowed in the current block. */
 static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     CbsToken *keyword = current(parser);
@@ -1085,6 +1095,8 @@ static CbsNode *parse_operation(CbsParser *parser, int diagnostic_only) {
     }
     if (is_word(parser, "each"))
         return parse_each(parser, diagnostic_only);
+    if (is_word(parser, "case"))
+        return parse_case(parser);
     if (is_word(parser, "env"))
         return parse_env(parser);
     if (is_word(parser, "cd")) {
