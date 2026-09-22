@@ -11,12 +11,10 @@ package "tool-policy" {
 
     tools {
         compiler alias "cc"
-        compiler rewrite "-MMD" to "-MD"
     }
 
     build {
         run "cc" { "alias-argument" }
-        run "tcc" { "-MMD" }
         write "${dest}/tool-policy.txt" "ok"
     }
 }

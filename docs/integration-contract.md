@@ -37,17 +37,14 @@ Recipes can declare CBS-owned compiler tool policy:
 ```text
 tools {
     compiler alias "cc"
-    compiler rewrite "-MMD" to "-MD"
 }
 ```
 
 CBS resolves the compiler once using the approved command path, materializes
-the alias/proxy directory before phases begin, and prepends it to the child
-PATH for the whole build. Rewrites are exact-token transformations performed
-by a CBS proxy, so they also apply when `make`, `configure`, or another build
-tool invokes the compiler as a grandchild. The absolute target and effective
-policy are recorded in the proxy sidecar and package provenance. A recipe
-`PATH` override is rejected; the composer supplies the command-path policy.
+the alias directory before phases begin, and prepends it to the child
+PATH for the whole build. The resolved target and effective alias policy are
+recorded in package provenance. A recipe `PATH` override is rejected; the
+composer supplies the command-path policy.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,

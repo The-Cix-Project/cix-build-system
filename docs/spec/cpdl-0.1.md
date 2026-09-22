@@ -243,8 +243,7 @@ build-image-declaration  = "build_image", string ;
 capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
 tools-declaration        = "tools", "{", { tool-policy }, "}" ;
-tool-policy              = "compiler", "alias", string
-                          | "compiler", "rewrite", string, "to", string ;
+tool-policy              = "compiler", "alias", string ;
 upstream-declaration     = "upstream", string ;
 metadata-declaration     = "metadata", "{", { string, string }, "}" ;
 ```
@@ -272,16 +271,12 @@ CBS version, architecture, declared toolchain, and each declared source's
 name, first URL, and SHA-256. The recipe digest covers the published recipe
 bytes supplied to CBS.
 
-`tools` declares CBS-owned executable policy. An `alias` publishes a symlink
-under the generated build-tool directory; a `rewrite` publishes a CBS proxy
-under the declared compiler name and replaces exact argument tokens before
-executing the resolved compiler. Tool names and rewrite tokens are bare
-single-line names without `/`. CBS resolves every target through the same
-explicit command-path policy used by `run`, records absolute targets in the
-proxy sidecar and provenance, then prepends the generated directory to PATH
-for the complete build. Resolution happens before the first phase, so a
-missing target rejects the build without running any phase. Recipes may not
-override `PATH`; they must use `tools`.
+`tools` declares CBS-owned executable aliases. An `alias` publishes a symlink
+under the generated build-tool directory. CBS resolves every target through
+the same explicit command-path policy used by `run`, then prepends the
+generated directory to PATH for the complete build. Resolution happens before
+the first phase, so a missing target rejects the build without running any
+phase. Recipes may not override `PATH`; they must use `tools`.
 
 `license` is an optional SPDX expression carried into the artifact manifest as
 an `m license <expression>` line; it must be a non-empty single-line string.

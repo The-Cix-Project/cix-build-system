@@ -1308,7 +1308,7 @@ static CbsNode *parse_opaque_metadata(CbsParser *parser) {
     return node;
 }
 
-/* Parse CBS-owned compiler alias and exact argument rewrite declarations. */
+/* Parse CBS-owned compiler alias declarations. */
 static CbsNode *parse_tools(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "tools");
     CbsNode *node = cbs_node_create(CBS_NODE_TOOLS, keyword->location);
@@ -1331,18 +1331,8 @@ static CbsNode *parse_tools(CbsParser *parser) {
             if (name != NULL)
                 tool->value = cbs_duplicate(name->text);
             tool->second_flag = 1;
-        } else if (is_word(parser, "rewrite")) {
-            advance(parser);
-            name = consume_kind(parser, CBS_TOKEN_STRING, "rewrite source");
-            consume_word(parser, "to");
-            if (name != NULL)
-                tool->value = cbs_duplicate(name->text);
-            name = consume_kind(parser, CBS_TOKEN_STRING, "rewrite target");
-            if (name != NULL)
-                tool->second_value = cbs_duplicate(name->text);
-            tool->second_flag = 2;
         } else {
-            expected(parser, "alias or rewrite");
+            expected(parser, "alias");
             cbs_node_destroy(tool);
             break;
         }

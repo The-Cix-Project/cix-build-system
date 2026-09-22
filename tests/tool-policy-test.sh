@@ -25,14 +25,8 @@ grep -q '"name":"tool-policy"' "$temporary_dir/explain.json"
     >"$temporary_dir/build.out" 2>"$temporary_dir/build.err"
 test ! -s "$temporary_dir/build.err"
 test -x "$temporary_dir/staged/build/.cbs-tools/cc"
-test -x "$temporary_dir/staged/build/.cbs-tools/tcc"
 grep -qx 'alias-argument' "$temporary_dir/staged/build/args"
-grep -qx -- '-MD' "$temporary_dir/staged/build/args"
 "$cbs" verify "$artifact" >"$temporary_dir/verify.out"
 grep -q 'verified CIXPKG' "$temporary_dir/verify.out"
-if grep -qx -- '-MMD' "$temporary_dir/staged/build/args"; then
-    echo 'rewrite proxy leaked the original token' >&2
-    exit 1
-fi
 
 echo 'tool policy test: PASS'

@@ -720,13 +720,6 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
                  command_path);
         string_list_add(&environment, path_environment);
     }
-    if (context->tool_directory != NULL) {
-        char *tool_policy_environment =
-            cbs_allocate(strlen(context->tool_directory) + 20);
-        snprintf(tool_policy_environment, strlen(context->tool_directory) + 20,
-                 "CBS_TOOL_DIRECTORY=%s", context->tool_directory);
-        string_list_add(&environment, tool_policy_environment);
-    }
     /* Give reproducible-build-aware tools a stable epoch instead of the wall
      * clock. An explicit CPDL epoch binding can replace this default later. */
     string_list_add(&environment, cbs_duplicate("SOURCE_DATE_EPOCH=0"));

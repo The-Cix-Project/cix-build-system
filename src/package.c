@@ -50,13 +50,9 @@ static int materialize_tools(const CbsNode *tools,
                              CbsExecutionContext *context, char *path,
                              size_t path_size) {
     char tool_directory[4096];
-    char executable[4096];
     char **targets = NULL;
-    ssize_t executable_length;
     struct stat status;
     size_t index;
-    const char *rewrite_name = NULL;
-    int rewrite_published = 0;
     int published = 0;
     int result = 0;
     if (tools == NULL)
@@ -79,7 +75,7 @@ static int materialize_tools(const CbsNode *tools,
         const CbsNode *tool = tools->children[index];
         const char *target_name = context->compiler;
         if (tool->kind != CBS_NODE_TOOL || tool->value == NULL ||
-            strcmp(tool->name, "compiler") != 0 || tool->second_flag == 0 ||
+            strcmp(tool->name, "compiler") != 0 || tool->second_flag != 1 ||
             target_name == NULL)
             goto done;
         if (!cbs_command_path_is_valid(context->command_path))
@@ -88,62 +84,18 @@ static int materialize_tools(const CbsNode *tools,
             target_name, context->working_directory, context->command_path);
         if (targets[index] == NULL)
             goto done;
-        if (tool->second_flag == 2) {
-            rewrite_name = target_name;
-        }
     }
     if (mkdir(path, 0755) != 0 && errno != EEXIST)
         goto done;
-    executable_length = readlink("/proc/self/exe", executable,
-                                 sizeof(executable) - 1);
-    if (executable_length <= 0 ||
-        (size_t)executable_length >= sizeof(executable) - 1)
-        goto done;
-    executable[executable_length] = '\0';
     for (index = 0; index < tools->child_count; ++index) {
         const CbsNode *tool = tools->children[index];
         char link_path[4096];
-        const char *published_name = tool->second_flag == 2
-                                         ? rewrite_name
-                                         : tool->value;
         if (snprintf(link_path, sizeof(link_path), "%s/%s", path,
-                     published_name) >= (int)sizeof(link_path))
+                     tool->value) >= (int)sizeof(link_path))
             goto done;
-        if (tool->second_flag == 1) {
-            unlink(link_path);
-            if (symlink(targets[index], link_path) != 0)
-                goto done;
-        } else if (tool->second_flag == 2) {
-            char policy_path[4096];
-            FILE *policy;
-            size_t policy_index;
-            if (rewrite_published)
-                continue;
-            if (snprintf(policy_path, sizeof(policy_path), "%s/.%s.policy",
-                         path, published_name) >= (int)sizeof(policy_path))
-                goto done;
-            unlink(link_path);
-            if (symlink(executable, link_path) != 0)
-                goto done;
-            policy = fopen(policy_path, "w");
-            if (policy == NULL || fprintf(policy, "%s\n", targets[index]) < 0)
-                goto done;
-            for (policy_index = 0; policy_index < tools->child_count;
-                 ++policy_index) {
-                const CbsNode *rewrite = tools->children[policy_index];
-                if (rewrite->second_flag == 2 &&
-                    fprintf(policy, "%s\n%s\n", rewrite->value,
-                            rewrite->second_value) < 0) {
-                    fclose(policy);
-                    goto done;
-                }
-            }
-            if (fclose(policy) != 0)
-                goto done;
-            rewrite_published = 1;
-        } else {
+        unlink(link_path);
+        if (symlink(targets[index], link_path) != 0)
             goto done;
-        }
         published = 1;
     }
     if (published && snprintf(path + strlen(path), path_size - strlen(path),
@@ -192,11 +144,8 @@ static int append_provenance(const char *manifest, const char *recipe,
             goto failure;
         for (index = 0; index < context->tool_policy->child_count; ++index) {
             const CbsNode *tool = context->tool_policy->children[index];
-            if (fprintf(file, "m tool_policy %s %s %s%s%s\n", tool->name,
-                        tool->second_flag == 1 ? "alias" : "rewrite",
-                        tool->value,
-                        tool->second_flag == 2 ? " " : "",
-                        tool->second_flag == 2 ? tool->second_value : "") < 0)
+            if (fprintf(file, "m tool_policy %s alias %s\n", tool->name,
+                        tool->value) < 0)
                 goto failure;
         }
     }

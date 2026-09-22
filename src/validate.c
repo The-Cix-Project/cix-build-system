@@ -905,19 +905,13 @@ static void validate_package(Validator *validator) {
                 if (strcmp(tool->name, "compiler") != 0)
                     validation_error(validator, tool, "CPDL-E3004",
                                      "only compiler tool policies are supported");
+                if (tool->second_flag != 1)
+                    validation_error(validator, tool, "CPDL-E3004",
+                                     "tool policy must be an alias");
                 if (tool->value == NULL || tool->value[0] == '\0' ||
                     strchr(tool->value, '/') != NULL)
                     validation_error(validator, tool, "CPDL-E3004",
-                                     "tool alias/rewrite name must be bare");
-                if (tool->second_flag == 2 &&
-                    (tool->second_value == NULL ||
-                     tool->second_value[0] == '\0'))
-                    validation_error(validator, tool, "CPDL-E3004",
-                                     "tool rewrite target must not be empty");
-                if (tool->second_flag == 2 &&
-                    strchr(tool->second_value, '/') != NULL)
-                    validation_error(validator, tool, "CPDL-E3004",
-                                     "tool rewrite target must be bare");
+                                     "tool alias name must be bare");
                 for (earlier_tool = 0; earlier_tool < tool_index;
                      ++earlier_tool) {
                     const CbsNode *prior_tool = item->children[earlier_tool];
