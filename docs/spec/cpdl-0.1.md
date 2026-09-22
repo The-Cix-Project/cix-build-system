@@ -607,7 +607,8 @@ destination naming rules as POSIX `cp` without dereferencing a source symlink.
 An existing regular-file destination is replaced. An existing destination
 symlink is replaced rather than followed, so it cannot redirect a write outside
 the CBS roots. An existing directory is accepted only as the destination
-container; other destination types fail.
+container; other destination types fail. If the destination parent is missing,
+the runtime diagnostic names that destination parent rather than the source.
 
 `move` is confined to one staged build filesystem and must not silently fall
 back to copy-and-delete across filesystems. It uses the same destination naming

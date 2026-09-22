@@ -448,6 +448,32 @@ static int copy_tree(const char *source, const char *destination) {
     return chmod(destination, source_mode) == 0;
 }
 
+/* Name the destination parent when a filesystem operation failed there. */
+static const char *filesystem_failure_path(const CbsNode *operation,
+                                           const char *source,
+                                           char *buffer, size_t size) {
+    const char *destination = NULL;
+    const char *slash;
+    if (errno != ENOENT)
+        return source;
+    if (operation->kind == CBS_NODE_COPY || operation->kind == CBS_NODE_MOVE ||
+        operation->kind == CBS_NODE_SYMLINK)
+        destination = operation->second_value;
+    else if (operation->kind == CBS_NODE_WRITE ||
+             operation->kind == CBS_NODE_MKDIR)
+        destination = operation->value;
+    if (destination == NULL)
+        return source;
+    slash = strrchr(destination, '/');
+    if (slash == NULL || slash == destination)
+        return destination;
+    if ((size_t)(slash - destination) >= size)
+        return destination;
+    memcpy(buffer, destination, (size_t)(slash - destination));
+    buffer[slash - destination] = '\0';
+    return buffer;
+}
+
 /* Materialize one verified named source into the build tree. */
 int cbs_execute_materialize(const CbsNode *operation,
                             const CbsExecutionContext *context) {
@@ -1315,8 +1341,13 @@ int cbs_execute_filesystem(const CbsNode *operation,
     return 1;
 
 failure:
-    fs_error(operation, context, operation->value,
+    {
+        char failure_path[4096];
+        const char *reported = filesystem_failure_path(
+            operation, operation->value, failure_path, sizeof(failure_path));
+        fs_error(operation, context, reported,
              "filesystem operation failed");
+    }
     free(first);
     free(second);
     path_list_destroy(&paths);
