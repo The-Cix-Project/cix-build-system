@@ -106,6 +106,9 @@ static int run_test(const char *recipe_path) {
     CbsExecutionContext context;
     CbsNamedSource named_source;
     CbsNode escape;
+    CbsNode links, needs;
+    CbsNode *link_children[1];
+    char executable[4160], cwd[4160];
     struct stat status;
     ssize_t target_length;
     size_t index;
@@ -159,6 +162,26 @@ static int run_test(const char *recipe_path) {
         if (!operation_result)
             goto cleanup;
     }
+
+    /* Regression for #201: a matching DT_NEEDED entry must be retained in
+     * the observed set before required-library checks run. */
+    if (getcwd(cwd, sizeof(cwd)) == NULL ||
+        !path_join(executable, sizeof(executable), cwd, "cbs") ||
+        !path_join(path, sizeof(path), src, "linked-cbs") ||
+        symlink(executable, path) != 0)
+        goto cleanup;
+    memset(&needs, 0, sizeof(needs));
+    needs.kind = CBS_NODE_PROPERTY;
+    needs.name = "needs";
+    needs.value = "libc.so.6";
+    link_children[0] = &needs;
+    memset(&links, 0, sizeof(links));
+    links.kind = CBS_NODE_LINKS;
+    links.value = "${src}/linked-cbs";
+    links.children = link_children;
+    links.child_count = 1;
+    if (!cbs_execute_links(&links, &context))
+        goto cleanup;
 
     path_join(path, sizeof(path), build, "input");
     if (lstat(path, &status) != 0 || (status.st_mode & 07777) != 0700)

@@ -723,15 +723,21 @@ typedef struct {
     const CbsNode *operation;
     const CbsExecutionContext *context;
     int failed;
-    const char *seen[128];
+    char seen[128][256];
     size_t seen_count;
 } LinkCheck;
 
 static int check_link_dependency(const char *dependency, void *user) {
     LinkCheck *check = user;
     size_t index;
+    if (check->seen_count < sizeof(check->seen) / sizeof(check->seen[0]))
+        snprintf(check->seen[check->seen_count++],
+                 sizeof(check->seen[0]), "%s", dependency);
     for (index = 0; index < check->operation->child_count; ++index) {
         const CbsNode *property = check->operation->children[index];
+        if (property == NULL || property->name == NULL ||
+            property->value == NULL)
+            continue;
         if (strcmp(property->name, "needs") == 0 &&
             strcmp(property->value, dependency) == 0)
             return 1;
@@ -745,10 +751,10 @@ static int check_link_dependency(const char *dependency, void *user) {
             return 0;
         }
     }
-    if (check->seen_count < sizeof(check->seen) / sizeof(check->seen[0]))
-        check->seen[check->seen_count++] = dependency;
     return 1;
 }
+
+static void link_check_destroy(LinkCheck *check) { (void)check; }
 
 int cbs_execute_links(const CbsNode *operation,
                       const CbsExecutionContext *context) {
@@ -765,20 +771,25 @@ int cbs_execute_links(const CbsNode *operation,
     }
     if (!cbs_observe_dependencies(check_link_dependency, path, &check)) {
         if (check.failed) {
+            link_check_destroy(&check);
             free(path);
             return 0;
         }
         fs_error(operation, context, operation->value,
                  "cannot inspect ELF dynamic dependencies");
+        link_check_destroy(&check);
         free(path);
         return 0;
     }
     if (check.failed) {
+        link_check_destroy(&check);
         free(path);
         return 0;
     }
     for (index = 0; index < operation->child_count; ++index) {
         const CbsNode *property = operation->children[index];
+        if (property == NULL || property->name == NULL)
+            continue;
         if (strcmp(property->name, "needs") == 0) {
             size_t seen;
             int found = 0;
@@ -791,11 +802,13 @@ int cbs_execute_links(const CbsNode *operation,
                          "artifact is missing required library `%s`",
                          property->value);
                 assertion_error(operation, context, message);
+                link_check_destroy(&check);
                 free(path);
                 return 0;
             }
         }
     }
+    link_check_destroy(&check);
     free(path);
     return 1;
 }
