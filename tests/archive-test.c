@@ -7,6 +7,7 @@
 #include <archive_entry.h>
 #include <dirent.h>
 #include <errno.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,35 @@ static int make_unsafe_archive(const char *path, int symlink) {
         goto done_entry;
     }
     ok = archive_write_header(archive, entry) == ARCHIVE_OK;
+done_entry:
+    archive_entry_free(entry);
+done:
+    if (archive != NULL) {
+        archive_write_close(archive);
+        archive_write_free(archive);
+    }
+    return ok;
+}
+
+static int make_unicode_archive(const char *path) {
+    struct archive *archive = archive_write_new();
+    struct archive_entry *entry = NULL;
+    const char byte = 'x';
+    int ok = 0;
+
+    if (archive == NULL ||
+        archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
+        archive_write_open_filename(archive, path) != ARCHIVE_OK)
+        goto done;
+    entry = archive_entry_new();
+    archive_entry_set_pathname(entry, "pkg-1.0/données.txt");
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_entry_set_size(entry, 1);
+    if (archive_write_header(archive, entry) != ARCHIVE_OK ||
+        archive_write_data(archive, &byte, 1) != 1)
+        goto done_entry;
+    ok = 1;
 done_entry:
     archive_entry_free(entry);
 done:
@@ -360,11 +390,12 @@ static RejectionResult rejects_with(const char *archive,
 int main(void) {
     char root[4096];
     char destination[4160], unsafe[4160], links[4160], timestamps[4160];
-    char implicit[4160], device[4160];
+    char implicit[4160], device[4160], unicode[4160];
     char target[4160], hard[4160], link[4160], tree[4160], early[4160],
         late[4160], timestamp_link[4160];
     char implicit_file[4160], implicit_link[4160], implicit_dir[4160],
         implicit_parent[4160], readonly[4160], readonly_file[4160];
+    char unicode_file[4160];
     char link_target[64];
     char diagnostics[2048];
     struct stat status;
@@ -379,6 +410,7 @@ int main(void) {
     snprintf(timestamps, sizeof(timestamps), "%s/timestamps.tar", root);
     snprintf(implicit, sizeof(implicit), "%s/implicit.tar", root);
     snprintf(device, sizeof(device), "%s/device.tar", root);
+    snprintf(unicode, sizeof(unicode), "%s/unicode.tar", root);
     snprintf(target, sizeof(target), "%s/out/target", root);
     snprintf(hard, sizeof(hard), "%s/out/hard", root);
     snprintf(link, sizeof(link), "%s/out/dir/link", root);
@@ -394,6 +426,8 @@ int main(void) {
     snprintf(implicit_parent, sizeof(implicit_parent), "%s/out/pkg-1.0", root);
     snprintf(readonly, sizeof(readonly), "%s/out/readonly", root);
     snprintf(readonly_file, sizeof(readonly_file), "%s/out/readonly/file", root);
+    snprintf(unicode_file, sizeof(unicode_file), "%s/out/pkg-1.0/données.txt",
+             root);
     memset(link_target, 0, sizeof(link_target));
     CHECK_ERRNO(mkdir(destination, 0700) == 0, "cannot create the output root");
 
@@ -480,6 +514,23 @@ int main(void) {
     CHECK_REJECTED(device, "device", "member \"dev/console\": rejected: ",
                    "character device");
 
+    /* CBS must activate the embedder's UTF-8 LC_CTYPE before libarchive reads
+     * pax names. Keep the process in the C locale at the call site so this
+     * catches the bug where the environment is set but setlocale was omitted. */
+    CHECK(setenv("LC_ALL", "C.UTF-8", 1) == 0,
+          "cannot set the UTF-8 test locale");
+    CHECK(setlocale(LC_CTYPE, "C.UTF-8") != NULL,
+          "the UTF-8 test locale is unavailable");
+    CHECK(make_unicode_archive(unicode), "cannot write the unicode archive");
+    CHECK(setlocale(LC_CTYPE, "C") != NULL,
+          "cannot reset the C test locale");
+    CHECK(cbs_extract_archive(unicode, destination, "unicode", location.path,
+                              NULL, location),
+          "a UTF-8 pax path was rejected");
+    CHECK_ERRNO(stat(unicode_file, &status) == 0,
+                "the non-ASCII archive member is missing");
+    CHECK(S_ISREG(status.st_mode), "the non-ASCII archive member is not a file");
+
 cleanup:
     test_remove_tree(root);
     if (failures != 0) {
@@ -488,7 +539,7 @@ cleanup:
         return 1;
     }
     puts("archive extraction tests: PASS (safe links, mtimes, implicit "
-         "parents, deferred directory modes, hostile entries, and named "
-         "diagnostics)");
+         "parents, deferred directory modes, hostile entries, UTF-8 pax "
+         "paths, and named diagnostics)");
     return 0;
 }

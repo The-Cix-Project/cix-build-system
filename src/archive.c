@@ -5,6 +5,8 @@
 #include <archive_entry.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <langinfo.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +45,25 @@ static const char *selection_name(const char *name) {
     return name;
 }
 
+/* libarchive decodes pax names according to the active LC_CTYPE locale.  Set
+ * only that category: collation and numeric formatting remain untouched. */
+static int archive_locale_is_utf8(void) {
+    const char *codeset = nl_langinfo(CODESET);
+    return codeset != NULL &&
+           (strcmp(codeset, "UTF-8") == 0 || strcmp(codeset, "utf8") == 0 ||
+            strcmp(codeset, "UTF8") == 0);
+}
+
+static int prepare_archive_locale(void) {
+    if (setlocale(LC_CTYPE, "") != NULL && archive_locale_is_utf8())
+        return 1;
+    if (setlocale(LC_CTYPE, "C.UTF-8") != NULL && archive_locale_is_utf8())
+        return 1;
+    if (setlocale(LC_CTYPE, "C.utf8") != NULL && archive_locale_is_utf8())
+        return 1;
+    return 0;
+}
+
 /* Accept only archive formats supported by the package policy. */
 static int supported_format(const char *name) {
     return name != NULL &&
@@ -53,12 +74,15 @@ static int supported_format(const char *name) {
 /* Classify a verified input before source preparation decides whether to
  * extract it or preserve it as one ordinary file. */
 int cbs_archive_probe(const char *archive_path) {
-    struct archive *reader = archive_read_new();
+    struct archive *reader;
     struct archive_entry *entry;
     const char *format;
     int header_result;
     int result;
 
+    if (!prepare_archive_locale())
+        return -1;
+    reader = archive_read_new();
     if (reader == NULL)
         return -1;
     archive_read_support_filter_all(reader);
@@ -214,7 +238,7 @@ int cbs_extract_archive_members(
     const char *archive_path, const char *destination,
     const char *const *members, size_t member_count, const char *source_name,
     const char *recipe_path, const char *recipe_source, CbsLocation location) {
-    struct archive *reader = archive_read_new();
+    struct archive *reader = NULL;
     struct archive_entry *entry = NULL;
     int result = 0;
     int header_result;
@@ -227,10 +251,17 @@ int cbs_extract_archive_members(
     size_t directory_count = 0;
     size_t directory_capacity = 0;
     unsigned char *member_found = NULL;
+    if (!prepare_archive_locale()) {
+        rule = "cannot initialize a UTF-8 archive locale";
+        goto fail;
+    }
+    reader = archive_read_new();
     if (members != NULL && member_count != 0)
         member_found = cbs_allocate(member_count);
-    if (reader == NULL)
-        return 0;
+    if (reader == NULL) {
+        rule = "cannot allocate an archive reader";
+        goto fail;
+    }
     archive_read_support_filter_all(reader);
     archive_read_support_format_all(reader);
     for (int pass = 0; pass < 2; ++pass) {

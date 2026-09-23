@@ -215,6 +215,11 @@ a directory member's mode and mtime are applied after its contents. When an
 archive is refused, the `CPDL-E6001` message names the member and the rule,
 for example ``source `bzip2`: member "dev/console": rejected: character
 device`` or ``member "lib/foo.c": cannot create file: Permission denied``.
+Before reading archive headers, CBS activates a UTF-8 `LC_CTYPE` locale from
+the build environment (falling back to `C.UTF-8`/`C.utf8`). Other locale
+categories are unchanged. If no UTF-8 locale is available, extraction fails
+with `CPDL-E6001` instead of attempting to interpret non-ASCII archive paths
+under the C locale.
 
 ## 6. Writing build phases
 
