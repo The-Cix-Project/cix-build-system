@@ -70,6 +70,26 @@ static int valid_sha256(const char *hash) {
     return 1;
 }
 
+/* Check an archive member path without consulting the filesystem. */
+static int valid_archive_member(const char *name) {
+    const char *cursor = name;
+
+    if (name == NULL || name[0] == '\0' || name[0] == '/' ||
+        strchr(name, '\\') != NULL)
+        return 0;
+    while (1) {
+        const char *slash = strchr(cursor, '/');
+        size_t length = slash == NULL ? strlen(cursor)
+                                     : (size_t)(slash - cursor);
+        if (length == 0 || (length == 1 && cursor[0] == '.') ||
+            (length == 2 && cursor[0] == '.' && cursor[1] == '.'))
+            return 0;
+        if (slash == NULL)
+            return 1;
+        cursor = slash + 1;
+    }
+}
+
 /* Check whether a named source exists in the package declaration. */
 static int source_declared(const Validator *validator, const char *name) {
     size_t index;
@@ -611,6 +631,37 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
                                  "extract source is not declared");
         }
         validate_secondary_value(validator, operation, operation->second_value);
+        {
+            size_t member_count = 0;
+            int has_as = 0;
+            for (index = 0; index < operation->child_count; ++index) {
+                const CbsNode *property = operation->children[index];
+                if (property->name == NULL ||
+                    (strcmp(property->name, "as") != 0 &&
+                     strcmp(property->name, "member") != 0)) {
+                    validation_error(validator, property, "CPDL-E3004",
+                                     "extract accepts only as and member options");
+                } else if (strcmp(property->name, "as") == 0) {
+                    if (++has_as > 1)
+                        validation_error(validator, property, "CPDL-E3002",
+                                         "duplicate extract as option");
+                    if (property->value == NULL || property->value[0] == '\0' ||
+                        strchr(property->value, '/') != NULL ||
+                        strcmp(property->value, ".") == 0 ||
+                        strcmp(property->value, "..") == 0)
+                        validation_error(validator, property, "CPDL-E3004",
+                                         "extract as name must be a safe directory name");
+                } else {
+                    ++member_count;
+                    if (!valid_archive_member(property->value))
+                        validation_error(validator, property, "CPDL-E3004",
+                                         "extract member must be a safe relative archive path");
+                }
+            }
+            if (has_as != 0 && member_count != 0)
+                validation_error(validator, operation, "CPDL-E3004",
+                                 "extract as cannot be combined with member selection");
+        }
         break;
     case CBS_NODE_MATERIALIZE:
         if (operation->value == NULL ||

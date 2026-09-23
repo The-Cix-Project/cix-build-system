@@ -201,9 +201,10 @@ static void remember_directory(DirectoryEntry **directories, size_t *count,
 /* Extract ordinary members first, then links so links cannot redirect writes.
  * Parent directories missing from the archive are created on demand; archive
  * directory members get their mode and mtime after all members are written. */
-int cbs_extract_archive(const char *archive_path, const char *destination,
-                        const char *source_name, const char *recipe_path,
-                        const char *recipe_source, CbsLocation location) {
+int cbs_extract_archive_members(
+    const char *archive_path, const char *destination,
+    const char *const *members, size_t member_count, const char *source_name,
+    const char *recipe_path, const char *recipe_source, CbsLocation location) {
     struct archive *reader = archive_read_new();
     struct archive_entry *entry = NULL;
     int result = 0;
@@ -216,6 +217,9 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
     DirectoryEntry *directories = NULL;
     size_t directory_count = 0;
     size_t directory_capacity = 0;
+    unsigned char *member_found = NULL;
+    if (members != NULL && member_count != 0)
+        member_found = cbs_allocate(member_count);
     if (reader == NULL)
         return 0;
     archive_read_support_filter_all(reader);
@@ -253,6 +257,19 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
         int fd;
         int is_link = archive_entry_filetype(entry) == AE_IFLNK ||
                       hardlink != NULL;
+        if (members != NULL && member_count != 0) {
+            size_t member_index;
+            int selected = 0;
+            for (member_index = 0; member_index < member_count; ++member_index) {
+                if (strcmp(name, members[member_index]) == 0) {
+                    member_found[member_index] = 1;
+                    selected = 1;
+                    break;
+                }
+            }
+            if (!selected)
+                continue;
+        }
         member = name;
         if (!safe_name(name))
             REJECT("unsafe path: absolute, backslash, or `..` component");
@@ -335,6 +352,17 @@ int cbs_extract_archive(const char *archive_path, const char *destination,
             REJECT("cannot read archive header");
         archive_read_close(reader);
     }
+    if (members != NULL && member_count != 0) {
+        size_t member_index;
+        for (member_index = 0; member_index < member_count; ++member_index) {
+            if (!member_found[member_index]) {
+                member = members[member_index];
+                failure_errno = ENOENT;
+                rule = "requested archive member was not found";
+                goto fail;
+            }
+        }
+    }
     for (size_t index = 0; index < directory_count; ++index) {
         struct timespec times[2] = {directories[index].time,
                                     directories[index].time};
@@ -376,7 +404,16 @@ fail:
         free(directories[index].path);
     }
     free(directories);
+    free(member_found);
     return result;
+}
+
+int cbs_extract_archive(const char *archive_path, const char *destination,
+                        const char *source_name, const char *recipe_path,
+                        const char *recipe_source, CbsLocation location) {
+    return cbs_extract_archive_members(
+        archive_path, destination, NULL, 0, source_name, recipe_path,
+        recipe_source, location);
 }
 #undef REJECT
 #undef FAIL_OPERATION

@@ -15,9 +15,17 @@ package "extract-test" {
             url "https://example.invalid/config"
             sha256 "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
+        extra "selective" {
+            url "https://example.invalid/selective.tar"
+            sha256 "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
     }
     prepare {
+        mkdir "${build}/kernel"
         extract $source.support into $src as "support"
+        extract $source.selective into "${build}/kernel" {
+            member "bzImage"
+        }
         materialize $source.config to "${build}/.config"
         require config "${build}/.config" {
             CONFIG_TEST = y

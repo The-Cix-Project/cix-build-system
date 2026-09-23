@@ -372,6 +372,30 @@ static int extract_error(const CbsNode *operation,
     return 0;
 }
 
+/* Collect validated archive-member selectors from an extract operation. */
+static const char **extract_members(const CbsNode *operation, size_t *count) {
+    const char **members = NULL;
+    size_t index;
+    size_t member_count = 0;
+
+    for (index = 0; index < operation->child_count; ++index)
+        if (operation->children[index]->name != NULL &&
+            strcmp(operation->children[index]->name, "member") == 0)
+            ++member_count;
+    if (member_count == 0) {
+        *count = 0;
+        return NULL;
+    }
+    members = cbs_allocate(member_count * sizeof(*members));
+    member_count = 0;
+    for (index = 0; index < operation->child_count; ++index)
+        if (operation->children[index]->name != NULL &&
+            strcmp(operation->children[index]->name, "member") == 0)
+            members[member_count++] = operation->children[index]->value;
+    *count = member_count;
+    return members;
+}
+
 /* Resolve, validate, and extract one named source archive. */
 static int execute_extract(const CbsNode *operation,
                            const CbsExecutionContext *context) {
@@ -383,6 +407,8 @@ static int execute_extract(const CbsNode *operation,
     char temporary[4096];
     char final_path[4096];
     char selected[4096];
+    const char **members;
+    size_t member_count;
     DIR *directory;
     struct dirent *entry;
     int found = 0;
@@ -394,10 +420,12 @@ static int execute_extract(const CbsNode *operation,
         return extract_error(operation, context,
                              "extract path is outside the build workspace");
     }
+    members = extract_members(operation, &member_count);
     if (name == NULL) {
-        result = cbs_extract_archive(
-            archive, destination, operation->value + 8, context->recipe_path,
-            context->recipe_source, operation->location);
+        result = cbs_extract_archive_members(
+            archive, destination, members, member_count, operation->value + 8,
+            context->recipe_path, context->recipe_source, operation->location);
+        free(members);
         free(archive);
         free(destination);
         return result;
@@ -408,12 +436,14 @@ static int execute_extract(const CbsNode *operation,
                  destination, (long)getpid()) >= (int)sizeof(temporary)) {
         free(archive);
         free(destination);
+        free(members);
         return extract_error(operation, context,
                              "extract `as` name is not a safe directory name");
     }
     if (mkdir(temporary, 0700) != 0) {
         free(archive);
         free(destination);
+        free(members);
         return extract_error(operation, context,
                              "cannot create temporary extraction directory");
     }
@@ -421,6 +451,7 @@ static int execute_extract(const CbsNode *operation,
                                  context->recipe_path, context->recipe_source,
                                  operation->location);
     free(archive);
+    free(members);
     if (!result) {
         rmdir(temporary);
         free(destination);

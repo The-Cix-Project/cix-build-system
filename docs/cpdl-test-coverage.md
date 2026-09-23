@@ -9,7 +9,7 @@ features must add focused success and failure assertions to this matrix.
 | Run argv, environment, jobs, expected exit, timeout, and limits | exec-test.c and argv.cbs |
 | on_fail, allow_failure, continuation, and primary errors | runtime-test.c and failure.cbs |
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, stage library, and globs | fs-test.c and filesystem.cbs |
-| extract, materialize, and configuration assertions | extract-test.c and extract.cbs |
+| extract (including selective members), materialize, and configuration assertions | extract-test.c and extract.cbs |
 | replace (literal and until), insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |
 | each expansion, nesting, scoped env, and item-naming failures | each-test.c, each.cbs, invalid each-* fixtures, and explain counts in cli-build-test.sh |
 | Sources, mirrors, checksums, cache, and fetch failures | source-test.c and fetch-test.c |

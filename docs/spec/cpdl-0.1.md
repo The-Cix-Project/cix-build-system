@@ -640,7 +640,9 @@ defined explicitly above.
 ```ebnf
 extract-operation = "extract", source-reference,
                     "into", path-value,
-                    [ "as", string ] ;
+                    ( [ "as", string ] |
+                      [ "{", "member", string,
+                        { "member", string }, "}" ] ) ;
 
 materialize-operation = "materialize", source-reference,
                         "to", path-value ;
@@ -652,6 +654,12 @@ source-reference = "$source.", identifier ;
 phase execution. It extracts beneath the `into` directory using the supported
 archive-format policy. `as "NAME"` requires the archive to contain one logical
 top-level directory and renames that directory to `NAME` after safe extraction.
+An extract may instead select exact archive members with a block such as
+`{ member "bzImage" }`. Only selected members are examined and written, so an
+unselected archive entry—including an unsafe symlink—does not affect the
+operation. Selected members still undergo all archive path, link, device, and
+confinement checks; a requested member that is absent is an error. `as` and
+member selection cannot be combined.
 
 `materialize` accepts only a declared, verified source whose bytes are not an
 archive. It copies that exact regular file into the confined build filesystem;

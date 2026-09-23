@@ -69,18 +69,57 @@ done:
     return ok;
 }
 
+/* The unrelated escaping link must not matter when one safe member is
+ * selected explicitly. */
+static int make_selective_archive(const char *path) {
+    struct archive *archive = archive_write_new();
+    struct archive_entry *entry;
+    const char content[] = "kernel image\n";
+    int ok = 0;
+
+    if (archive == NULL ||
+        archive_write_set_format_pax_restricted(archive) != ARCHIVE_OK ||
+        archive_write_open_filename(archive, path) != ARCHIVE_OK)
+        goto done;
+    entry = archive_entry_new();
+    archive_entry_set_pathname(entry, "bzImage");
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_entry_set_size(entry, sizeof(content) - 1);
+    if (archive_write_header(archive, entry) != ARCHIVE_OK ||
+        archive_write_data(archive, content, sizeof(content) - 1) !=
+            (ssize_t)(sizeof(content) - 1))
+        goto done_entry;
+    archive_entry_free(entry);
+    entry = archive_entry_new();
+    archive_entry_set_pathname(entry, "lib/modules/6.18.40/build");
+    archive_entry_set_filetype(entry, AE_IFLNK);
+    archive_entry_set_symlink(entry, "/build/src");
+    if (archive_write_header(archive, entry) != ARCHIVE_OK)
+        goto done_entry;
+    ok = 1;
+done_entry:
+    archive_entry_free(entry);
+done:
+    if (archive != NULL) {
+        archive_write_close(archive);
+        archive_write_free(archive);
+    }
+    return ok;
+}
+
 /* Exercise named-source extraction and destination confinement. */
 int main(int argc, char **argv) {
     char root[4096];
-    char archive_path[4160], config_path[4160], src[4160], build[4160],
-        dest[4160], result[4160];
+    char archive_path[4160], selective_path[4160], config_path[4160],
+        src[4160], build[4160], dest[4160], result[4160];
     char *source, *data;
     size_t length;
     CbsTokenList tokens = {0};
     CbsNode *document;
     CbsNode *prepare = NULL;
     CbsExecutionContext context;
-    CbsNamedSource named[2];
+    CbsNamedSource named[3];
     struct stat status;
     size_t index;
     int ok = 0;
@@ -88,12 +127,15 @@ int main(int argc, char **argv) {
     if (argc != 2 || !test_temp_root(root, sizeof(root), "cbs-extract") ||
         snprintf(archive_path, sizeof(archive_path), "%s/support.tar", root) >=
             (int)sizeof(archive_path) ||
+        snprintf(selective_path, sizeof(selective_path), "%s/selective.tar",
+                 root) >= (int)sizeof(selective_path) ||
         snprintf(src, sizeof(src), "%s/src", root) >= (int)sizeof(src) ||
         snprintf(build, sizeof(build), "%s/build", root) >=
             (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", root) >= (int)sizeof(dest) ||
         mkdir(src, 0700) != 0 || mkdir(build, 0700) != 0 ||
         mkdir(dest, 0700) != 0 || !make_archive(archive_path) ||
+        !make_selective_archive(selective_path) ||
         snprintf(config_path, sizeof(config_path), "%s/config", root) >=
             (int)sizeof(config_path))
         return 1;
@@ -120,6 +162,8 @@ int main(int argc, char **argv) {
     named[0].path = archive_path;
     named[1].name = "config";
     named[1].path = config_path;
+    named[2].name = "selective";
+    named[2].path = selective_path;
     memset(&context, 0, sizeof(context));
     context.recipe_path = argv[1];
     context.recipe_source = source;
@@ -132,12 +176,18 @@ int main(int argc, char **argv) {
     context.dest = dest;
     context.working_directory = src;
     context.sources = named;
-    context.source_count = 2;
+    context.source_count = 3;
     if (prepare == NULL || !cbs_execute_block(prepare, &context))
         goto done;
     snprintf(result, sizeof(result), "%s/support/data.txt", src);
     data = read_all(result, &length);
     if (data == NULL || strcmp(data, "support data\n") != 0 ||
+        lstat(result, &status) != 0 || !S_ISREG(status.st_mode))
+        goto done;
+    free(data);
+    snprintf(result, sizeof(result), "%s/kernel/bzImage", build);
+    data = read_all(result, &length);
+    if (data == NULL || strcmp(data, "kernel image\n") != 0 ||
         lstat(result, &status) != 0 || !S_ISREG(status.st_mode))
         goto done;
     free(data);

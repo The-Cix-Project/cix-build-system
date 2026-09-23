@@ -299,6 +299,18 @@ Extract a verified artifact into a destination that does not already exist:
 Extraction verifies the manifest, payload, and every regular-file digest before
 publishing the destination. Unsafe paths and partial destinations are rejected.
 
+For an archive where only one member is needed, select it explicitly:
+
+```cbs
+mkdir "${build}/kernel"
+extract $source.kernel into "${build}/kernel" {
+    member "bzImage"
+}
+```
+
+Selective extraction ignores unrelated archive members while applying the same
+safety checks to the selected members.
+
 The CIXPKG format is documented in the [CIXPKG specification](spec/cixpkg-1.0.md).
 
 ## 8. Exit statuses

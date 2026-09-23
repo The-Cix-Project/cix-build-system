@@ -464,6 +464,24 @@ static CbsNode *parse_extract(CbsParser *parser) {
             cbs_node_add(node, property);
         }
     }
+    if (current(parser)->kind == CBS_TOKEN_LBRACE) {
+        consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+        while (current(parser)->kind != CBS_TOKEN_RBRACE &&
+               current(parser)->kind != CBS_TOKEN_EOF) {
+            CbsToken *member_keyword = consume_word(parser, "member");
+            CbsToken *member =
+                consume_kind(parser, CBS_TOKEN_STRING, "archive member name");
+            if (member != NULL) {
+                CbsNode *property =
+                    node_from_token(CBS_NODE_PROPERTY, member);
+                property->name = cbs_duplicate("member");
+                cbs_node_add(node, property);
+            } else if (member_keyword == NULL) {
+                break;
+            }
+        }
+        consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    }
     return node;
 }
 
