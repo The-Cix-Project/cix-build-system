@@ -1,4 +1,5 @@
 /* Confined filesystem operations exposed by CPDL. */
+#define _XOPEN_SOURCE 700
 #define _POSIX_C_SOURCE 200809L
 
 #include "cbs.h"
@@ -1130,10 +1131,12 @@ static int stage_library(const CbsNode *operation,
     char *directory = NULL;
     char searched[1024];
     char candidate[4096];
+    char *source = NULL;
     struct stat status;
     const char *cursor;
     size_t searched_length = 0;
     int found = 0;
+    int source_is_symlink = 0;
     int result = 0;
 
     if (name[0] == '\0' || strchr(name, '/') != NULL ||
@@ -1189,6 +1192,7 @@ static int stage_library(const CbsNode *operation,
         fs_error(operation, context, name, detail);
         goto done;
     }
+    source_is_symlink = S_ISLNK(status.st_mode);
     directory = resolve_path(operation->second_value, context, &root);
     if (directory == NULL || !safe_parents(directory, root)) {
         fs_error(operation, context, operation->second_value,
@@ -1207,12 +1211,54 @@ static int stage_library(const CbsNode *operation,
                  "stage destination is not a directory");
         goto done;
     }
-    if (!copy_one(candidate, directory)) {
+    source = cbs_duplicate(candidate);
+    if (source_is_symlink) {
+        char *resolved = realpath(candidate, NULL);
+        const char *target_cursor = library_path;
+        int allowed = 0;
+
+        if (resolved == NULL) {
+            fs_error(operation, context, candidate,
+                     "cannot resolve staged library symlink");
+            goto done;
+        }
+        while (1) {
+            const char *end = strchr(target_cursor, ':');
+            size_t length = end == NULL ? strlen(target_cursor)
+                                        : (size_t)(end - target_cursor);
+            char *root_path = cbs_duplicate_range(target_cursor, length);
+            char *resolved_root = realpath(root_path, NULL);
+            size_t root_length = resolved_root == NULL
+                                     ? 0
+                                     : strlen(resolved_root);
+            if (resolved_root != NULL &&
+                (strcmp(resolved, resolved_root) == 0 ||
+                 (strncmp(resolved, resolved_root, root_length) == 0 &&
+                  resolved[root_length] == '/')))
+                allowed = 1;
+            free(resolved_root);
+            free(root_path);
+            if (allowed || end == NULL)
+                break;
+            target_cursor = end + 1;
+        }
+        if (!allowed) {
+            free(resolved);
+            errno = EPERM;
+            fs_error(operation, context, candidate,
+                     "staged library symlink target is outside the approved library roots");
+            goto done;
+        }
+        free(source);
+        source = resolved;
+    }
+    if (!copy_one(source, directory)) {
         fs_error(operation, context, candidate, "cannot stage library");
         goto done;
     }
     result = 1;
 done:
+    free(source);
     free(directory);
     free(triplet);
     free(name);

@@ -353,6 +353,46 @@ static int run_test(const char *recipe_path) {
         free(triplet);
         if (!have_host)
             FS_FAIL();
+        {
+            char link_root[4160], target_root[4160], target_file[4160],
+                link_file[4160], custom_library_path[8320];
+            CbsNode symlinked;
+            FILE *library_file;
+
+            if (!path_join(link_root, sizeof(link_root), base, "lib-stage") ||
+                !path_join(target_root, sizeof(target_root), base, "lib-target") ||
+                !path_join(target_file, sizeof(target_file), target_root,
+                           "libfixture.so") ||
+                !path_join(link_file, sizeof(link_file), link_root,
+                           "libfixture.so") ||
+                mkdir(link_root, 0755) != 0 || mkdir(target_root, 0755) != 0)
+                FS_FAIL();
+            library_file = fopen(target_file, "wb");
+            if (library_file == NULL || fputs("library bytes", library_file) == EOF ||
+                fclose(library_file) != 0 ||
+                symlink("../lib-target/libfixture.so", link_file) != 0 ||
+                snprintf(custom_library_path, sizeof(custom_library_path),
+                         "%s:%s", link_root, target_root) >=
+                    (int)sizeof(custom_library_path))
+                FS_FAIL();
+            memset(&symlinked, 0, sizeof(symlinked));
+            symlinked.kind = CBS_NODE_STAGE;
+            symlinked.name = "library";
+            symlinked.location.path = recipe_path;
+            symlinked.location.line = 1;
+            symlinked.location.column = 1;
+            symlinked.value = "libfixture.so";
+            symlinked.second_value = "${dest}/usr/lib";
+            context.library_path = custom_library_path;
+            if (!cbs_execute_filesystem(&symlinked, &context)) {
+                FS_FAIL();
+            }
+            path_join(path, sizeof(path), dest, "usr/lib/libfixture.so");
+            if (!regular_with(path, "library bytes", 0644)) {
+                FS_FAIL();
+            }
+            context.library_path = NULL;
+        }
         path_join(path, sizeof(path), dest, "usr/lib");
         if (lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
             FS_FAIL();
