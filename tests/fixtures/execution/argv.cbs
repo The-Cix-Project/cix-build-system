@@ -60,5 +60,15 @@ package "argv-test" {
             "--probe-glob-args"
             args glob "${src}/tests/fixtures/execution/*.cbs"
         }
+        run "${build}/exec-test" {
+            "--probe-input"
+            args input "optional"
+            expect exit 24
+        }
+        run "${build}/exec-test" {
+            "--probe-input"
+            args input "optional"
+            expect exit 25
+        }
     }
 }

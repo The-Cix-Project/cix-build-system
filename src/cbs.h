@@ -81,6 +81,7 @@ typedef enum {
     CBS_NODE_RUN_TIMEOUT,
     CBS_NODE_RUN_EXPECT,
     CBS_NODE_RUN_GLOB,
+    CBS_NODE_RUN_INPUT,
     CBS_NODE_RUN_STDOUT_ASSERT,
     CBS_NODE_RUN_STDOUT_BIND,
     CBS_NODE_RUN_STDOUT_FILE,
@@ -182,6 +183,12 @@ typedef struct {
     /* Source path or URL recorded for this named source. */
     const char *path;
 } CbsNamedSource;
+
+typedef struct {
+    /* Embedder-provided optional input name and path. */
+    const char *name;
+    const char *path;
+} CbsInputBinding;
 
 typedef struct {
     const char *name;
@@ -409,6 +416,9 @@ typedef struct {
         /* Maximum number of child processes. */
         long processes;
     } limits;
+    /* Optional caller-supplied inputs, absent inputs are valid. */
+    const CbsInputBinding *inputs;
+    size_t input_count;
 } CbsExecutionContext;
 
 /* Allocate memory or terminate the process if the request cannot succeed. */
@@ -572,6 +582,14 @@ int cbs_build_standalone_with_events_policy_path(
     const char *command_path, const char *library_path,
     CbsBuildEventSink event_sink,
     void *event_sink_user);
+int cbs_build_standalone_with_events_policy_path_inputs(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    CbsBuildEventSink event_sink, void *event_sink_user);
 #define CBS_MAX_PHASES 5
 typedef struct {
     /* AST nodes for phases in their declared execution order. */

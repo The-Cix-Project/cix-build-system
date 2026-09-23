@@ -248,6 +248,13 @@ static const char *context_value(const CbsExecutionContext *context,
                 return context->sources[index].path;
         }
     }
+    if (length > 6 && strncmp(name, "input.", 6) == 0) {
+        for (index = 0; index < context->input_count; ++index)
+            if (strlen(context->inputs[index].name) == length - 6 &&
+                strncmp(context->inputs[index].name, name + 6,
+                        length - 6) == 0)
+                return context->inputs[index].path;
+    }
     if (length > 7 && (strncmp(name, "stdout.", 7) == 0 ||
                        strncmp(name, "stderr.", 7) == 0)) {
         int stderr_stream = strncmp(name, "stderr.", 7) == 0;
@@ -735,6 +742,15 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         if (item->kind == CBS_NODE_ARGUMENT) {
             string_list_add(&arguments, cbs_resolve_value(item->value,
                                                           item->flag, context));
+        } else if (item->kind == CBS_NODE_RUN_INPUT) {
+            for (size_t input_index = 0; input_index < context->input_count;
+                 ++input_index) {
+                if (strcmp(context->inputs[input_index].name, item->value) == 0) {
+                    string_list_add(&arguments,
+                                    cbs_duplicate(context->inputs[input_index].path));
+                    break;
+                }
+            }
         } else if (item->kind == CBS_NODE_RUN_GLOB) {
             char **matches = NULL;
             size_t match_count = 0;

@@ -6,7 +6,7 @@ features must add focused success and failure assertions to this matrix.
 | Surface | Test coverage |
 | --- | --- |
 | Lexing, parsing, validation, locations, JSON diagnostics | parser-validation.sh and invalid fixtures |
-| Run argv, environment, jobs, expected exit, timeout, and limits | exec-test.c and argv.cbs |
+| Run argv, environment, optional inputs, jobs, expected exit, timeout, and limits | exec-test.c and argv.cbs |
 | on_fail, allow_failure, continuation, and primary errors | runtime-test.c and failure.cbs |
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, stage library, and globs | fs-test.c and filesystem.cbs |
 | extract (including selective members), materialize, and configuration assertions | extract-test.c and extract.cbs |

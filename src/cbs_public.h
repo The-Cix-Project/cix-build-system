@@ -18,6 +18,11 @@ typedef struct {
 
 typedef struct {
     const char *name;
+    const char *path;
+} CbsInputBinding;
+
+typedef struct {
+    const char *name;
     const char *value;
 } CbsEnvironmentBinding;
 
@@ -146,6 +151,8 @@ typedef struct {
         long open_files;
         long processes;
     } limits;
+    const CbsInputBinding *inputs;
+    size_t input_count;
 } CbsExecutionContext;
 
 typedef int (*CbsFetchFunction)(const char *, const char *, void *, char *,
@@ -214,6 +221,11 @@ int cbs_build_standalone_with_events_policy_path(
     const char *, const CbsPrunePolicy *, const char *, const char *,
     CbsBuildEventSink,
     void *);
+int cbs_build_standalone_with_events_policy_path_inputs(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, CbsBuildEventSink, void *);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 

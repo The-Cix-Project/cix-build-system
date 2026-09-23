@@ -275,6 +275,17 @@ is parsed, so `explain` counts every expanded operation.
 Build phases cannot access the network. Source acquisition happens before phase
 execution, and undeclared host paths are rejected.
 
+Embedders may provide optional recipe inputs with repeatable build options:
+
+```text
+cbs build recipe.cbs --arch x86_64 --staged /tmp/staged \
+  --input kmod-extra=/build/extra/kmod-extra.config
+```
+
+Recipes reference an input with `${input.NAME}` or append it only when present
+with `args input "NAME"` inside a `run` block. Missing optional inputs produce
+no argument and do not fail the build.
+
 ## 7. Inspect, verify, and extract
 
 Inspect recipe and optional artifact digests:

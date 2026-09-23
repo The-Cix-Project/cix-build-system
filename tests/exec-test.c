@@ -83,6 +83,14 @@ static int probe_without_environment(int argc, char **argv) {
     return 0;
 }
 
+static int probe_optional_input(int argc, char **argv) {
+    if (argc == 1)
+        return 24;
+    if (argc == 2 && access(argv[1], R_OK) == 0)
+        return 25;
+    return 26;
+}
+
 /* The test root, at file scope so main can remove it, and the root the
  * stderr capture file is written under. */
 static char base[4096];
@@ -110,7 +118,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     CbsExecutionContext context;
     char current_directory[4096];
     char build_directory[4096];
-    char stderr_path[4096];
+    char stderr_path[4096], input_path[4096];
     char *stderr_text = NULL;
     size_t index;
     int result = 1;
@@ -127,7 +135,7 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     if (!cbs_validate(document, recipe_path, source))
         goto cleanup_document;
     phase = find_phase(document, "build");
-    if (phase == NULL || phase->child_count != 11)
+    if (phase == NULL || phase->child_count != 13)
         goto cleanup_document;
     if (getcwd(current_directory, sizeof(current_directory)) == NULL)
         goto cleanup_document;
@@ -169,6 +177,9 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
     context.limits.cpu_seconds = 2;
     context.limits.open_files = 64;
     context.limits.processes = 64;
+    if (snprintf(input_path, sizeof(input_path), "%s/optional-input", base) >=
+            (int)sizeof(input_path))
+        goto cleanup_document;
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
     for (index = 0; index < 2; ++index) {
@@ -188,8 +199,20 @@ static int run_parent(const char *recipe_path, const char *executable_path) {
         snprintf(stderr_path, sizeof(stderr_path), "%s/stderr-output", base) >=
             (int)sizeof(stderr_path) ||
         (stderr_text = read_file(stderr_path, &source_length)) == NULL ||
-        strcmp(stderr_text, "stderr version 2.19.1\n") != 0)
+        strcmp(stderr_text, "stderr version 2.19.1\n") != 0 ||
+        !cbs_execute_run(phase->children[11], &context))
         goto cleanup_document;
+    {
+        FILE *input_file = fopen(input_path, "wb");
+        CbsInputBinding input = {"optional", input_path};
+        if (input_file == NULL || fputs("input", input_file) == EOF ||
+            fclose(input_file) != 0)
+            goto cleanup_document;
+        context.inputs = &input;
+        context.input_count = 1;
+        if (!cbs_execute_run(phase->children[12], &context))
+            goto cleanup_document;
+    }
     if (getenv("CBS_TEST_ENV") != NULL)
         goto cleanup_document;
     result = 0;
@@ -251,6 +274,8 @@ int main(int argc, char **argv) {
         }
         return 0;
     }
+    if (argc >= 2 && strcmp(argv[1], "--probe-input") == 0)
+        return probe_optional_input(argc - 1, argv + 1);
     if (argc != 2) {
         fputs("usage: exec-test RECIPE.cbs\n", stderr);
         return 2;

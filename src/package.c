@@ -10,6 +10,31 @@
 #include <unistd.h>
 #include <zstd.h>
 
+static int valid_input_binding(const CbsInputBinding *inputs,
+                               size_t input_count) {
+    size_t index;
+    size_t character;
+    for (index = 0; index < input_count; ++index) {
+        const char *name = inputs[index].name;
+        const char *path = inputs[index].path;
+        if (name == NULL || path == NULL || path[0] != '/' ||
+            name[0] == '\0' ||
+            !((name[0] >= 'A' && name[0] <= 'Z') ||
+              (name[0] >= 'a' && name[0] <= 'z') || name[0] == '_'))
+            return 0;
+        for (character = 1; name[character] != '\0'; ++character)
+            if (!((name[character] >= 'A' && name[character] <= 'Z') ||
+                  (name[character] >= 'a' && name[character] <= 'z') ||
+                  (name[character] >= '0' && name[character] <= '9') ||
+                  name[character] == '_'))
+                return 0;
+        for (character = 0; character < index; ++character)
+            if (strcmp(inputs[character].name, name) == 0)
+                return 0;
+    }
+    return 1;
+}
+
 /* Select the compiler dependency that applies to the build pipeline. */
 static const char *declared_compiler(const CbsNode *document) {
     const CbsNode *package;
@@ -382,13 +407,14 @@ int cbs_build_package(const char *recipe, const char *staged_root,
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events_policy_path(
+int cbs_build_standalone_with_events_policy_path_inputs(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
     const char *command_path,
     const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
     CbsBuildEventSink event_sink,
     void *event_sink_user) {
     FILE *f;
@@ -410,7 +436,9 @@ int cbs_build_standalone_with_events_policy_path(
     int ok;
     if (!recipe || !workspace || !architecture ||
         (command_path != NULL && !cbs_command_path_is_valid(command_path)) ||
-        (library_path != NULL && !cbs_library_path_is_valid(library_path)))
+        (library_path != NULL && !cbs_library_path_is_valid(library_path)) ||
+        (input_count != 0 && inputs == NULL) ||
+        (inputs != NULL && !valid_input_binding(inputs, input_count)))
         return 0;
     f = fopen(recipe, "rb");
     if (!f || fseek(f, 0, SEEK_END) || (n = ftell(f)) < 0 ||
@@ -493,6 +521,8 @@ int cbs_build_standalone_with_events_policy_path(
             context.build = build;
             context.dest = dest;
             context.firmware_root = firmware_root;
+            context.inputs = inputs;
+            context.input_count = input_count;
             context.jobs = 1;
             context.working_directory = build;
             context.command_path = command_path == NULL
@@ -605,6 +635,19 @@ int cbs_build_standalone_with_events_policy_path(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events_policy_path(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
+    return cbs_build_standalone_with_events_policy_path_inputs(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy,
+        command_path, library_path, NULL, 0, event_sink, event_sink_user);
 }
 
 int cbs_build_standalone_with_events_policy(

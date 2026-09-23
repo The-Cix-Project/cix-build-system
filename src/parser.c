@@ -142,19 +142,28 @@ static CbsNode *parse_run(CbsParser *parser, int diagnostic_only) {
         } else if (is_word(parser, "args")) {
             CbsToken *pattern;
             advance(parser);
-            item = cbs_node_create(CBS_NODE_RUN_GLOB, token->location);
-            consume_word(parser, "glob");
-            pattern = consume_kind(parser, CBS_TOKEN_STRING, "glob string");
-            item->number = -1;
-            if (pattern != NULL)
-                item->value = cbs_duplicate(pattern->text);
-            if (is_word(parser, "exactly")) {
-                CbsToken *count;
+            if (is_word(parser, "input")) {
                 advance(parser);
-                count = consume_kind(parser, CBS_TOKEN_INTEGER,
-                                      "glob cardinality");
-                if (count != NULL)
-                    item->number = strtol(count->text, NULL, 10);
+                item = cbs_node_create(CBS_NODE_RUN_INPUT, token->location);
+                pattern = consume_kind(parser, CBS_TOKEN_STRING,
+                                       "input name string");
+                if (pattern != NULL)
+                    item->value = cbs_duplicate(pattern->text);
+            } else {
+                item = cbs_node_create(CBS_NODE_RUN_GLOB, token->location);
+                consume_word(parser, "glob");
+                pattern = consume_kind(parser, CBS_TOKEN_STRING, "glob string");
+                item->number = -1;
+                if (pattern != NULL)
+                    item->value = cbs_duplicate(pattern->text);
+                if (is_word(parser, "exactly")) {
+                    CbsToken *count;
+                    advance(parser);
+                    count = consume_kind(parser, CBS_TOKEN_INTEGER,
+                                          "glob cardinality");
+                    if (count != NULL)
+                        item->number = strtol(count->text, NULL, 10);
+                }
             }
         } else if (is_word(parser, "each")) {
             advance(parser);

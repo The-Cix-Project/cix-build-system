@@ -177,6 +177,7 @@ Quoted strings, but not block strings, support explicit CBS interpolation:
 ${name}       ${version}    ${release}    ${arch}
 ${src}        ${build}      ${dest}       ${jobs}       ${triplet}
 ${firmware}   ${source.gmp} ${stdout.NAME}
+${input.NAME}
 ```
 
 Only the exact `${...}` form interpolates. `$`, `$name`, `$(command)`, shell
@@ -443,6 +444,7 @@ run-item = argument
          | run-timeout
          | run-expect
          | run-args-glob
+         | run-args-input
          | run-output-assert
          | run-output-bind
          | run-output-file
@@ -454,12 +456,19 @@ run-jobs        = "jobs", ( integer | "$jobs" ) ;
 run-timeout     = "timeout", duration ;
 run-expect      = "expect", "exit", integer ;
 run-args-glob   = "args", "glob", string, [ "exactly", integer ] ;
+run-args-input  = "args", "input", string ;
 run-output-assert = "expect", "{", ( "stdout" | "stderr" ),
                      "contains", string, "}" ;
 run-output-bind = ( "stdout" | "stderr" ), string ;
 run-output-file = ( "stdout" | "stderr" ), "file", path-value ;
 run-each        = "each", { text-value } ;
 ```
+
+`args input "NAME"` appends the embedder-supplied `${input.NAME}` path when
+that optional input is present and appends no argument when it is absent.
+Input names are portable identifiers. An embedder or the CLI may provide
+repeatable `--input NAME=ABSOLUTE_FILE` bindings; the input path is passed as
+an opaque file path and is never implicitly read by CBS.
 
 The first value names the executable. Each bare `text-value` in the block adds
 exactly one argument in source order. The executable and arguments must not

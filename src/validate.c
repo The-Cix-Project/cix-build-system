@@ -129,6 +129,8 @@ static int known_value_name(Validator *validator, const char *name,
         free(source_name);
         return declared;
     }
+    if (length > 6 && strncmp(name, "input.", 6) == 0)
+        return 1;
     if (length > 7 && (strncmp(name, "stdout.", 7) == 0 ||
                        strncmp(name, "stderr.", 7) == 0))
         return 1;
@@ -304,6 +306,11 @@ static void validate_run(Validator *validator, const CbsNode *run,
         switch (item->kind) {
         case CBS_NODE_ARGUMENT:
             validate_value(validator, item, item->value);
+            break;
+        case CBS_NODE_RUN_INPUT:
+            if (item->value == NULL || !valid_environment_name(item->value))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "input name must be a portable identifier");
             break;
         case CBS_NODE_RUN_ENV:
             if (!valid_environment_name(item->name))

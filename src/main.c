@@ -4,6 +4,7 @@
 #include "cbs.h"
 
 #include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,6 +137,7 @@ static void usage(FILE *stream) {
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
         "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
+        "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
         "      [--library-path DIRS]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
@@ -158,7 +160,59 @@ typedef struct {
     const char *firmware_root;
     const char *command_path;
     const char *library_path;
+    CbsInputBinding inputs[32];
+    size_t input_count;
 } CbsBuildOptions;
+
+static int valid_input_name(const char *name) {
+    size_t index;
+    if (name == NULL || name[0] == '\0' ||
+        !(isalpha((unsigned char)name[0]) || name[0] == '_'))
+        return 0;
+    for (index = 1; name[index] != '\0'; ++index)
+        if (!(isalnum((unsigned char)name[index]) || name[index] == '_'))
+            return 0;
+    return 1;
+}
+
+static int add_input(CbsBuildOptions *options, const char *spec) {
+    const char *separator = strchr(spec, '=');
+    char *name;
+    int valid;
+    if (options->input_count == 32 || separator == NULL || separator == spec ||
+        separator[1] == '\0' || separator[1] != '/') {
+        fprintf(stderr,
+                "build: --input requires NAME=ABSOLUTE_FILE with a portable name\n");
+        return 0;
+    }
+    name = cbs_duplicate_range(spec, (size_t)(separator - spec));
+    valid = valid_input_name(name);
+    if (!valid) {
+        free(name);
+        fprintf(stderr,
+                "build: --input requires NAME=ABSOLUTE_FILE with a portable name\n");
+        return 0;
+    }
+    for (size_t index = 0; index < options->input_count; ++index) {
+        if (strcmp(options->inputs[index].name, name) == 0) {
+            fprintf(stderr, "build: duplicate --input name `%s`\n", name);
+            free(name);
+            return 0;
+        }
+    }
+    options->inputs[options->input_count].name = name;
+    options->inputs[options->input_count].path = cbs_duplicate(separator + 1);
+    ++options->input_count;
+    return 1;
+}
+
+static void free_inputs(CbsBuildOptions *options) {
+    size_t index;
+    for (index = 0; index < options->input_count; ++index) {
+        free((void *)options->inputs[index].name);
+        free((void *)options->inputs[index].path);
+    }
+}
 
 /* Parse build options independently of their order on the command line. */
 static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) {
@@ -172,6 +226,19 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
     for (index = 3; index < argc; ++index) {
         const char *argument = argv[index];
         const char *value = NULL;
+        if (strncmp(argument, "--input=", 8) == 0) {
+            if (!add_input(options, argument + 8))
+                return 0;
+            continue;
+        }
+        if (strcmp(argument, "--input") == 0) {
+            if (++index >= argc || !add_input(options, argv[index])) {
+                if (index >= argc)
+                    fprintf(stderr, "build: option `--input` requires a value\n");
+                return 0;
+            }
+            continue;
+        }
         if (strncmp(argument, "--arch=", 7) == 0)
             value = argument + 7;
         else if (strncmp(argument, "--staged=", 9) == 0)
@@ -636,7 +703,8 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *prune_policy_path,
                       const char *firmware_root,
                       const char *command_path,
-                      const char *library_path) {
+                      const char *library_path,
+                      const CbsInputBinding *inputs, size_t input_count) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -647,6 +715,7 @@ static int build_file(const char *recipe, const char *architecture,
     CbsPrunePolicy prune_policy;
     char prune_error[256];
     struct stat firmware_status;
+    struct stat input_status;
     CbsFinalizeCommand finalize_policy = {0};
     memset(&service, 0, sizeof(service));
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
@@ -682,6 +751,14 @@ static int build_file(const char *recipe, const char *architecture,
                 firmware_root);
         return 3;
     }
+    for (size_t input_index = 0; input_index < input_count; ++input_index) {
+        if (stat(inputs[input_index].path, &input_status) != 0 ||
+            !S_ISREG(input_status.st_mode)) {
+            fprintf(stderr, "build: input `%s` is not an accessible regular file: %s\n",
+                    inputs[input_index].name, inputs[input_index].path);
+            return 3;
+        }
+    }
     if (events != NULL) {
         if (strcmp(events, "human") == 0)
             event_sink = cbs_build_event_human;
@@ -712,13 +789,13 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events_policy_path(
+    result = cbs_build_standalone_with_events_policy_path_inputs(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
             firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
-            library_path, event_sink, event_stream);
+            library_path, inputs, input_count, event_sink, event_stream);
     if (event_stream != stderr)
         fclose(event_stream);
     free(finalize_policy.resolved);
@@ -814,13 +891,17 @@ int main(int argc, char **argv) {
     }
     if (argc >= 3 && strcmp(argv[1], "build") == 0) {
         CbsBuildOptions options;
+        int result;
         if (!parse_build_options(argc, argv, &options))
             return 2;
-        return build_file(options.recipe, options.architecture, options.staged,
+        result = build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
                       options.events, options.finalize_command,
                           options.prune_policy, options.firmware_root,
-                          options.command_path, options.library_path);
+                          options.command_path, options.library_path,
+                          options.inputs, options.input_count);
+        free_inputs(&options);
+        return result;
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);
