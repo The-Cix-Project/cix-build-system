@@ -659,7 +659,9 @@ An extract may instead select exact archive members with a block such as
 unselected archive entry—including an unsafe symlink—does not affect the
 operation. Selected members still undergo all archive path, link, device, and
 confinement checks; a requested member that is absent is an error. `as` and
-member selection cannot be combined.
+member selection cannot be combined. For selection, archive tools' harmless
+leading `./` spelling is equivalent to the canonical member spelling; recipe
+member names must still be safe relative paths and must not begin with `./`.
 
 `materialize` accepts only a declared, verified source whose bytes are not an
 archive. It copies that exact regular file into the confined build filesystem;

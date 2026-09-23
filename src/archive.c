@@ -34,6 +34,15 @@ static int safe_name(const char *name) {
     return 1;
 }
 
+/* Archive tools commonly store a root member as `./NAME`; CPDL recipes use
+ * the canonical `NAME` spelling.  Normalize only this harmless prefix for
+ * selection—do not relax the recipe member validator. */
+static const char *selection_name(const char *name) {
+    while (name != NULL && name[0] == '.' && name[1] == '/')
+        name += 2;
+    return name;
+}
+
 /* Accept only archive formats supported by the package policy. */
 static int supported_format(const char *name) {
     return name != NULL &&
@@ -261,7 +270,7 @@ int cbs_extract_archive_members(
             size_t member_index;
             int selected = 0;
             for (member_index = 0; member_index < member_count; ++member_index) {
-                if (strcmp(name, members[member_index]) == 0) {
+                if (strcmp(selection_name(name), members[member_index]) == 0) {
                     member_found[member_index] = 1;
                     selected = 1;
                     break;

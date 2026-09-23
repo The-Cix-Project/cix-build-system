@@ -82,7 +82,7 @@ static int make_selective_archive(const char *path) {
         archive_write_open_filename(archive, path) != ARCHIVE_OK)
         goto done;
     entry = archive_entry_new();
-    archive_entry_set_pathname(entry, "bzImage");
+    archive_entry_set_pathname(entry, "./bzImage");
     archive_entry_set_filetype(entry, AE_IFREG);
     archive_entry_set_perm(entry, 0644);
     archive_entry_set_size(entry, sizeof(content) - 1);
