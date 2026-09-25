@@ -885,7 +885,10 @@ The output path must be separate from the staged root. CBS creates and owns
 
 ### Artifact failures
 
-`CIXPKG-E4001` means verification failed before extraction. Treat the artifact
-as corrupt or incompatible; do not bypass verification or extract it manually.
+`CIXPKG-E4001` means artifact verification failed before extraction. Treat the
+artifact as corrupt or incompatible; do not bypass verification or extract it
+manually. `CIXPKG-E4003` means the destination already exists, and
+`CIXPKG-E4004` means its parent does not exist. Other destination setup or
+publication failures use `CIXPKG-E4002`; fix the destination and retry.
 If an expected installed path is missing, inspect the staged v2 manifest and
 check its entry type, mode, and target before changing the recipe.

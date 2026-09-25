@@ -122,6 +122,37 @@ test "$("$cbs" extract "$artifact" --into "$temporary_dir/extracted")" = \
 test "$(cat "$temporary_dir/extracted/hello")" = hello
 test "$(stat -c '%a' "$temporary_dir/extracted/hello")" = 755
 
+set +e
+"$cbs" extract "$artifact" --into "$temporary_dir/extracted" \
+    >"$temporary_dir/existing-destination.out" \
+    2>"$temporary_dir/existing-destination.err"
+status=$?
+set -e
+test "$status" -eq 4
+grep -q 'error\[CIXPKG-E4003\].*destination already exists' \
+    "$temporary_dir/existing-destination.err"
+
+set +e
+"$cbs" extract "$artifact" --into "$temporary_dir/missing/out" \
+    >"$temporary_dir/missing-parent.out" \
+    2>"$temporary_dir/missing-parent.err"
+status=$?
+set -e
+test "$status" -eq 4
+grep -q 'error\[CIXPKG-E4004\].*parent does not exist' \
+    "$temporary_dir/missing-parent.err"
+
+cp "$artifact" "$bad_artifact"
+printf 'x' | dd of="$bad_artifact" bs=1 seek=0 conv=notrunc 2>/dev/null
+set +e
+"$cbs" extract "$bad_artifact" --into "$temporary_dir/bad-extracted" \
+    >"$temporary_dir/bad-extract.out" 2>"$temporary_dir/bad-extract.err"
+status=$?
+set -e
+test "$status" -eq 4
+grep -q 'error\[CIXPKG-E4001\].*artifact verification failed' \
+    "$temporary_dir/bad-extract.err"
+
 cat >"$temporary_dir/empty-list.cbs" <<'EOF'
 package "empty-list" {
     version "1"

@@ -124,6 +124,85 @@ static int validate_file(const char *path) {
     return 0;
 }
 
+/* Report extraction failures against the object that actually failed. */
+static int extract_file(const char *artifact, const char *destination) {
+    char parent[4096];
+    char *slash;
+    struct stat status;
+
+    if (destination == NULL || destination[0] == '\0' ||
+        strlen(destination) > sizeof(parent) - 32) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4002]: invalid extraction destination\n",
+                destination == NULL ? "(null)" : destination);
+        return 4;
+    }
+    if (lstat(destination, &status) == 0) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4003]: extraction destination already "
+                "exists\n",
+                destination);
+        return 4;
+    }
+    if (errno != ENOENT) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4002]: cannot inspect extraction "
+                "destination; errno=%d\n",
+                destination, errno);
+        return 4;
+    }
+    if (snprintf(parent, sizeof(parent), "%s", destination) >=
+        (int)sizeof(parent)) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4002]: invalid extraction destination\n",
+                destination);
+        return 4;
+    }
+    slash = strrchr(parent, '/');
+    if (slash == NULL) {
+        strcpy(parent, ".");
+    } else if (slash == parent) {
+        parent[1] = '\0';
+    } else {
+        *slash = '\0';
+    }
+    if (stat(parent, &status) != 0) {
+        if (errno == ENOENT)
+            fprintf(stderr,
+                    "%s: error[CIXPKG-E4004]: extraction destination "
+                    "parent does not exist\n",
+                    destination);
+        else
+            fprintf(stderr,
+                    "%s: error[CIXPKG-E4002]: extraction destination "
+                    "parent is unavailable; errno=%d\n",
+                    destination, errno);
+        return 4;
+    }
+    if (!S_ISDIR(status.st_mode)) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4002]: extraction destination parent is "
+                "not a directory\n",
+                destination);
+        return 4;
+    }
+    if (!cbs_cixpkg_verify_tree(artifact, NULL, 0)) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4001]: artifact verification failed\n",
+                artifact);
+        return 4;
+    }
+    if (!cbs_cixpkg_extract(artifact, destination)) {
+        fprintf(stderr,
+                "%s: error[CIXPKG-E4002]: could not populate extraction "
+                "destination\n",
+                destination);
+        return 4;
+    }
+    printf("extracted %s\n", destination);
+    return 0;
+}
+
 /* Print the command-line interface summary. */
 static void usage(FILE *stream) {
     fputs(
@@ -880,14 +959,7 @@ int main(int argc, char **argv) {
     }
     if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
         strcmp(argv[3], "--into") == 0) {
-        if (!cbs_cixpkg_extract(argv[2], argv[4])) {
-            fprintf(stderr,
-                    "%s: error[CIXPKG-E4001]: artifact extraction failed\n",
-                    argv[2]);
-            return 4;
-        }
-        printf("extracted %s\n", argv[4]);
-        return 0;
+        return extract_file(argv[2], argv[4]);
     }
     if (argc >= 3 && strcmp(argv[1], "build") == 0) {
         CbsBuildOptions options;

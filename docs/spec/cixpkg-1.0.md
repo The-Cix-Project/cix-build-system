@@ -46,6 +46,9 @@ unsafe path, unsafe link, or unknown type is corruption and reports
 `CIXPKG-E4001`; no partial extraction is retained. Extraction verifies the
 complete artifact before writing a temporary directory, preserves file and
 directory modes, preserves symlinks, and publishes the directory atomically.
+The CLI reports artifact corruption as `CIXPKG-E4001`, an existing destination
+as `CIXPKG-E4003`, a missing destination parent as `CIXPKG-E4004`, and other
+destination preparation failures as `CIXPKG-E4002`.
 
 Compression is fixed zstd level 19 with checksum enabled. A future format
 version is required to change these parameters or add reader semantics.
