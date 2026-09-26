@@ -62,9 +62,13 @@ grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
 
 sed 's/format "cixpkg"/format "tar.gz"/' "$recipe" \
     >"$temporary_dir/tar-format.cbs"
-"$cbs" explain "$temporary_dir/tar-format.cbs" --json \
-    >"$temporary_dir/tar-format.json"
-grep -q '"format":"tar.gz"' "$temporary_dir/tar-format.json"
+if "$cbs" validate "$temporary_dir/tar-format.cbs" \
+    >"$temporary_dir/tar-format.out" 2>"$temporary_dir/tar-format.err"; then
+    echo 'unsupported tar.gz format unexpectedly validated' >&2
+    exit 1
+fi
+grep -q 'CPDL-E3004' "$temporary_dir/tar-format.err"
+grep -q 'artifact format must be cixpkg' "$temporary_dir/tar-format.err"
 
 cat >"$temporary_dir/duplicate-metadata.cbs" <<'EOF'
 package "duplicate-metadata" {

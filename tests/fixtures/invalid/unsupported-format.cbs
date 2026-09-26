@@ -2,7 +2,6 @@ package "unsupported-format" {
     version "1"
     release 1
     format "tar.gz"
-
     build {
         mkdir "${dest}/usr/bin"
     }

@@ -1075,11 +1075,9 @@ static void validate_package(Validator *validator) {
             break;
         case CBS_NODE_FORMAT:
             ++formats;
-            if (item->value == NULL ||
-                (strcmp(item->value, "cixpkg") != 0 &&
-                 strcmp(item->value, "tar.gz") != 0))
+            if (item->value == NULL || strcmp(item->value, "cixpkg") != 0)
                 validation_error(validator, item, "CPDL-E3004",
-                                 "artifact format must be cixpkg or tar.gz");
+                                 "artifact format must be cixpkg");
             break;
         case CBS_NODE_LICENSE:
             if (item->value == NULL || item->value[0] == '\0' ||

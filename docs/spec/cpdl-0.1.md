@@ -290,7 +290,9 @@ an `m license <expression>` line; it must be a non-empty single-line string.
 that CBS carries but never interprets: no key is reserved and no value affects
 validation, execution, or identity.
 
-The package name, version, release, and artifact format are required. CBS supplies the build
+The package name, version, release, and artifact format are required. CPDL 0.1
+supports only the `cixpkg` artifact format; other format names are validation
+errors because CBS has no corresponding build path. CBS supplies the build
 target architecture; a CPDL 0.1 recipe cannot select or override it. The
 `architecture` and `any` keywords remain reserved for a future decision about
 architecture-independent packages, but an architecture declaration is invalid
