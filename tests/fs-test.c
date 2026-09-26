@@ -191,15 +191,16 @@ static int run_test(const char *recipe_path) {
         CbsNode *operation = phase->children[index];
         int operation_result;
         if ((operation->kind == CBS_NODE_COPY ||
-             operation->kind == CBS_NODE_REMOVE) && operation->flag &&
-            operation->second_flag) {
+             operation->kind == CBS_NODE_REMOVE) && operation->second_flag) {
             TestCapture capture;
             char diagnostic[2048];
             if (!test_capture_begin(&capture, capture_root))
                 FS_FAIL();
             operation_result = cbs_execute_filesystem(operation, &context);
             test_capture_end(&capture, diagnostic, sizeof(diagnostic));
-            if (!operation_result || diagnostic[0] != '\0') {
+            if (!operation_result || (!operation->flag &&
+                                      strstr(diagnostic, "no-such-file.txt") == NULL) ||
+                (operation->flag && diagnostic[0] != '\0')) {
                 fprintf(stderr,
                         "filesystem execution tests: failure at operation "
                         "%zu (%s `%s`)\n%s",

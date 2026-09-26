@@ -619,7 +619,9 @@ An existing regular-file destination is replaced. An existing destination
 symlink is replaced rather than followed, so it cannot redirect a write outside
 the CBS roots. An existing directory is accepted only as the destination
 container; other destination types fail. If the destination parent is missing,
-the runtime diagnostic names that destination parent rather than the source.
+the runtime diagnostic names that destination parent rather than the source. If
+the literal source itself is absent, the diagnostic names the source path;
+these cases are distinguished before the generic filesystem failure is emitted.
 
 `move` is confined to one staged build filesystem and must not silently fall
 back to copy-and-delete across filesystems. It uses the same destination naming

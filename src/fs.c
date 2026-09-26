@@ -1534,10 +1534,17 @@ int cbs_execute_filesystem(const CbsNode *operation,
 failure:
     {
         char failure_path[4096];
-        const char *reported = filesystem_failure_path(
-            operation, operation->value, failure_path, sizeof(failure_path));
+        const char *reported;
+        struct stat missing_source;
+        if (operation->kind == CBS_NODE_COPY && errno == ENOENT &&
+            paths.count == 1 && lstat(paths.items[0], &missing_source) != 0 &&
+            errno == ENOENT)
+            reported = paths.items[0];
+        else
+            reported = filesystem_failure_path(
+                operation, operation->value, failure_path, sizeof(failure_path));
         fs_error(operation, context, reported,
-             "filesystem operation failed");
+                 "filesystem operation failed");
     }
     free(first);
     free(second);

@@ -39,6 +39,7 @@ package "filesystem-test" {
         copy "${build}/input/a-link" to "${dest}/copied/a-link"
         copy $source.payload to "${dest}/named-source"
         copy glob "${build}/input/*.missing" to "${dest}/copied" allow_failure
+        copy "${build}/input/no-such-file.txt" to "${dest}/copied/missing.txt" allow_failure
         mkdir "${build}/tree-source/sub" chmod 0700
         write "${build}/tree-source/root.txt" "root" chmod 0600
         write "${build}/tree-source/sub/nested.txt" "nested" chmod 0610
