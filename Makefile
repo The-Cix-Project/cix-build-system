@@ -94,7 +94,7 @@ test: $(TARGET) upstream-test recipe-test
 	rm -f tests/exec-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fs-test.c \
 		src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -larchive -o tests/fs-test
+		src/runtime.o src/validate.o -larchive -lzstd -o tests/fs-test
 	./tests/fs-test tests/fixtures/execution/filesystem.cbs
 	rm -f tests/fs-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/edit-assert-test.c \

@@ -5,7 +5,7 @@ production component. A blocker here means an integration input or an explicit
 product decision, not a defect in the standalone path. It is a planning
 document, not the repository's active issue queue.
 
-Baseline: CBS v0.1.60. The standalone suite and the process-level integration
+Baseline: CBS v0.1.61. The standalone suite and the process-level integration
 contract are shipped; the remaining items below are owned by cixd, the
 repository service, or the build-image/CI environment.
 
