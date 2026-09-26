@@ -671,6 +671,9 @@ confinement checks; a requested member that is absent is an error. `as` and
 member selection cannot be combined. For selection, archive tools' harmless
 leading `./` spelling is equivalent to the canonical member spelling; recipe
 member names must still be safe relative paths and must not begin with `./`.
+When the verified source is a CIXPKG artifact, CBS uses the native CIXPKG
+verifier and extracts its typed tree into the existing `into` directory;
+CIXPKG extraction does not support `as` or member selection.
 
 `materialize` accepts only a declared, verified source whose bytes are not an
 archive. It copies that exact regular file into the confined build filesystem;

@@ -396,6 +396,82 @@ static const char **extract_members(const CbsNode *operation, size_t *count) {
     return members;
 }
 
+/* Extract a verified CIXPKG into an existing CPDL destination. The public
+ * package extractor deliberately publishes a new directory atomically; CPDL
+ * extract destinations already exist, so publish each top-level entry only
+ * after checking that no destination entry would be replaced. */
+static int execute_cixpkg_extract(const CbsNode *operation,
+                                  const CbsExecutionContext *context,
+                                  const char *archive, const char *destination,
+                                  const char *name, size_t member_count) {
+    char temporary[4096], source_path[4096], destination_path[4096];
+    DIR *directory;
+    struct dirent *entry;
+
+    if (member_count != 0 || name != NULL)
+        return extract_error(
+            operation, context,
+            "CIXPKG extraction does not accept `as` or member selection");
+    if (snprintf(temporary, sizeof(temporary), "%s/.cbs-cixpkg-%ld",
+                 destination, (long)getpid()) >= (int)sizeof(temporary) ||
+        cbs_cixpkg_extract(archive, temporary) == 0)
+        return extract_error(operation, context,
+                             "cannot extract CIXPKG source");
+    directory = opendir(temporary);
+    if (directory == NULL) {
+        remove_tree(temporary);
+        return extract_error(operation, context,
+                             "cannot inspect extracted CIXPKG tree");
+    }
+    while ((entry = readdir(directory)) != NULL) {
+        struct stat status;
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        if (snprintf(source_path, sizeof(source_path), "%s/%s", temporary,
+                     entry->d_name) >= (int)sizeof(source_path) ||
+            snprintf(destination_path, sizeof(destination_path), "%s/%s",
+                     destination, entry->d_name) >=
+                (int)sizeof(destination_path) ||
+            lstat(destination_path, &status) == 0) {
+            closedir(directory);
+            remove_tree(temporary);
+            return extract_error(operation, context,
+                                 "CIXPKG extraction would replace an existing destination entry");
+        }
+    }
+    closedir(directory);
+    directory = opendir(temporary);
+    if (directory == NULL) {
+        remove_tree(temporary);
+        return extract_error(operation, context,
+                             "cannot reopen extracted CIXPKG tree");
+    }
+    while ((entry = readdir(directory)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        if (snprintf(source_path, sizeof(source_path), "%s/%s", temporary,
+                     entry->d_name) >= (int)sizeof(source_path) ||
+            snprintf(destination_path, sizeof(destination_path), "%s/%s",
+                     destination, entry->d_name) >=
+                (int)sizeof(destination_path) ||
+            rename(source_path, destination_path) != 0) {
+            closedir(directory);
+            remove_tree(temporary);
+            return extract_error(operation, context,
+                                 "cannot publish extracted CIXPKG entry");
+        }
+    }
+    closedir(directory);
+    if (rmdir(temporary) != 0) {
+        remove_tree(temporary);
+        return extract_error(operation, context,
+                             "cannot remove temporary CIXPKG directory");
+    }
+    return 1;
+}
+
 /* Resolve, validate, and extract one named source archive. */
 static int execute_extract(const CbsNode *operation,
                            const CbsExecutionContext *context) {
@@ -421,6 +497,14 @@ static int execute_extract(const CbsNode *operation,
                              "extract path is outside the build workspace");
     }
     members = extract_members(operation, &member_count);
+    if (cbs_cixpkg_verify_tree(archive, NULL, 0)) {
+        result = execute_cixpkg_extract(operation, context, archive, destination,
+                                        name, member_count);
+        free(members);
+        free(archive);
+        free(destination);
+        return result;
+    }
     if (name == NULL) {
         result = cbs_extract_archive_members(
             archive, destination, members, member_count, operation->value + 8,

@@ -471,8 +471,11 @@ prepare {
 }
 ```
 
-`extract` is for supported archives; `materialize` is for a regular file that
-must remain byte-for-byte unchanged. Recipes cannot read arbitrary cache paths.
+`extract` is for supported archives and verified CIXPKG artifacts; CBS uses its
+native CIXPKG reader for the latter and places the typed tree into the existing
+destination. CIXPKG extraction does not support `as` or member selection.
+`materialize` is for a regular file that must remain byte-for-byte unchanged.
+Recipes cannot read arbitrary cache paths.
 Use `--ca-file FILE` only when a private CA is required. TLS peer and hostname
 verification remain enabled, and the recipe digest is still authoritative.
 

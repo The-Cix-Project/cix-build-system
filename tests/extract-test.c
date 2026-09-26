@@ -112,6 +112,7 @@ done:
 int main(int argc, char **argv) {
     char root[4096];
     char archive_path[4160], selective_path[4160], config_path[4160],
+        cix_tree[4160], cix_manifest[4160], cix_package[4160],
         src[4160], build[4160], dest[4160], result[4160];
     char *source, *data;
     size_t length;
@@ -119,7 +120,7 @@ int main(int argc, char **argv) {
     CbsNode *document;
     CbsNode *prepare = NULL;
     CbsExecutionContext context;
-    CbsNamedSource named[3];
+    CbsNamedSource named[4];
     struct stat status;
     size_t index;
     int ok = 0;
@@ -129,12 +130,19 @@ int main(int argc, char **argv) {
             (int)sizeof(archive_path) ||
         snprintf(selective_path, sizeof(selective_path), "%s/selective.tar",
                  root) >= (int)sizeof(selective_path) ||
+        snprintf(cix_tree, sizeof(cix_tree), "%s/cix-tree", root) >=
+            (int)sizeof(cix_tree) ||
+        snprintf(cix_manifest, sizeof(cix_manifest), "%s/cix.manifest", root) >=
+            (int)sizeof(cix_manifest) ||
+        snprintf(cix_package, sizeof(cix_package), "%s/artifact.cixpkg", root) >=
+            (int)sizeof(cix_package) ||
         snprintf(src, sizeof(src), "%s/src", root) >= (int)sizeof(src) ||
         snprintf(build, sizeof(build), "%s/build", root) >=
             (int)sizeof(build) ||
         snprintf(dest, sizeof(dest), "%s/dest", root) >= (int)sizeof(dest) ||
         mkdir(src, 0700) != 0 || mkdir(build, 0700) != 0 ||
-        mkdir(dest, 0700) != 0 || !make_archive(archive_path) ||
+        mkdir(dest, 0700) != 0 || mkdir(cix_tree, 0700) != 0 ||
+        !make_archive(archive_path) ||
         !make_selective_archive(selective_path) ||
         snprintf(config_path, sizeof(config_path), "%s/config", root) >=
             (int)sizeof(config_path))
@@ -145,6 +153,17 @@ int main(int argc, char **argv) {
             fputs("CONFIG_TEST=y\n# CONFIG_DISABLED is not set\n", config) <
                 0 ||
             fclose(config) != 0)
+            return 1;
+    }
+    {
+        char cix_file[4160];
+        FILE *file;
+        snprintf(cix_file, sizeof(cix_file), "%s/binutils", cix_tree);
+        file = fopen(cix_file, "wb");
+        if (file == NULL || fputs("from cixpkg\n", file) < 0 ||
+            fclose(file) != 0 || !cbs_manifest_write(cix_tree, cix_manifest) ||
+            !cbs_cixpkg_write_tree(cix_manifest, cix_tree, cix_package,
+                                   "artifact-1-1-x86_64"))
             return 1;
     }
     source = read_all(argv[1], &length);
@@ -164,6 +183,8 @@ int main(int argc, char **argv) {
     named[1].path = config_path;
     named[2].name = "selective";
     named[2].path = selective_path;
+    named[3].name = "artifact";
+    named[3].path = cix_package;
     memset(&context, 0, sizeof(context));
     context.recipe_path = argv[1];
     context.recipe_source = source;
@@ -176,12 +197,18 @@ int main(int argc, char **argv) {
     context.dest = dest;
     context.working_directory = src;
     context.sources = named;
-    context.source_count = 3;
+    context.source_count = 4;
     if (prepare == NULL || !cbs_execute_block(prepare, &context))
         goto done;
     snprintf(result, sizeof(result), "%s/support/data.txt", src);
     data = read_all(result, &length);
     if (data == NULL || strcmp(data, "support data\n") != 0 ||
+        lstat(result, &status) != 0 || !S_ISREG(status.st_mode))
+        goto done;
+    free(data);
+    snprintf(result, sizeof(result), "%s/artifact/binutils", build);
+    data = read_all(result, &length);
+    if (data == NULL || strcmp(data, "from cixpkg\n") != 0 ||
         lstat(result, &status) != 0 || !S_ISREG(status.st_mode))
         goto done;
     free(data);

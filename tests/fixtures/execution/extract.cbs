@@ -19,13 +19,19 @@ package "extract-test" {
             url "https://example.invalid/selective.tar"
             sha256 "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         }
+        extra "artifact" {
+            url "https://example.invalid/artifact.cixpkg"
+            sha256 "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
     }
     prepare {
         mkdir "${build}/kernel"
+        mkdir "${build}/artifact"
         extract $source.support into $src as "support"
         extract $source.selective into "${build}/kernel" {
             member "bzImage"
         }
+        extract $source.artifact into "${build}/artifact"
         materialize $source.config to "${build}/.config"
         require config "${build}/.config" {
             CONFIG_TEST = y
