@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-28
 
-## Current implementation note (v0.1.68)
+## Current implementation note (v0.1.69)
 
 This historical command-surface proposal is not the current CLI contract.
 `cbs --help` currently exposes `check`/`validate`, `explain`, `build`,

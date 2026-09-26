@@ -1,0 +1,7 @@
+package "privileged-before-metadata" {
+    version "1"
+    release 1
+    format "cixpkg"
+    privileged file "${dest}/bin/helper" mode 04755
+    metadata { "purpose" "regression" }
+}

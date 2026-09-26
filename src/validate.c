@@ -857,18 +857,19 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_TOOLCHAIN:
     case CBS_NODE_METADATA:
     case CBS_NODE_TOOLS:
-    case CBS_NODE_PRIVILEGED:
         return 7;
+    case CBS_NODE_PRIVILEGED:
+        return 8;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
-            return 8;
-        if (strcmp(name, "configure") == 0)
             return 9;
-        if (strcmp(name, "build") == 0)
+        if (strcmp(name, "configure") == 0)
             return 10;
-        if (strcmp(name, "check") == 0)
+        if (strcmp(name, "build") == 0)
             return 11;
-        return 12;
+        if (strcmp(name, "check") == 0)
+            return 12;
+        return 13;
     default:
         return 99;
     }
