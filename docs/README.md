@@ -1,5 +1,8 @@
 # Cix Build System documentation
 
+The current repository release is **CBS v0.1.60**. `VERSION`, the release tag,
+and the binary's `--version` output are kept in sync by the release gate.
+
 This directory contains the architecture and language documentation for:
 
 The installable static library and its embedding boundary are documented in
@@ -36,6 +39,11 @@ hide a changed decision; a later ADR supersedes it.
 - [CIXPKG v2 binary specification](spec/cixpkg-1.0.md)
 - [CBS delivery roadmap](roadmap.md)
 - [Repository status and scope](repository-status.md)
+
+The current open-ticket queue is maintained in the issue tracker. The
+repository was clean at v0.1.60; historical validation records below describe
+the implementation state at the time each issue was closed and are not an
+active backlog.
 
 ## Validation records
 
@@ -207,12 +215,10 @@ hide a changed decision; a later ADR supersedes it.
 - [Issue #108: Complete standalone CIXPKG](reviews/issue-0108-validation.md)
 - [Issue #109: Standalone dependency resolution](reviews/issue-0109-validation.md)
 - [Issue #113: Explicit target architecture](reviews/issue-0113-validation.md)
-- [Issue #113: Standalone workspace lifecycle](reviews/issue-0113-validation.md)
 - [Issue #110: Standalone CLI configuration](reviews/issue-0110-validation.md)
 - [Issue #111: End-to-end standalone fixtures](reviews/issue-0111-validation.md)
 - [Standalone CBS runbook](standalone-runbook.md)
 - [Issue #112: Standalone production workflow](reviews/issue-0112-validation.md)
 - [Issue #114: Complete standalone build pipeline](reviews/issue-0114-validation.md)
-- [Issue #115: Sectioned CIXPKG container](reviews/issue-0115-validation.md)
 - [ADR-0037: CIXPKG staged-payload indexing](adr/0037-cixpkg-payload-index.md)
 - [Issue #115: Sectioned CIXPKG container](reviews/issue-0115-validation.md)

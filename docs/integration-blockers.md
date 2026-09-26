@@ -1,9 +1,13 @@
 # CBS integration blocker register
 
-This is the current hand-off list for moving CBS from a working standalone
-builder to a production component. A blocker here means an integration input
-or an explicit product decision, not that the CPDL parser or standalone build
-path is unusable.
+This is the hand-off list for moving CBS from a working standalone builder to a
+production component. A blocker here means an integration input or an explicit
+product decision, not a defect in the standalone path. It is a planning
+document, not the repository's active issue queue.
+
+Baseline: CBS v0.1.60. The standalone suite and the process-level integration
+contract are shipped; the remaining items below are owned by cixd, the
+repository service, or the build-image/CI environment.
 
 ## Current state
 
@@ -28,8 +32,8 @@ qualification-test` runs the complete current gate.
 The tree writer/verifier is used by real builds and matches the normative CIXPKG
 v2 specification. The old manifest-only API and v1 reader are retired.
 
-Unblock action: keep the tree format as the sole production format, mark the
-legacy API deprecated, and retire it with its compatibility tests.
+No standalone unblock action remains. Keep the tree format as the sole
+production format and treat CIXPKG v2 as the supported reader/writer contract.
 
 ### 2. The replacement recipe corpus is intentionally narrow
 
@@ -65,13 +69,12 @@ Unblock action: provide or identify the clean-host CI environment and the
 owner of signing, cache, and cixd test endpoints. Until then, local fixture
 tests are the correct boundary and production claims should remain pending.
 
-## What you can provide
+## External inputs for production qualification
 
 The highest-value user inputs are:
 
 - provide or nominate the first CPDL recipe seed set for blocker 2;
 - choose the migration acceptance criteria in blocker 2;
-- approve the CIXPKG v1 wire-layout decision in blocker 1; and
 - identify a reachable cixd test endpoint or authorize a fixture-only adapter
   phase.
 

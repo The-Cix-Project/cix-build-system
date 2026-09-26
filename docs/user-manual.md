@@ -1,5 +1,10 @@
 # CBS user manual
 
+This manual describes CBS v0.1.60 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+with that release. For an installed system, confirm the binary with
+`cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
+release when embedding the library.
+
 This manual takes you from a fresh CBS checkout to a verified CIXPKG package.
 CBS consumes `.cbs` files written in the Cix Package Definition Language (CPDL)
 and produces packages containing a deterministic manifest and compressed staged
@@ -759,10 +764,13 @@ the build. A successful callback sets the CIXPKG v2 finalized-policy flag, so
 the artifact records that the external policy step ran. The policy is an API
 input, not CPDL syntax, and recipes cannot disable it.
 
-Embedders can also observe execution through `CbsPhaseEvent` in the execution
-context. CBS sends `phase-begin` and `phase-end` events in phase order; an end
-status of `0` means success and `1` identifies the failed phase. This callback
-is optional, and event delivery failure stops execution.
+Embedders can also observe execution through the versioned `CbsBuildEventSink`
+in the public API. It receives phase, command, source-cache, pruning,
+finalization, and build-end events in sequence; event delivery is synchronous
+and a rejected event stops the build. The legacy phase-only callback in
+`CbsExecutionContext` remains available for phase-only consumers. For a durable
+summary, consume the same
+events into `CbsBuildReport` and serialize it after the build.
 
 ## 15. Quick diagnosis
 

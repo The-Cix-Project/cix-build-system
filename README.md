@@ -1,5 +1,9 @@
 # Cix Build System
 
+Current release: **CBS v0.1.60**. The release version is the first line of
+`VERSION`; release tags use the matching `v<version>` spelling. `make` checks
+that relationship when building from a release tag.
+
 CBS is the command-line package build engine for Cix. It consumes package
 definitions written in CPDL and stored as `.cbs` files.
 
@@ -72,6 +76,17 @@ Use `explain` to print the validated execution plan without executing it:
 
 The complete first-time-user workflow is documented in the
 [CBS user manual](docs/user-manual.md).
+
+To install the executable, static library, and public embedding header after a
+successful build:
+
+```text
+make install PREFIX=/usr/local
+```
+
+This installs `cbs`, `libcbs.a`, and `cbs/cbs.h`. The library boundary is a
+static-library API; the cixd first-slice integration remains the documented
+child-process contract in [the integration contract](docs/integration-contract.md).
 
 The prioritized implementation plan is tracked in the
 [CBS delivery roadmap](docs/roadmap.md).

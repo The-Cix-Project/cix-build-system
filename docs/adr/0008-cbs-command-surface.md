@@ -3,6 +3,15 @@
 - Status: Accepted
 - Date: 2026-08-28
 
+## Current implementation note (v0.1.60)
+
+This historical command-surface proposal is not the current CLI contract.
+`cbs --help` currently exposes `check`/`validate`, `explain`, `build`,
+`inspect`, `verify`, and `extract`; it does not expose `package` or `install`.
+Artifact installation and image transactions remain cixd responsibilities.
+The current command examples are maintained in the user manual and the
+standalone runbook.
+
 CBS exposes six operations through one internal API and a thin CLI: `check`
 (parse/validate), `build` (produce staged tree), `package` (emit CIXPKG),
 `install` (request cixd transaction), `inspect` (read metadata), and `verify`

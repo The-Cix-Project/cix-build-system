@@ -1,9 +1,15 @@
 # CBS delivery roadmap
 
+Release baseline: **v0.1.60**. The complete standalone implementation and its
+regression gate are shipped and tagged. The repository has no open issue queue
+at this baseline; the workstreams below describe ownership boundaries and
+future qualification, not unclaimed defects in the current release.
+
 This roadmap maps the repository's historical issue records to the current
 implementation. Issues are grouped by applicability, not original issue
-number. Completed records remain useful validation evidence; open records are
-the active delivery queue.
+number. Completed records remain useful validation evidence. New work should be
+opened explicitly in the issue tracker with an acceptance test and a release
+target.
 
 ## Complete foundation
 

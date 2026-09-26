@@ -1,8 +1,18 @@
 # CBS and cixd integration contract
 
+This contract applies to CBS v0.1.x releases. The executable, static library,
+and public header must be taken from the same release tag; callers should
+check `cbs --version` before relying on the CLI or public API surface.
+
 This is the initial integration boundary for CPDL 0.1. cixd is the parent and
 container owner; CBS is the build engine inside that container. CBS does not
 need an HTTP client or an outbound daemon connection.
+
+The supported first slice is process-based: cixd creates the container,
+invokes `cbs`, and consumes its artifact and optional JSONL event stream. CBS
+also ships a static `libcbs.a` and public header for deliberate direct
+embedding, but it does not ship a shared object, plugin manifest, or dynamic
+plugin loader.
 
 ## Before execution
 
@@ -52,8 +62,8 @@ synchronous `build-begin`, source cache, `phase-begin`, `command-begin`,
 `command-end`, `phase-end`, `artifact-finalized`, and `build-end` events while
 the build is running. This is the
 preferred integration path for cixd: it can forward events to terminal or web
-UIs without scraping recipe output. `CbsPhaseEvent` remains available as a
-compatibility callback for phase-only consumers.
+UIs without scraping recipe output. The legacy phase-only callback in
+`CbsExecutionContext` remains available for phase-only consumers.
 
 CBS event callbacks are synchronous and may reject an event; CBS then fails the
 build closed. Event strings and pointers are valid only for the callback
