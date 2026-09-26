@@ -11,7 +11,9 @@ package "filesystem-test" {
     }
 
     build {
+        mkdir "${build}/default-recursive/a/b"
         mkdir "${build}/parent-opt-in/leaf" parents
+        mkdir "${build}/leaf-option" leaf
         mkdir "${build}/input" chmod 0700
         mkdir "${dest}/copied"
         write "${dest}/copied/a.txt" "stale" chmod 0666

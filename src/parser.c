@@ -370,6 +370,9 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         if (is_word(parser, "parents")) {
             node->flag = 1;
             advance(parser);
+        } else if (is_word(parser, "leaf")) {
+            node->selector_glob = 1;
+            advance(parser);
         }
         parse_optional_mode(parser, node);
         return node;

@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.69 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.70 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -584,9 +584,10 @@ prepare {
 }
 ```
 
-`mkdir` creates only its final component by default. Add `parents` when
-intermediate directories should be created as well; this is an explicit
-equivalent of `mkdir -p` and is not implied by a nested path.
+`mkdir` creates missing intermediate directories by default, matching the
+historical CPDL behavior. `parents` may be written to make that intent
+explicit. Use `leaf` when a recipe deliberately requires every parent to
+already exist.
 
 Privileged file modes are denied by default. If a package intentionally ships
 one, declare its exact staged path and mode at package scope, for example

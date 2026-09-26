@@ -188,12 +188,13 @@ static int run_test(const char *recipe_path) {
     context.sources = &named_source;
     context.source_count = 1;
 
-    /* mkdir remains leaf-only unless the recipe opts into parents. */
+    /* mkdir remains recursive by default; leaf is the strict opt-in. */
     {
         CbsNode leaf;
         memset(&leaf, 0, sizeof(leaf));
         leaf.kind = CBS_NODE_MKDIR;
         leaf.value = "${build}/leaf-default/missing";
+        leaf.selector_glob = 1;
         if (!expect_failure(&leaf, &context, "leaf-default"))
             FS_FAIL();
     }
@@ -237,6 +238,9 @@ static int run_test(const char *recipe_path) {
         !regular_with(path, "literal ${not_a_binding}\n", 0644))
         FS_FAIL();
     if (!path_join(path, sizeof(path), build, "parent-opt-in/leaf") ||
+        lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
+        FS_FAIL();
+    if (!path_join(path, sizeof(path), build, "default-recursive/a/b") ||
         lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
         FS_FAIL();
 

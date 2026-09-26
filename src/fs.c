@@ -255,8 +255,8 @@ static mode_t parse_mode(const char *text, mode_t fallback) {
     return *end == '\0' ? (mode_t)value : fallback;
 }
 
-/* Create a directory under a confined root. With parents false, only the
- * final component may be created; this is the default CPDL mkdir contract. */
+/* Create a directory under a confined root. Parent creation is the historical
+ * default; the explicit leaf option disables it. */
 static int ensure_directory(const char *path, const char *root, mode_t mode,
                             int parents) {
     char *copy = cbs_duplicate(path);
@@ -1448,7 +1448,7 @@ int cbs_execute_filesystem(const CbsNode *operation,
     if (operation->kind == CBS_NODE_MKDIR) {
         result = ensure_directory(first, root,
                                   parse_mode(operation->second_value, 0755),
-                                  operation->flag);
+                                  !operation->selector_glob);
     } else if (operation->kind == CBS_NODE_WRITE) {
         const char *mode_text =
             operation->child_count == 0 ? NULL : operation->children[0]->value;

@@ -516,6 +516,10 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
     case CBS_NODE_WRITE:
         validate_value(validator, operation, operation->value);
         validate_secondary_value(validator, operation, operation->second_value);
+        if (operation->kind == CBS_NODE_MKDIR && operation->flag &&
+            operation->selector_glob)
+            validation_error(validator, operation, "CPDL-E3002",
+                             "mkdir cannot use both parents and leaf");
         if (!valid_mode(operation->second_value) &&
             operation->kind == CBS_NODE_MKDIR)
             validation_error(validator, operation, "CPDL-E3004",
