@@ -39,6 +39,28 @@ static int valid_package_name(const char *name) {
     return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
 }
 
+/* A tool dependency may optionally pin the provider's package revision. */
+static int valid_tool_dependency_name(const char *name) {
+    const char *at;
+    char *package_name;
+    const char *version;
+    int valid;
+
+    if (name == NULL)
+        return 0;
+    at = strchr(name, '@');
+    if (at == NULL)
+        return valid_package_name(name);
+    if (at == name || at[1] == '\0' || strchr(at + 1, '@') != NULL)
+        return 0;
+    package_name = cbs_duplicate_range(name, (size_t)(at - name));
+    version = at + 1;
+    valid = valid_package_name(package_name) && strchr(version, '/') == NULL &&
+            strpbrk(version, " \t\r\n") == NULL;
+    free(package_name);
+    return valid;
+}
+
 /* Check whether a recipe environment name is safe and portable. */
 /* An environment name is a POSIX portable name in either case:
  * [A-Za-z_][A-Za-z0-9_]*. Lowercase is ordinary (autoconf cache variables
@@ -951,9 +973,13 @@ static void validate_requires(Validator *validator, const CbsNode *requires) {
         for (prior = 0; prior < group->child_count; ++prior) {
             const CbsNode *dependency = group->children[prior];
             size_t earlier;
-            if (!valid_package_name(dependency->value))
+            if ((strcmp(dependency->name, "tool") == 0
+                     ? !valid_tool_dependency_name(dependency->value)
+                     : !valid_package_name(dependency->value)))
                 validation_error(validator, dependency, "CPDL-E3004",
-                                 "invalid dependency name");
+                                 strcmp(dependency->name, "tool") == 0
+                                     ? "invalid tool dependency name; expected name or name@version"
+                                     : "invalid dependency name");
             if (strcmp(dependency->name, "compiler") == 0 &&
                 strcmp(dependency->value, "tcc") != 0 &&
                 !has_toolchain_exception(validator, dependency->value))

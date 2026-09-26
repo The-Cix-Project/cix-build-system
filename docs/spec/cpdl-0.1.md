@@ -360,7 +360,9 @@ dependency-kind = "tool" | "library" | "headers" | "compiler" | "package" ;
 
 Each role may occur at most once and groups must appear in the role order shown
 above. A dependency tuple of role, kind, and name must be unique. Dependency
-names follow the package-name pattern.
+names follow the package-name pattern, except that a `tool` may append one
+non-empty provider version as `name@version` (for example,
+`tool "tcc@0.9.27-7"`). Other dependency kinds do not accept a version pin.
 
 The meanings are:
 

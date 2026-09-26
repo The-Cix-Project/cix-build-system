@@ -17,6 +17,7 @@ package "example" {
         build {
             compiler "tcc"
             tool "make"
+            tool "ninja@1.12.1-2"
         }
         runtime {
             library "libexample"
