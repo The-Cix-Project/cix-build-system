@@ -187,6 +187,16 @@ static int run_test(const char *recipe_path) {
     named_source.path = path;
     context.sources = &named_source;
     context.source_count = 1;
+
+    /* mkdir remains leaf-only unless the recipe opts into parents. */
+    {
+        CbsNode leaf;
+        memset(&leaf, 0, sizeof(leaf));
+        leaf.kind = CBS_NODE_MKDIR;
+        leaf.value = "${build}/leaf-default/missing";
+        if (!expect_failure(&leaf, &context, "leaf-default"))
+            FS_FAIL();
+    }
     for (index = 0; index < phase->child_count; ++index) {
         CbsNode *operation = phase->children[index];
         int operation_result;
@@ -225,6 +235,9 @@ static int run_test(const char *recipe_path) {
     }
     if (!path_join(path, sizeof(path), build, "block.txt") ||
         !regular_with(path, "literal ${not_a_binding}\n", 0644))
+        FS_FAIL();
+    if (!path_join(path, sizeof(path), build, "parent-opt-in/leaf") ||
+        lstat(path, &status) != 0 || !S_ISDIR(status.st_mode))
         FS_FAIL();
 
     /* Regression for #201: a matching DT_NEEDED entry must be retained in

@@ -3,6 +3,6 @@ package "unsupported-format" {
     release 1
     format "tar.gz"
     build {
-        mkdir "${dest}/usr/bin"
+        mkdir "${dest}/usr/bin" parents
     }
 }

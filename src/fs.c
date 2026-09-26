@@ -255,11 +255,35 @@ static mode_t parse_mode(const char *text, mode_t fallback) {
     return *end == '\0' ? (mode_t)value : fallback;
 }
 
-/* Create missing parent directories under a confined root. */
-static int ensure_directories(const char *path, const char *root, mode_t mode) {
+/* Create a directory under a confined root. With parents false, only the
+ * final component may be created; this is the default CPDL mkdir contract. */
+static int ensure_directory(const char *path, const char *root, mode_t mode,
+                            int parents) {
     char *copy = cbs_duplicate(path);
     char *cursor = copy + strlen(root);
     struct stat status;
+
+    if (!parents) {
+        if (lstat(copy, &status) == 0) {
+            if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode)) {
+                free(copy);
+                errno = EEXIST;
+                return 0;
+            }
+            free(copy);
+            return chmod(path, mode) == 0;
+        }
+        if (errno != ENOENT) {
+            free(copy);
+            return 0;
+        }
+        if (mkdir(copy, mode) != 0) {
+            free(copy);
+            return 0;
+        }
+        free(copy);
+        return chmod(path, mode) == 0;
+    }
 
     while (1) {
         char *slash;
@@ -1200,7 +1224,7 @@ static int stage_library(const CbsNode *operation,
         goto done;
     }
     if (lstat(directory, &status) != 0) {
-        if (errno != ENOENT || !ensure_directories(directory, root, 0755)) {
+        if (errno != ENOENT || !ensure_directory(directory, root, 0755, 1)) {
             fs_error(operation, context, operation->second_value,
                      "cannot create stage destination");
             goto done;
@@ -1382,7 +1406,7 @@ static int stage_image_path(const CbsNode *operation,
         goto done;
     }
     if (lstat(destination, &status) != 0) {
-        if (errno != ENOENT || !ensure_directories(destination, root, 0755)) {
+        if (errno != ENOENT || !ensure_directory(destination, root, 0755, 1)) {
             fs_error(operation, context, operation->second_value,
                      "cannot create stage destination");
             goto done;
@@ -1422,8 +1446,9 @@ int cbs_execute_filesystem(const CbsNode *operation,
             goto failure;
     }
     if (operation->kind == CBS_NODE_MKDIR) {
-        result = ensure_directories(first, root,
-                                    parse_mode(operation->second_value, 0755));
+        result = ensure_directory(first, root,
+                                  parse_mode(operation->second_value, 0755),
+                                  operation->flag);
     } else if (operation->kind == CBS_NODE_WRITE) {
         const char *mode_text =
             operation->child_count == 0 ? NULL : operation->children[0]->value;

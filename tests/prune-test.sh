@@ -11,8 +11,8 @@ package "prune-contract" {
     release 1
     format "cixpkg"
     build {
-        mkdir "${dest}/usr/lib"
-        mkdir "${dest}/usr/bin"
+        mkdir "${dest}/usr/lib" parents
+        mkdir "${dest}/usr/bin" parents
         write "${build}/helper.c" "int main(void) { return 0; }\n"
         run "tcc" { "${build}/helper.c" "-g" "-o" "${dest}/usr/bin/helper" }
         write "${dest}/usr/lib/libfoo.a" "archive"

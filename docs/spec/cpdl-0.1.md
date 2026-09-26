@@ -591,7 +591,7 @@ directory globally. Leaving the block restores the prior context even on failure
 ### 4.4 Filesystem operations
 
 ```ebnf
-mkdir-operation   = "mkdir", path-value, [ "chmod", mode ] ;
+mkdir-operation   = "mkdir", path-value, [ "parents" ], [ "chmod", mode ] ;
 copy-operation    = "copy", [ "tree" ], source-selector, "to", path-value,
                      [ "allow_failure" ] ;
 move-operation    = "move", source-selector, "to", path-value ;
@@ -608,9 +608,11 @@ Paths are interpreted by CBS, never by a shell. A glob selector is evaluated by
 CBS using the CPDL glob rules in section 4.7. A non-glob selector always denotes
 one literal path, even when it contains `*`, `?`, or `[`.
 
-`mkdir` creates all missing path components. Existing directories are accepted;
-an existing non-directory fails. Its default final mode is `0755`, filtered only
-by explicit CBS policy recorded in build metadata.
+`mkdir` creates only its final path component. Existing directories are
+accepted; an existing non-directory fails. Its default final mode is `0755`,
+filtered only by explicit CBS policy recorded in build metadata. The optional
+`parents` keyword creates missing intermediate components as well, like
+`mkdir -p`; it does not change the leaf-only default.
 
 `copy` preserves file bytes and permission bits. It does not preserve numeric
 ownership: new regular files are owned by the CBS build identity, and staged

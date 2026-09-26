@@ -367,6 +367,10 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         value = consume_path(parser);
         if (value != NULL)
             node->value = cbs_duplicate(value->text);
+        if (is_word(parser, "parents")) {
+            node->flag = 1;
+            advance(parser);
+        }
         parse_optional_mode(parser, node);
         return node;
     }

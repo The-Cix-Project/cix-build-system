@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.65 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.66 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -574,7 +574,7 @@ Use `$src`, `$build`, and `$dest` rather than host paths. Common operations are:
 
 ```cbs
 prepare {
-    mkdir "${build}/generated" chmod 0755
+    mkdir "${build}/generated" parents chmod 0755
     write "${build}/generated/version.h" "#define VERSION 1\n"
     copy "${src}/project-1.0/LICENSE" to "${build}/LICENSE"
     move "${build}/old" to "${build}/new"
@@ -583,6 +583,10 @@ prepare {
     remove tree "${build}/temporary"
 }
 ```
+
+`mkdir` creates only its final component by default. Add `parents` when
+intermediate directories should be created as well; this is an explicit
+equivalent of `mkdir -p` and is not implied by a nested path.
 
 `copy` is not recursive. `move` stays within the CBS filesystem and does not
 fall back to copy-and-delete across filesystems. `remove tree` is required for

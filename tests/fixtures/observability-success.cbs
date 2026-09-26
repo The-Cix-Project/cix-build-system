@@ -6,7 +6,7 @@ package "observability-success" {
     build {
         env "CBS_SECRET_TOKEN" = "must-not-appear"
         run "true" { expect exit 0 }
-        mkdir "${dest}/usr/share/doc"
+        mkdir "${dest}/usr/share/doc" parents
         write "${dest}/usr/share/doc/observability" "metrics\n"
     }
 }

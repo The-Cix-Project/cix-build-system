@@ -4,7 +4,7 @@ package "each-test" {
     format "cixpkg"
 
     build {
-        mkdir "${dest}/usr/lib"
+        mkdir "${dest}/usr/lib" parents
         each "source" in { "src/syslogd.c" "lib/pidfile.c" } {
             write "${build}/${each.source.basename}" "${each.source.dirname}/${each.source.stem}\n"
         }

@@ -11,6 +11,7 @@ package "filesystem-test" {
     }
 
     build {
+        mkdir "${build}/parent-opt-in/leaf" parents
         mkdir "${build}/input" chmod 0700
         mkdir "${dest}/copied"
         write "${dest}/copied/a.txt" "stale" chmod 0666
@@ -40,7 +41,7 @@ package "filesystem-test" {
         copy $source.payload to "${dest}/named-source"
         copy glob "${build}/input/*.missing" to "${dest}/copied" allow_failure
         copy "${build}/input/no-such-file.txt" to "${dest}/copied/missing.txt" allow_failure
-        mkdir "${build}/tree-source/sub" chmod 0700
+        mkdir "${build}/tree-source/sub" parents chmod 0700
         write "${build}/tree-source/root.txt" "root" chmod 0600
         write "${build}/tree-source/sub/nested.txt" "nested" chmod 0610
         symlink "../root.txt" to "${build}/tree-source/sub/root-link"
@@ -49,7 +50,7 @@ package "filesystem-test" {
         chmod 0644 glob "${dest}/copied/*.txt"
         remove glob "${build}/input/*.tmp"
         remove glob "${build}/input/*.la" allow_failure
-        mkdir "${build}/discard/nested"
+        mkdir "${build}/discard/nested" parents
         write "${build}/discard/nested/value" "discard"
         remove tree "${build}/discard"
         mkdir "${build}/patterns"
@@ -70,7 +71,7 @@ package "filesystem-test" {
         chmod 0641 glob "${build}/patterns/[!a-b].txt"
         chmod 0642 glob "${build}/patterns/?.x"
         chmod 0644 glob "${build}/patterns/literal\\*.txt"
-        mkdir "${build}/terminal/nested"
+        mkdir "${build}/terminal/nested" parents
         write "${build}/terminal/nested/value" "terminal"
         chmod 0700 glob "${build}/terminal/**"
         remove tree "${build}/terminal"

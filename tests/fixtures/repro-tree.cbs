@@ -4,9 +4,9 @@ package "repro-tree" {
     format "cixpkg"
 
     build {
-        mkdir "${dest}/usr/bin"
-        mkdir "${dest}/usr/lib/empty"
-        mkdir "${dest}/etc/private" chmod 0700
+        mkdir "${dest}/usr/bin" parents
+        mkdir "${dest}/usr/lib/empty" parents
+        mkdir "${dest}/etc/private" parents chmod 0700
         write "${dest}/usr/bin/tool" "#!/bin/sh\necho tool\n" chmod 0755
         write "${dest}/usr/lib/libtool.so.1.0" "shared object bytes\n" chmod 0644
         write "${dest}/etc/private/secret.conf" "key=value\n" chmod 0600

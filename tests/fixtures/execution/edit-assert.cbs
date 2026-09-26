@@ -4,7 +4,7 @@ package "edit-assert-test" {
     format "cixpkg"
 
     build {
-        mkdir "${build}/matches"
+        mkdir "${build}/matches" parents
         write "${src}/patch-target.txt" "old\nkeep\n"
         patch "patch-test.diff" {
             sha256 "5532d3fb640c172c20104b35415774b5fd3f8910eef21154fedbeccbcdbe3574"
@@ -82,7 +82,7 @@ package "edit-assert-test" {
             exists
             contains "CFLAGS += -O0\nKEEP = 1\n"
         }
-        mkdir "${build}/shebang"
+        mkdir "${build}/shebang" parents
         write "${build}/shebang/a.sh" "#!/bin/bash\ncat <<'EOF'\n#!/bin/bash\nEOF\n"
         write "${build}/shebang/b.sh" "#!/bin/bash\necho ok\n"
         replace glob "${build}/shebang/*.sh" {

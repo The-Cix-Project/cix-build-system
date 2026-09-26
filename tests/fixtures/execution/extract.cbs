@@ -25,8 +25,8 @@ package "extract-test" {
         }
     }
     prepare {
-        mkdir "${build}/kernel"
-        mkdir "${build}/artifact"
+        mkdir "${build}/kernel" parents
+        mkdir "${build}/artifact" parents
         extract $source.support into $src as "support"
         extract $source.selective into "${build}/kernel" {
             member "bzImage"
