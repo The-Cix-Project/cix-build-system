@@ -36,6 +36,11 @@ OBJECTS := $(SOURCES:.c=.o)
 TARGET := cbs
 LIBRARY := libcbs.a
 LIB_OBJECTS := $(filter-out src/main.o,$(OBJECTS))
+CIXPKG_TEST_OBJECTS := \
+	src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o \
+	src/observe.o src/source.o src/lexer.o src/parser.o src/runtime.o \
+	src/validate.o
+CIXPKG_TEST_LIBS := -larchive -lzstd
 PREFIX ?= /usr/local
 INSTALL ?= install
 
@@ -93,23 +98,19 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/exec-test tests/fixtures/execution/argv.cbs
 	rm -f tests/exec-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/fs-test.c \
-		src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -larchive -lzstd -o tests/fs-test
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/fs-test
 	./tests/fs-test tests/fixtures/execution/filesystem.cbs
 	rm -f tests/fs-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/edit-assert-test.c \
-		src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -larchive -o tests/edit-assert-test
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/edit-assert-test
 	./tests/edit-assert-test tests/fixtures/execution/edit-assert.cbs
 	rm -f tests/edit-assert-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/runtime-test.c \
-		src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -larchive -o tests/runtime-test
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/runtime-test
 	./tests/runtime-test tests/fixtures/execution/failure.cbs
 	rm -f tests/runtime-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/each-test.c \
-		src/ast.o src/archive.o src/cixpkg.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o \
-		src/runtime.o src/validate.o -larchive -o tests/each-test
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/each-test
 	./tests/each-test tests/fixtures/execution/each.cbs
 	rm -f tests/each-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/identity-test.c \
@@ -136,12 +137,12 @@ test: $(TARGET) upstream-test recipe-test
 		src/manifest.o src/parser.o src/runtime.o src/validate.o -larchive -lzstd -o tests/extract-test
 	./tests/extract-test tests/fixtures/execution/extract.cbs
 	rm -f tests/extract-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/jobs-test.c src/ast.o src/diag.o src/exec.o \
-		src/archive.o src/cixpkg.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o src/runtime.o src/validate.o \
-		-larchive -o tests/jobs-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/jobs-test.c \
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/jobs-test
 	./tests/jobs-test
 	rm -f tests/jobs-test
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c src/runtime.o src/archive.o src/cixpkg.o src/ast.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o src/validate.o -larchive -o tests/stage-test
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/stage-test.c \
+		$(CIXPKG_TEST_OBJECTS) $(CIXPKG_TEST_LIBS) -o tests/stage-test
 	./tests/stage-test
 	rm -f tests/stage-test
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/manifest-test.c src/manifest.o src/source.o src/archive.o \
