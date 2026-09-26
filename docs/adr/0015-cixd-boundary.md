@@ -1,6 +1,6 @@
 # ADR-0015: CBS and cixd boundary
 
-## Superseded in part by the v0.1.67 integration contract
+## Superseded in part by the v0.1.68 integration contract
 
 The ownership split remains valid, but the original wording overstates the
 integration mechanism. The supported first slice is cixd invoking the `cbs`

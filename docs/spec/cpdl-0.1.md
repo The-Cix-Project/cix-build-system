@@ -235,6 +235,7 @@ package-item = version-declaration
              | tools-declaration
              | upstream-declaration
              | metadata-declaration
+             | privileged-declaration
              | prepare-phase
              | configure-phase
              | build-phase
@@ -250,6 +251,8 @@ capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
 tools-declaration        = "tools", "{", { tool-policy }, "}" ;
 tool-policy              = "compiler", "alias", string ;
+privileged-declaration   = "privileged", "file", path-value,
+                           "mode", mode ;
 upstream-declaration     = "upstream", string ;
 metadata-declaration     = "metadata", "{", { string, string }, "}" ;
 ```
@@ -305,10 +308,12 @@ plus `.cixpkg`. Artifact metadata and its digest input contain the same
 canonical text rather than independently reconstructing identity fields.
 
 Each package-level declaration may appear at most once, except that
-`capability` may be repeated. Package items must appear in the canonical order
-shown by `package-item`: identity, upstream, sources, requirements, execution
-metadata, then the five phases. An omitted optional item does not affect the
-order of later items.
+`capability` and `privileged-declaration` may be repeated. Package items must
+appear in the canonical order shown by `package-item`: identity, upstream,
+sources, requirements, execution metadata (including privileged-file
+allowances), then the five phases. An omitted optional item does not affect the
+order of later items. A `privileged-declaration` therefore belongs directly in
+the package body before the first phase, not inside a phase block.
 
 Package names must match:
 
@@ -605,10 +610,24 @@ source-selector = path-value | "glob", string ;
 ```
 
 Package declarations may explicitly authorize one privileged file with an
-exact mode:
+exact mode. The declaration is placed in the package body before the first
+phase, alongside other package-level execution metadata:
 
 ```cbs
-privileged file "${dest}/usr/libexec/ssh-keysign" mode 04711
+package "openssh" {
+    version "10.4"
+    release 1
+    format "cixpkg"
+
+    privileged file "${dest}/usr/libexec/ssh-keysign" mode 04711
+
+    install {
+        run "make" {
+            "install"
+            "DESTDIR=${dest}"
+        }
+    }
+}
 ```
 
 The path must resolve to one file beneath the staged destination and may not
