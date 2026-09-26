@@ -126,6 +126,26 @@ test "$("$cbs" extract "$artifact" --into "$temporary_dir/extracted")" = \
 test "$(cat "$temporary_dir/extracted/hello")" = hello
 test "$(stat -c '%a' "$temporary_dir/extracted/hello")" = 755
 
+staged_artifact="$temporary_dir/staged-tree.cixpkg"
+staged_extract="$temporary_dir/staged-tree-extracted"
+test "$($cbs package "$temporary_dir/workspace/dest" \
+    --name hostbuild --version 1 --release 1 --arch x86_64 \
+    --license MIT --output "$staged_artifact")" = \
+    "packaged $staged_artifact"
+test "$($cbs verify "$staged_artifact")" = \
+    "$staged_artifact: verified CIXPKG (identity=hostbuild-1-1-x86_64)"
+test "$($cbs extract "$staged_artifact" --into "$staged_extract")" = \
+    "extracted $staged_extract"
+test "$(cat "$staged_extract/hello")" = hello
+
+empty_stage="$temporary_dir/empty-stage"
+empty_artifact="$temporary_dir/empty-stage.cixpkg"
+mkdir "$empty_stage"
+test "$($cbs package "$empty_stage" --name empty --version 1 --release 1 \
+    --arch x86_64 --output "$empty_artifact")" = \
+    "packaged $empty_artifact"
+"$cbs" verify "$empty_artifact" >/dev/null
+
 set +e
 "$cbs" extract "$artifact" --into "$temporary_dir/extracted" \
     >"$temporary_dir/existing-destination.out" \

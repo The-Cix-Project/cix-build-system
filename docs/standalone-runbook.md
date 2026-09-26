@@ -18,6 +18,18 @@ mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
 ./cbs extract package.cixpkg --into /tmp/cbs-extracted
 ```
 
+To package a directory assembled by a caller (for example, a hostbuild), use
+the same CBS CIXPKG writer directly:
+
+```sh
+./cbs package /path/to/staged-tree \
+    --name hostbuild --version 1 --release 1 --arch x86_64 \
+    --output hostbuild.cixpkg
+```
+
+The command applies the same manifest policy and canonical ordering as a
+recipe build, and records staged-tree provenance in the artifact metadata.
+
 The standalone build fetches declared `http://` and `https://` sources with
 libcurl when they are not already cached. Every download is written to a
 temporary file, verified against its declared SHA-256, and atomically moved

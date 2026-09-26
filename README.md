@@ -1,6 +1,6 @@
 # Cix Build System
 
-Current release: **CBS v0.1.70**. The release version is the first line of
+Current release: **CBS v0.1.71**. The release version is the first line of
 `VERSION`; release tags use the matching `v<version>` spelling. `make` checks
 that relationship when building from a release tag.
 

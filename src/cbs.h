@@ -553,6 +553,10 @@ int cbs_manifest_collect_with_policy_error(
 /* Build a package from an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);
+/* Emit a CIXPKG directly from a caller-assembled staged tree. */
+int cbs_package_staged_tree(const char *staged_root,
+                            const CbsPackageIdentity *identity,
+                            const char *license, const char *package_path);
 /* Build a standalone package using the default source cache behavior. */
 int cbs_build_standalone(const char *recipe, const char *workspace,
                          const char *package_path, const char *architecture,

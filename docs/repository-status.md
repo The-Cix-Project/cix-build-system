@@ -1,6 +1,6 @@
 # CBS repository status
 
-Current release: **v0.1.70**. The branch and tag are clean, and the full
+Current release: **v0.1.71**. The branch and tag are clean, and the full
 `make -j1 test` gate passes for this release.
 
 This file reconciles the repository with the historical issue tracker. CBS is
@@ -22,7 +22,7 @@ recipe corpus. Those require the cixd repository or operator-owned build-image
 state and must not be represented as completed CBS functionality.
 
 Historical validation records describe the state when their issues were
-closed. The issue tracker is the authority for future work; as of v0.1.70
+closed. The issue tracker is the authority for future work; as of v0.1.71
 there is no open repository backlog. This status file prevents old acceptance
 language from being mistaken for a claim that standalone CBS owns the whole
 platform.

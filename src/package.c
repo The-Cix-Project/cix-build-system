@@ -1,5 +1,6 @@
 /* High-level build-to-manifest-to-CIXPKG package pipelines. */
 #include "cbs.h"
+#include <ctype.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -455,7 +456,7 @@ int cbs_build_package(const char *recipe, const char *staged_root,
     size_t length;
     CbsTokenList tokens = {0};
     CbsNode *document;
-    char manifest[4096];
+    char manifest[4096] = {0};
     CbsExecutionContext policy_context;
     CbsPrivilegedAllowance *allowances = NULL;
     size_t allowance_count = 0;
@@ -499,12 +500,91 @@ int cbs_build_package(const char *recipe, const char *staged_root,
             allowance_count, NULL, 0);
     if (ok)
         ok = cbs_cixpkg_write_tree(manifest, staged_root, package_path, "cbs");
-    unlink(manifest);
+    if (manifest[0] != '\0')
+        unlink(manifest);
     if (document)
         cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
     destroy_privileged_allowances(allowances, allowance_count);
     free(text);
+    return ok;
+}
+
+/* Package a caller-assembled tree without inventing a second CIXPKG writer. */
+static int valid_staged_identity(const CbsPackageIdentity *identity,
+                                 const char *license) {
+    const unsigned char *cursor;
+    if (identity == NULL || identity->name == NULL ||
+        identity->version == NULL || identity->architecture == NULL ||
+        identity->release <= 0 || identity->name[0] == '\0' ||
+        identity->version[0] == '\0' || identity->architecture[0] == '\0' ||
+        (license != NULL && strpbrk(license, "\r\n") != NULL))
+        return 0;
+    cursor = (const unsigned char *)identity->name;
+    if (!islower(*cursor) && !isdigit(*cursor))
+        return 0;
+    while (*++cursor != '\0')
+        if (!(islower(*cursor) || isdigit(*cursor) || *cursor == '+' ||
+              *cursor == '.' || *cursor == '-'))
+            return 0;
+    cursor = (const unsigned char *)identity->version;
+    while (*cursor != '\0') {
+        if (*cursor == '/' || isspace(*cursor))
+            return 0;
+        ++cursor;
+    }
+    cursor = (const unsigned char *)identity->architecture;
+    if (strcmp((const char *)cursor, "any") == 0 ||
+        !(islower(*cursor) || isdigit(*cursor)))
+        return 0;
+    while (*++cursor != '\0')
+        if (!(islower(*cursor) || isdigit(*cursor) || *cursor == '_'))
+            return 0;
+    return 1;
+}
+
+int cbs_package_staged_tree(const char *staged_root,
+                            const CbsPackageIdentity *identity,
+                            const char *license, const char *package_path) {
+    char manifest[4096] = {0};
+    char *identity_text = NULL;
+    FILE *metadata = NULL;
+    struct stat status;
+    int ok = 0;
+
+    if (staged_root == NULL || !valid_staged_identity(identity, license) ||
+        lstat(staged_root, &status) != 0 || !S_ISDIR(status.st_mode) ||
+        S_ISLNK(status.st_mode) || package_path == NULL ||
+        package_path[0] == '\0')
+        return 0;
+    identity_text = cbs_identity_string(identity);
+    if (identity_text == NULL ||
+        snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest",
+                 staged_root) >= (int)sizeof(manifest))
+        goto done;
+    if (!cbs_manifest_write_with_license_error(staged_root, manifest, license,
+                                               NULL, 0))
+        goto done;
+    metadata = fopen(manifest, "ab");
+    if (metadata == NULL ||
+        fprintf(metadata, "m cbs_version %s\n", CBS_VERSION) < 0 ||
+        fprintf(metadata, "m architecture %s\n", identity->architecture) < 0 ||
+        fprintf(metadata, "m identity %s\n", identity_text) < 0 ||
+        fprintf(metadata, "m staged_tree 1\n") < 0 || fclose(metadata) != 0) {
+        if (metadata != NULL)
+            fclose(metadata);
+        metadata = NULL;
+        goto done;
+    }
+    metadata = NULL;
+    ok = cbs_cixpkg_write_tree(manifest, staged_root, package_path,
+                               identity_text);
+done:
+    if (metadata != NULL)
+        fclose(metadata);
+    if (manifest[0] != '\0')
+        unlink(manifest);
+    free(identity_text);
     return ok;
 }
 

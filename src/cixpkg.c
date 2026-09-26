@@ -153,7 +153,11 @@ static int make_payload(const char *manifest, const char *root,
     char line[8192], type, mode[32], digest[65], relative[4096], path[4096];
     unsigned long long size;
     size_t capacity = 0;
-    *payload = NULL;
+    /* Keep an addressable zero-length payload so its digest is well-defined
+     * for a caller-assembled tree containing directories only. */
+    *payload = malloc(1);
+    if (*payload == NULL)
+        return 0;
     *payload_size = 0;
     file = fopen(manifest, "rb");
     if (file == NULL)

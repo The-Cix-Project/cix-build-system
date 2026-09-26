@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.70 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.71 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.

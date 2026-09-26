@@ -219,6 +219,8 @@ static void usage(FILE *stream) {
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
         "      [--library-path DIRS]\n"
+        "  cbs package ROOT --name NAME --version VERSION --release N "
+        "--arch ARCH --output FILE [--license SPDX]\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -890,6 +892,118 @@ static int build_file(const char *recipe, const char *architecture,
     return 0;
 }
 
+typedef struct {
+    const char *root;
+    const char *name;
+    const char *version;
+    const char *architecture;
+    const char *output;
+    const char *license;
+    long release;
+    int release_set;
+} CbsPackageOptions;
+
+static int parse_package_options(int argc, char **argv,
+                                 CbsPackageOptions *options) {
+    int index;
+    memset(options, 0, sizeof(*options));
+    if (argc < 3 || strcmp(argv[1], "package") != 0) {
+        fprintf(stderr, "package: missing staged tree\n");
+        return 0;
+    }
+    options->root = argv[2];
+    for (index = 3; index < argc; ++index) {
+        const char *argument = argv[index];
+        const char *value = NULL;
+        if (strncmp(argument, "--name=", 7) == 0)
+            value = argument + 7;
+        else if (strncmp(argument, "--version=", 10) == 0)
+            value = argument + 10;
+        else if (strncmp(argument, "--release=", 10) == 0)
+            value = argument + 10;
+        else if (strncmp(argument, "--arch=", 7) == 0)
+            value = argument + 7;
+        else if (strncmp(argument, "--output=", 9) == 0)
+            value = argument + 9;
+        else if (strncmp(argument, "--license=", 10) == 0)
+            value = argument + 10;
+        else if (strcmp(argument, "--name") == 0 ||
+                 strcmp(argument, "--version") == 0 ||
+                 strcmp(argument, "--release") == 0 ||
+                 strcmp(argument, "--arch") == 0 ||
+                 strcmp(argument, "--output") == 0 ||
+                 strcmp(argument, "--license") == 0) {
+            if (++index >= argc) {
+                fprintf(stderr, "package: option `%s` requires a value\n",
+                        argument);
+                return 0;
+            }
+            value = argv[index];
+        } else {
+            fprintf(stderr, "package: unknown option `%s`\n", argument);
+            return 0;
+        }
+        if (value == NULL || value[0] == '\0') {
+            fprintf(stderr, "package: option `%s` requires a non-empty value\n",
+                    argument);
+            return 0;
+        }
+        if (strcmp(argument, "--name") == 0 ||
+            strncmp(argument, "--name=", 7) == 0)
+            options->name = value;
+        else if (strcmp(argument, "--version") == 0 ||
+                 strncmp(argument, "--version=", 10) == 0)
+            options->version = value;
+        else if (strcmp(argument, "--release") == 0 ||
+                 strncmp(argument, "--release=", 10) == 0) {
+            char *end;
+            options->release = strtol(value, &end, 10);
+            if (*end != '\0' || options->release <= 0) {
+                fprintf(stderr, "package: --release must be positive\n");
+                return 0;
+            }
+            options->release_set = 1;
+        } else if (strcmp(argument, "--arch") == 0 ||
+                   strncmp(argument, "--arch=", 7) == 0)
+            options->architecture = value;
+        else if (strcmp(argument, "--output") == 0 ||
+                 strncmp(argument, "--output=", 9) == 0)
+            options->output = value;
+        else
+            options->license = value;
+    }
+    if (options->name == NULL || options->version == NULL ||
+        !options->release_set || options->architecture == NULL ||
+        options->output == NULL) {
+        fprintf(stderr,
+                "package: --name, --version, --release, --arch, and --output are required\n");
+        return 0;
+    }
+    return 1;
+}
+
+static int package_file(const CbsPackageOptions *options) {
+    CbsPackageIdentity identity;
+    struct stat status;
+    if (stat(options->root, &status) != 0 || !S_ISDIR(status.st_mode)) {
+        fprintf(stderr, "package: staged tree is not an accessible directory: %s\n",
+                options->root);
+        return 3;
+    }
+    memset(&identity, 0, sizeof(identity));
+    identity.name = options->name;
+    identity.version = options->version;
+    identity.release = options->release;
+    identity.architecture = options->architecture;
+    if (!cbs_package_staged_tree(options->root, &identity, options->license,
+                                 options->output)) {
+        fprintf(stderr, "package failed: staged tree or package output was rejected\n");
+        return 3;
+    }
+    printf("packaged %s\n", options->output);
+    return 0;
+}
+
 /* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
@@ -974,6 +1088,12 @@ int main(int argc, char **argv) {
                           options.inputs, options.input_count);
         free_inputs(&options);
         return result;
+    }
+    if (argc >= 3 && strcmp(argv[1], "package") == 0) {
+        CbsPackageOptions options;
+        if (!parse_package_options(argc, argv, &options))
+            return 2;
+        return package_file(&options);
     }
     if (argc == 3 && strcmp(argv[1], "inspect") == 0)
         return inspect_file(argv[2], NULL);
