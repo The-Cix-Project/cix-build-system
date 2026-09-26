@@ -180,6 +180,11 @@ ${firmware}   ${source.gmp} ${stdout.NAME}
 ${input.NAME}
 ```
 
+`${name}`, `${version}`, and `${release}` are read-only values from the
+package declaration. They can be used anywhere a quoted value is accepted,
+including command arguments, environment values, generated files, and staged
+paths; they do not create mutable recipe variables.
+
 Only the exact `${...}` form interpolates. `$`, `$name`, `$(command)`, shell
 metacharacters, quotes, spaces, `*`, and `;` are ordinary string bytes. A `${`
 sequence that does not name an allowed CBS value is a validation error.

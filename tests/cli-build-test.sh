@@ -76,6 +76,28 @@ grep -q '^staged ' "$temporary_dir/stage.out"
 test -f "$temporary_dir/stage-only/dest/usr/bin/hello"
 test ! -e "$temporary_dir/stage-only/dest/.cbs-manifest"
 
+cat >"$temporary_dir/identity-interpolation.cbs" <<'EOF'
+package "identity-interpolation" {
+    version "2.57.332"
+    release 2
+    format "cixpkg"
+    build {
+        write "${dest}/identity.txt" "${version}-${release}\n"
+    }
+}
+EOF
+mkdir -p -- "$temporary_dir/identity-workspace"
+identity_artifact=$temporary_dir/identity-interpolation.cixpkg
+"$cbs" build "$temporary_dir/identity-interpolation.cbs" \
+    --arch x86_64 --staged "$temporary_dir/identity-workspace" \
+    --output "$identity_artifact" \
+    >"$temporary_dir/identity.out" 2>"$temporary_dir/identity.err"
+test ! -s "$temporary_dir/identity.err"
+"$cbs" verify "$identity_artifact" >"$temporary_dir/identity-verify.out"
+grep -q 'identity=identity-interpolation-2.57.332-2-x86_64' \
+    "$temporary_dir/identity-verify.out"
+test "$(cat "$temporary_dir/identity-workspace/dest/identity.txt")" = '2.57.332-2'
+
 mkdir -p -- "$temporary_dir/server/payload"
 printf 'fetched source\n' >"$temporary_dir/server/payload/source.txt"
 tar -cf "$temporary_dir/server/payload.tar" -C "$temporary_dir/server/payload" .
