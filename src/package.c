@@ -212,6 +212,82 @@ static const char *declared_license(const CbsNode *document) {
     return NULL;
 }
 
+/* Resolve explicit privileged-file declarations once against the staged
+ * destination. The manifest checker then performs exact path and mode tests. */
+static int collect_privileged_allowances(
+    const CbsNode *document, const CbsExecutionContext *context,
+    CbsPrivilegedAllowance **allowances_out, size_t *count_out) {
+    const CbsNode *package;
+    CbsPrivilegedAllowance *allowances = NULL;
+    size_t count = 0, index, capacity = 0;
+
+    if (document == NULL || document->child_count != 1 ||
+        context == NULL || context->dest == NULL || allowances_out == NULL ||
+        count_out == NULL)
+        return 0;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index) {
+        const CbsNode *item = package->children[index];
+        char *resolved;
+        const char *relative;
+        char *end;
+        unsigned long mode;
+        size_t prior;
+        if (item->kind != CBS_NODE_PRIVILEGED)
+            continue;
+        resolved = cbs_resolve_confined_path(item->value, context);
+        if (resolved == NULL ||
+            strncmp(resolved, context->dest, strlen(context->dest)) != 0 ||
+            resolved[strlen(context->dest)] != '/') {
+            free(resolved);
+            goto failure;
+        }
+        relative = resolved + strlen(context->dest) + 1;
+        mode = strtoul(item->second_value, &end, 8);
+        if (*end != '\0' || relative[0] == '\0') {
+            free(resolved);
+            goto failure;
+        }
+        for (prior = 0; prior < count; ++prior)
+            if (strcmp(allowances[prior].path, relative) == 0) {
+                free(resolved);
+                goto failure;
+            }
+        if (count == capacity) {
+            size_t next = capacity == 0 ? 4 : capacity * 2;
+            CbsPrivilegedAllowance *grown = realloc(
+                allowances, next * sizeof(*grown));
+            if (grown == NULL) {
+                free(resolved);
+                goto failure;
+            }
+            allowances = grown;
+            capacity = next;
+        }
+        allowances[count].path = cbs_duplicate(relative);
+        allowances[count].mode = (unsigned)(mode & 07777);
+        ++count;
+        free(resolved);
+    }
+    *allowances_out = allowances;
+    *count_out = count;
+    return 1;
+
+failure:
+    for (index = 0; index < count; ++index)
+        free((char *)allowances[index].path);
+    free(allowances);
+    return 0;
+}
+
+static void destroy_privileged_allowances(CbsPrivilegedAllowance *allowances,
+                                          size_t count) {
+    size_t index;
+    for (index = 0; index < count; ++index)
+        free((char *)allowances[index].path);
+    free(allowances);
+}
+
 /* Report a high-level pipeline rejection that has no parser diagnostic. */
 static void pipeline_error(const char *recipe, const char *source,
                            CbsLocation location, const char *step,
@@ -380,6 +456,9 @@ int cbs_build_package(const char *recipe, const char *staged_root,
     CbsTokenList tokens = {0};
     CbsNode *document;
     char manifest[4096];
+    CbsExecutionContext policy_context;
+    CbsPrivilegedAllowance *allowances = NULL;
+    size_t allowance_count = 0;
     int ok;
     if (!recipe || !staged_root || !package_path)
         return 0;
@@ -403,16 +482,28 @@ int cbs_build_package(const char *recipe, const char *staged_root,
     document = ok ? cbs_parse(recipe, text, length, &tokens) : NULL;
     ok = document != NULL && cbs_validate(document, recipe, text) &&
          strcmp(declared_format(document), "cixpkg") == 0;
+    memset(&policy_context, 0, sizeof(policy_context));
+    policy_context.recipe_path = recipe;
+    policy_context.recipe_source = text;
+    policy_context.src = staged_root;
+    policy_context.build = staged_root;
+    policy_context.dest = staged_root;
+    policy_context.working_directory = staged_root;
+    if (ok)
+        ok = collect_privileged_allowances(document, &policy_context,
+                                           &allowances, &allowance_count);
     snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", staged_root);
     if (ok)
-        ok = cbs_manifest_write_with_license(staged_root, manifest,
-                                              declared_license(document));
+        ok = cbs_manifest_write_with_license_policy_error(
+            staged_root, manifest, declared_license(document), allowances,
+            allowance_count, NULL, 0);
     if (ok)
         ok = cbs_cixpkg_write_tree(manifest, staged_root, package_path, "cbs");
     unlink(manifest);
     if (document)
         cbs_node_destroy(document);
     cbs_token_list_destroy(&tokens);
+    destroy_privileged_allowances(allowances, allowance_count);
     free(text);
     return ok;
 }
@@ -440,6 +531,8 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     char build_id[64];
     CbsManifestEntry *entries = NULL;
     size_t entry_count = 0;
+    CbsPrivilegedAllowance *allowances = NULL;
+    size_t allowance_count = 0;
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         manifest_error[512], *package_identity = NULL;
     char tool_command_path[8192];
@@ -543,6 +636,14 @@ int cbs_build_standalone_with_events_policy_path_inputs(
                                        ? CBS_DEFAULT_LIBRARY_PATH
                                        : library_path;
             context.tool_policy = declared_tools(document);
+            if (!collect_privileged_allowances(document, &context,
+                                               &allowances,
+                                               &allowance_count)) {
+                pipeline_error(recipe, text, document->location,
+                               "privileged policy",
+                               "cannot resolve privileged file declaration");
+                ok = 0;
+            }
             if (!materialize_tools(context.tool_policy, &context,
                                    tool_command_path,
                                    sizeof(tool_command_path))) {
@@ -581,9 +682,9 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     }
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-        ok = cbs_manifest_write_with_license_error(
-            dest, manifest, declared_license(document), manifest_error,
-            sizeof(manifest_error));
+        ok = cbs_manifest_write_with_license_policy_error(
+            dest, manifest, declared_license(document), allowances,
+            allowance_count, manifest_error, sizeof(manifest_error));
         if (!ok)
             pipeline_manifest_error(
                 recipe, text, document->location, "manifest",
@@ -596,9 +697,9 @@ int cbs_build_standalone_with_events_policy_path_inputs(
             ok = 0;
         }
         if (ok) {
-            ok = cbs_manifest_collect_with_error(
-                dest, &entries, &entry_count, manifest_error,
-                sizeof(manifest_error));
+            ok = cbs_manifest_collect_with_policy_error(
+                dest, &entries, &entry_count, allowances, allowance_count,
+                manifest_error, sizeof(manifest_error));
             if (!ok)
                 pipeline_manifest_error(
                     recipe, text, document->location, "manifest",
@@ -644,6 +745,7 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     cbs_source_set_destroy(&sources);
     if (document)
         cbs_node_destroy(document);
+    destroy_privileged_allowances(allowances, allowance_count);
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;

@@ -15,6 +15,17 @@ static int unsafe_mode(mode_t mode) {
     return (mode & (S_ISUID | S_ISGID)) != 0;
 }
 
+static int allowance_matches(const char *path, mode_t mode,
+                             const CbsPrivilegedAllowance *allowances,
+                             size_t allowance_count) {
+    size_t index;
+    for (index = 0; index < allowance_count; ++index)
+        if (strcmp(path, allowances[index].path) == 0 &&
+            (unsigned)(mode & 07777) == allowances[index].mode)
+            return 1;
+    return 0;
+}
+
 static void set_error(char *error, size_t error_size, const char *format, ...) {
     va_list arguments;
     if (error == NULL || error_size == 0)
@@ -57,9 +68,12 @@ static int safe_link_target(const char *relative, const char *target) {
 /* Append one validated entry while growing the manifest array. */
 static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      const char *path, char type, mode_t mode,
-                     const char *target, char *error, size_t error_size) {
+                     const char *target,
+                     const CbsPrivilegedAllowance *allowances,
+                     size_t allowance_count, char *error, size_t error_size) {
     CbsManifestEntry *entry;
-    if (unsafe_mode(mode)) {
+    if (unsafe_mode(mode) &&
+        !allowance_matches(path, mode, allowances, allowance_count)) {
         set_error(error, error_size,
                   "%s has mode %04o; CIXPKG refuses setuid and setgid",
                   path, (unsigned)(mode & 07777));
@@ -91,7 +105,8 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
 /* Recursively collect supported entries from a staged directory. */
 static int collect(const char *root, const char *relative,
                    CbsManifestEntry **items, size_t *count, size_t *capacity,
-                   char *error, size_t error_size) {
+                   const CbsPrivilegedAllowance *allowances,
+                   size_t allowance_count, char *error, size_t error_size) {
     char path[4096];
     DIR *directory;
     struct dirent *entry;
@@ -129,9 +144,9 @@ static int collect(const char *root, const char *relative,
         }
         if (S_ISDIR(status.st_mode)) {
             if (!add_entry(items, count, capacity, child, 'd', status.st_mode,
-                           NULL, error, error_size) ||
-                !collect(root, child, items, count, capacity, error,
-                         error_size)) {
+                           NULL, allowances, allowance_count, error, error_size) ||
+                !collect(root, child, items, count, capacity, allowances,
+                         allowance_count, error, error_size)) {
                 closedir(directory);
                 return 0;
             }
@@ -146,7 +161,7 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'f', status.st_mode,
-                           NULL, error, error_size) ||
+                           NULL, allowances, allowance_count, error, error_size) ||
                 !cbs_digest_file(path, digest)) {
                 if (error == NULL || error[0] == '\0')
                     set_error(error, error_size,
@@ -173,7 +188,7 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'l', status.st_mode,
-                           target, error, error_size)) {
+                           target, allowances, allowance_count, error, error_size)) {
                 closedir(directory);
                 return 0;
             }
@@ -214,15 +229,17 @@ static int write_entry(FILE *file, const CbsManifestEntry *entry) {
 }
 
 /* Collect, sort, and write a deterministic manifest file. */
-int cbs_manifest_write_with_license_error(const char *root, const char *output,
-                                          const char *license, char *error,
-                                          size_t error_size) {
+int cbs_manifest_write_with_license_policy_error(
+    const char *root, const char *output, const char *license,
+    const CbsPrivilegedAllowance *allowances, size_t allowance_count,
+    char *error, size_t error_size) {
     CbsManifestEntry *items = NULL;
     size_t count = 0, capacity = 0, index;
     FILE *file;
     if (error != NULL && error_size > 0)
         error[0] = '\0';
-    if (!collect(root, "", &items, &count, &capacity, error, error_size))
+    if (!collect(root, "", &items, &count, &capacity, allowances,
+                 allowance_count, error, error_size))
         goto fail;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     file = fopen(output, "wb");
@@ -249,6 +266,13 @@ fail:
     return 0;
 }
 
+int cbs_manifest_write_with_license_error(const char *root, const char *output,
+                                          const char *license, char *error,
+                                          size_t error_size) {
+    return cbs_manifest_write_with_license_policy_error(
+        root, output, license, NULL, 0, error, error_size);
+}
+
 int cbs_manifest_write_with_license(const char *root, const char *output,
                                     const char *license) {
     return cbs_manifest_write_with_license_error(root, output, license, NULL,
@@ -267,13 +291,22 @@ int cbs_manifest_compare(const void *left, const void *right) {
 /* Return sorted manifest entries for callers that need direct inspection. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count) {
-    return cbs_manifest_collect_with_error(root, entries, count, NULL, 0);
+    return cbs_manifest_collect_with_policy_error(root, entries, count, NULL,
+                                                  0, NULL, 0);
 }
 
 int cbs_manifest_collect_with_error(const char *root,
                                     CbsManifestEntry **entries,
                                     size_t *count, char *error,
                                     size_t error_size) {
+    return cbs_manifest_collect_with_policy_error(
+        root, entries, count, NULL, 0, error, error_size);
+}
+
+int cbs_manifest_collect_with_policy_error(
+    const char *root, CbsManifestEntry **entries, size_t *count,
+    const CbsPrivilegedAllowance *allowances, size_t allowance_count,
+    char *error, size_t error_size) {
     size_t capacity = 0;
     if (!root || !entries || !count)
         return 0;
@@ -281,7 +314,8 @@ int cbs_manifest_collect_with_error(const char *root,
     *count = 0;
     if (error != NULL && error_size > 0)
         error[0] = '\0';
-    if (!collect(root, "", entries, count, &capacity, error, error_size)) {
+    if (!collect(root, "", entries, count, &capacity, allowances,
+                 allowance_count, error, error_size)) {
         cbs_manifest_entries_destroy(*entries, *count);
         *entries = NULL;
         *count = 0;

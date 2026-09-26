@@ -19,11 +19,12 @@
 #define CIXPKG_IDENTITY_MAX 64
 #define CIXPKG_FLAG_FINALIZED CBS_CIXPKG_FLAG_FINALIZED
 
-/* Parse an octal mode and reject setuid/setgid bits. */
+/* Parse an octal mode retained in the typed manifest. Manifest construction
+ * applies the privileged-file allowlist before this reader sees the mode. */
 static int parse_mode(const char *text, unsigned *mode) {
     char extra;
     return sscanf(text, "%o %c", mode, &extra) == 1 &&
-           (*mode & (04000U | 02000U)) == 0 && *mode <= 07777U;
+           *mode <= 07777U;
 }
 
 /* Check that a relative symlink remains inside the package root. */

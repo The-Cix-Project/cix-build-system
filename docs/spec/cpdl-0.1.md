@@ -604,6 +604,19 @@ chmod-operation   = "chmod", mode, source-selector ;
 source-selector = path-value | "glob", string ;
 ```
 
+Package declarations may explicitly authorize one privileged file with an
+exact mode:
+
+```cbs
+privileged file "${dest}/usr/libexec/ssh-keysign" mode 04711
+```
+
+The path must resolve to one file beneath the staged destination and may not
+be a glob. The mode must include `setuid` or `setgid`, and the staged entry
+must match it exactly. Every privileged entry without a matching declaration
+is rejected during manifest construction. The mode is retained in the typed
+manifest for installer policy decisions.
+
 Paths are interpreted by CBS, never by a shell. A glob selector is evaluated by
 CBS using the CPDL glob rules in section 4.7. A non-glob selector always denotes
 one literal path, even when it contains `*`, `?`, or `[`.

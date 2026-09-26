@@ -117,7 +117,9 @@ typedef enum {
     CBS_NODE_TOOLS,
     CBS_NODE_TOOL,
     /* stage library/file/tree from an approved build image root. */
-    CBS_NODE_STAGE
+    CBS_NODE_STAGE,
+    /* Explicit package-level authorization for one privileged file mode. */
+    CBS_NODE_PRIVILEGED
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;
@@ -515,6 +517,12 @@ typedef struct {
     /* Symlink destination, when this entry is a symbolic link. */
     const char *target;
 } CbsManifestEntry;
+typedef struct {
+    /* Canonical path relative to the staged package root. */
+    const char *path;
+    /* Exact permission bits authorized for this path. */
+    unsigned mode;
+} CbsPrivilegedAllowance;
 /* Compare manifest entries by their canonical path. */
 int cbs_manifest_compare(const void *left, const void *right);
 /* Collect and sort every supported entry beneath a staged root. */
@@ -534,6 +542,14 @@ int cbs_manifest_write_with_license_error(const char *root,
                                           const char *output,
                                           const char *license, char *error,
                                           size_t error_size);
+int cbs_manifest_write_with_license_policy_error(
+    const char *root, const char *output, const char *license,
+    const CbsPrivilegedAllowance *allowances, size_t allowance_count,
+    char *error, size_t error_size);
+int cbs_manifest_collect_with_policy_error(
+    const char *root, CbsManifestEntry **entries, size_t *count,
+    const CbsPrivilegedAllowance *allowances, size_t allowance_count,
+    char *error, size_t error_size);
 /* Build a package from an already staged tree. */
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path);

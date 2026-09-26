@@ -40,4 +40,15 @@ fi
 grep -q 'error\[CPDL-E4007\].*manifest:.*setuid and setgid' \
     "$temporary_dir/policy.err"
 
-echo 'CLI finalizer tests: PASS (mutation before manifest and fail-closed policy)'
+mkdir "$temporary_dir/workspace-allowed"
+CBS_TEST_PRIVILEGED=1 "$cbs" build tests/fixtures/privileged-allowed.cbs \
+    --arch x86_64 --staged "$temporary_dir/workspace-allowed" \
+    --output "$temporary_dir/policy-allowed.cixpkg" \
+    --finalize-command "$helper_name" --command-path "$helper_dir:/usr/bin"
+"$cbs" extract "$temporary_dir/policy-allowed.cixpkg" \
+    --into "$temporary_dir/extracted-allowed" >/dev/null
+test -f "$temporary_dir/extracted-allowed/finalized-by-embedder"
+mode=$(stat -c '%a' "$temporary_dir/extracted-allowed/finalized-by-embedder")
+test "$mode" = 4755
+
+echo 'CLI finalizer tests: PASS (mutation, privileged allowlist, and fail-closed policy)'

@@ -1,0 +1,11 @@
+package "privileged-allowed" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    privileged file "${dest}/finalized-by-embedder" mode 04755
+
+    build {
+        run "true" { expect exit 0 }
+    }
+}

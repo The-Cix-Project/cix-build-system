@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (descriptor < 0)
         return 3;
-    if (close(descriptor) != 0)
+    if (write(descriptor, "finalized\n", 10) != 10 || close(descriptor) != 0)
         return 4;
     if (getenv("CBS_TEST_PRIVILEGED") != NULL && chmod(path, 04755) != 0)
         return 5;

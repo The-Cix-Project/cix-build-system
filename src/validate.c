@@ -249,6 +249,15 @@ static int valid_mode(const char *mode) {
     return 1;
 }
 
+static int privileged_mode(const char *mode) {
+    char *end;
+    unsigned long value;
+    if (!valid_mode(mode))
+        return 0;
+    value = strtoul(mode, &end, 8);
+    return *end == '\0' && (value & 06000) != 0;
+}
+
 /* Check that a glob uses only the supported pattern vocabulary. */
 static int valid_glob(const char *glob) {
     size_t index;
@@ -848,6 +857,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_TOOLCHAIN:
     case CBS_NODE_METADATA:
     case CBS_NODE_TOOLS:
+    case CBS_NODE_PRIVILEGED:
         return 7;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
@@ -1022,6 +1032,7 @@ static void validate_package(Validator *validator) {
             const CbsNode *other = package->children[prior];
             if (other->kind == item->kind &&
                 item->kind != CBS_NODE_CAPABILITY &&
+                item->kind != CBS_NODE_PRIVILEGED &&
                 (item->kind != CBS_NODE_PHASE ||
                  strcmp(other->name, item->name) == 0))
                 validation_error(validator, item, "CPDL-E3002",
@@ -1131,6 +1142,18 @@ static void validate_package(Validator *validator) {
                         validation_error(validator, property, "CPDL-E3002",
                                          "duplicate metadata key");
             }
+            break;
+        case CBS_NODE_PRIVILEGED:
+            validate_value(validator, item, item->value);
+            if (item->value == NULL || item->value[0] == '\0' ||
+                (item->flag != CBS_TOKEN_STRING &&
+                 item->flag != CBS_TOKEN_CBS_VALUE) ||
+                strpbrk(item->value, "*?[") != NULL)
+                validation_error(validator, item, "CPDL-E3004",
+                                 "privileged file path must be one non-glob path value");
+            if (!privileged_mode(item->second_value))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "privileged file mode must include setuid or setgid");
             break;
         case CBS_NODE_PHASE:
             ++phases;

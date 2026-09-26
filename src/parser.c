@@ -1389,6 +1389,27 @@ static CbsNode *parse_tools(CbsParser *parser) {
     return node;
 }
 
+/* Parse an explicit per-path privileged-file package allowance. */
+static CbsNode *parse_privileged(CbsParser *parser) {
+    CbsToken *keyword = current(parser);
+    CbsToken *value;
+    CbsNode *node;
+
+    advance(parser);
+    consume_word(parser, "file");
+    node = cbs_node_create(CBS_NODE_PRIVILEGED, keyword->location);
+    value = consume_path(parser);
+    if (value != NULL) {
+        node->value = cbs_duplicate(value->text);
+        node->flag = value->kind;
+    }
+    consume_word(parser, "mode");
+    value = consume_kind(parser, CBS_TOKEN_MODE, "permission mode");
+    if (value != NULL)
+        node->second_value = cbs_duplicate(value->text);
+    return node;
+}
+
 /* Parse the next package-level declaration or phase. */
 static CbsNode *parse_package_item(CbsParser *parser) {
     CbsToken *keyword = current(parser);
@@ -1448,6 +1469,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_opaque_metadata(parser);
     if (is_word(parser, "tools"))
         return parse_tools(parser);
+    if (is_word(parser, "privileged"))
+        return parse_privileged(parser);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);
