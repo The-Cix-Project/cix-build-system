@@ -2,7 +2,9 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
@@ -15,5 +17,9 @@ int main(int argc, char **argv) {
     descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (descriptor < 0)
         return 3;
-    return close(descriptor) == 0 ? 0 : 4;
+    if (close(descriptor) != 0)
+        return 4;
+    if (getenv("CBS_TEST_PRIVILEGED") != NULL && chmod(path, 04755) != 0)
+        return 5;
+    return 0;
 }

@@ -222,6 +222,17 @@ static void pipeline_error(const char *recipe, const char *source,
                    CBS_DIAG_RUNTIME, message);
 }
 
+/* Report a staged-tree or packaging-policy refusal separately from a phase
+ * process failure so callers can route the two classes independently. */
+static void pipeline_manifest_error(const char *recipe, const char *source,
+                                    CbsLocation location, const char *step,
+                                    const char *detail) {
+    char message[768];
+    snprintf(message, sizeof(message), "%s: %s", step, detail);
+    cbs_diagnostic(recipe, source, location, "error", "CPDL-E4007",
+                   CBS_DIAG_RUNTIME, message);
+}
+
 static int node_uses_firmware(const CbsNode *node) {
     size_t index;
     if ((node->value != NULL &&
@@ -574,10 +585,10 @@ int cbs_build_standalone_with_events_policy_path_inputs(
             dest, manifest, declared_license(document), manifest_error,
             sizeof(manifest_error));
         if (!ok)
-            pipeline_error(recipe, text, document->location, "manifest",
-                           manifest_error[0] != '\0'
-                               ? manifest_error
-                               : "cannot write staged-tree manifest");
+            pipeline_manifest_error(
+                recipe, text, document->location, "manifest",
+                manifest_error[0] != '\0' ? manifest_error
+                                           : "cannot write staged-tree manifest");
         if (ok && !append_provenance(manifest, recipe, text, &sources,
                                      &context)) {
             pipeline_error(recipe, text, document->location, "provenance",
@@ -589,10 +600,11 @@ int cbs_build_standalone_with_events_policy_path_inputs(
                 dest, &entries, &entry_count, manifest_error,
                 sizeof(manifest_error));
             if (!ok)
-                pipeline_error(recipe, text, document->location, "manifest",
-                               manifest_error[0] != '\0'
-                                   ? manifest_error
-                                   : "cannot collect staged-tree entries");
+                pipeline_manifest_error(
+                    recipe, text, document->location, "manifest",
+                    manifest_error[0] != '\0'
+                        ? manifest_error
+                        : "cannot collect staged-tree entries");
         }
         if (ok) {
             size_t index;

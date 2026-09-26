@@ -1064,6 +1064,7 @@ The initial mandatory codes are:
 | `CPDL-E4004` | Filesystem operation failed |
 | `CPDL-E4005` | Assertion or cardinality check failed |
 | `CPDL-E4006` | Source extraction failed safety validation |
+| `CPDL-E4007` | Staged-tree or packaging-policy refusal |
 | `CPDL-E5001` | Source checksum verification failed |
 | `CPDL-E9001` | CBS internal invariant failed |
 

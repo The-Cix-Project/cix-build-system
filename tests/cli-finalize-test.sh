@@ -28,4 +28,16 @@ fi
 test ! -e "$temporary_dir/rejected.cixpkg"
 grep -q 'finalize: finalization policy rejected' "$temporary_dir/fail.err"
 
+mkdir "$temporary_dir/workspace-policy"
+if CBS_TEST_PRIVILEGED=1 "$cbs" build tests/fixtures/standalone-smoke.cbs \
+    --arch x86_64 --staged "$temporary_dir/workspace-policy" \
+    --output "$temporary_dir/policy-rejected.cixpkg" \
+    --finalize-command "$helper_name" --command-path "$helper_dir:/usr/bin" \
+    >"$temporary_dir/policy.out" 2>"$temporary_dir/policy.err"; then
+    echo 'privileged staged file unexpectedly packaged' >&2
+    exit 1
+fi
+grep -q 'error\[CPDL-E4007\].*manifest:.*setuid and setgid' \
+    "$temporary_dir/policy.err"
+
 echo 'CLI finalizer tests: PASS (mutation before manifest and fail-closed policy)'

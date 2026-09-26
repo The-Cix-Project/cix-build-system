@@ -1,6 +1,6 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.64**. `VERSION`, the release tag,
+The current repository release is **CBS v0.1.65**. `VERSION`, the release tag,
 and the binary's `--version` output are kept in sync by the release gate.
 
 This directory contains the architecture and language documentation for:
@@ -41,7 +41,7 @@ hide a changed decision; a later ADR supersedes it.
 - [Repository status and scope](repository-status.md)
 
 The current open-ticket queue is maintained in the issue tracker. The
-repository was clean at v0.1.64; historical validation records below describe
+repository was clean at v0.1.65; historical validation records below describe
 the implementation state at the time each issue was closed and are not an
 active backlog.
 

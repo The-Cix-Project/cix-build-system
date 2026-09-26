@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.64 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.65 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -787,6 +787,10 @@ runtime diagnostic emitted before the final summary.
 `artifact verification failed` means the file is truncated, corrupted, has
 been modified, uses the retired v1 format, or does not conform to CIXPKG v2.
 Never extract an artifact that does not verify.
+
+`CPDL-E4007` means the staged tree was rejected by a packaging policy after
+phase execution, such as an undeclared setuid/setgid mode or unsupported entry
+type. This is distinct from `CPDL-E4001`, which reports a process failure.
 
 For the complete grammar and diagnostic contract, see the [CPDL specification](spec/cpdl-0.1.md).
 
