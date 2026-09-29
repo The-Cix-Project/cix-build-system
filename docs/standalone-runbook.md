@@ -13,7 +13,8 @@ mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
     --arch x86_64 \
     --staged /tmp/cbs-workspace \
     --output package.cixpkg \
-    --cache /var/cache/cbs/sources
+    --cache /var/cache/cbs/sources \
+    --report package-report.json
 ./cbs verify package.cixpkg
 ./cbs extract package.cixpkg --into /tmp/cbs-extracted
 ```
@@ -28,6 +29,10 @@ workspace supplied to it:
 
 Add `--diagnostics=jsonl` for cixd or CI. Doctor never fetches sources, runs
 recipe commands, or mutates the workspace or source cache.
+
+`--report FILE` atomically writes a versioned `cbs.build-report/v1` JSON result
+for successful and failed pipeline builds, including event aggregates, package
+identity, artifact digest, and the final status.
 
 To package a directory assembled by a caller (for example, a hostbuild), use
 the same CBS CIXPKG writer directly:

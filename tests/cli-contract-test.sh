@@ -9,6 +9,7 @@ mkdir -p -- "$temporary_dir/workspace"
 
 recipe=$temporary_dir/contract.cbs
 artifact=$temporary_dir/contract.cixpkg
+report=$temporary_dir/contract-report.json
 bad_artifact=$temporary_dir/bad.cixpkg
 cat >"$recipe" <<'EOF'
 package "cli-contract" {
@@ -110,8 +111,11 @@ test "$(wc -l <"$temporary_dir/inspect.out")" -eq 2
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect.out"
 
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
-    --output "$artifact" >"$temporary_dir/build.out"
+    --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"
+grep -q '"schema":"cbs.build-report/v1"' "$report"
+grep -q '"status":0' "$report"
+grep -q '"artifact_digest":"[0-9a-f]\{64\}"' "$report"
 "$cbs" inspect "$recipe" "$artifact" >"$temporary_dir/inspect-artifact.out"
 grep -Eq '^artifact-digest [0-9a-f]{64}$' "$temporary_dir/inspect-artifact.out"
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect-artifact.out"
@@ -234,11 +238,15 @@ mkdir -p "$temporary_dir/failing-stage"
 "$cbs" build "$temporary_dir/failing-list.cbs" --arch x86_64 \
     --staged "$temporary_dir/failing-stage" \
     --output "$temporary_dir/failing.cixpkg" \
+    --report "$temporary_dir/failing-report.json" \
     >"$temporary_dir/failing-list.out" 2>"$temporary_dir/failing-list.err"
 status=$?
 set -e
 test "$status" -ne 0
 grep -q '/missing' "$temporary_dir/failing-list.err"
+grep -q '"schema":"cbs.build-report/v1"' \
+    "$temporary_dir/failing-report.json"
+grep -q '"status":1' "$temporary_dir/failing-report.json"
 
 set +e
 "$cbs" build "$temporary_dir/failing-list.cbs" --arch x86_64 \

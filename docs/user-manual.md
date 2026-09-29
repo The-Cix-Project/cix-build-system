@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.73 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.74 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -215,6 +215,8 @@ The remaining build options are for callers embedding CBS in a larger system:
 ```text
 --events human|jsonl      stream build progress; jsonl is one JSON object per
                           line, for a parent process to consume
+--report FILE             atomically persist a cbs.build-report/v1 result for
+                          successful and failed builds
 --prune-policy FILE       apply a staged-tree prune policy (strip-debug,
                           drop-static-archives, drop-libtool-archives, one
                           per line) before the manifest is generated

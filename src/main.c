@@ -212,6 +212,7 @@ static void usage(FILE *stream) {
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
         "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
+        "      [--report FILE]\n"
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
         "      [--library-path DIRS]\n"
@@ -240,6 +241,7 @@ typedef struct {
     const char *firmware_root;
     const char *command_path;
     const char *library_path;
+    const char *report_path;
     CbsInputBinding inputs[32];
     size_t input_count;
 } CbsBuildOptions;
@@ -345,6 +347,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 15;
         else if (strncmp(argument, "--library-path=", 15) == 0)
             value = argument + 15;
+        else if (strncmp(argument, "--report=", 9) == 0)
+            value = argument + 9;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
@@ -354,7 +358,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--finalize-command") == 0 ||
                  strcmp(argument, "--prune-policy") == 0 ||
                  strcmp(argument, "--firmware-root") == 0 ||
-                 strcmp(argument, "--command-path") == 0) {
+                 strcmp(argument, "--command-path") == 0 ||
+                 strcmp(argument, "--report") == 0) {
             if (++index >= argc) {
                 cli_errorf("build", "CBS-E1001", "cli", 2,
                            "option `%s` requires a value", argument);
@@ -408,6 +413,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--library-path") == 0 ||
                  strncmp(argument, "--library-path=", 15) == 0)
             options->library_path = value;
+        else if (strcmp(argument, "--report") == 0 ||
+                 strncmp(argument, "--report=", 9) == 0)
+            options->report_path = value;
         else
             options->events = value;
     }
@@ -778,6 +786,49 @@ static int run_finalize_command(const char *staged_root, void *user) {
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
+typedef struct {
+    CbsBuildEventSink primary;
+    void *primary_user;
+    CbsBuildReport report;
+} CbsReportEventState;
+
+static int report_event_sink(const CbsBuildEvent *event, void *user) {
+    CbsReportEventState *state = user;
+    if (state == NULL || event == NULL)
+        return 0;
+    if (state->primary != NULL && !state->primary(event, state->primary_user))
+        return 0;
+    return cbs_build_report_consume(event, &state->report);
+}
+
+static int write_report_file(const char *path, const CbsBuildReport *report) {
+    char temporary[4096];
+    FILE *stream;
+    int descriptor;
+    if (path == NULL || report == NULL ||
+        snprintf(temporary, sizeof(temporary), "%s.tmp-XXXXXX", path) >=
+            (int)sizeof(temporary))
+        return 0;
+    descriptor = mkstemp(temporary);
+    if (descriptor < 0)
+        return 0;
+    stream = fdopen(descriptor, "w");
+    if (stream == NULL) {
+        close(descriptor);
+        unlink(temporary);
+        return 0;
+    }
+    if (!cbs_build_report_write_json(report, stream) || fclose(stream) != 0) {
+        unlink(temporary);
+        return 0;
+    }
+    if (rename(temporary, path) != 0) {
+        unlink(temporary);
+        return 0;
+    }
+    return 1;
+}
+
 /* Build one recipe through the standalone package pipeline. */
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
@@ -787,6 +838,7 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *firmware_root,
                       const char *command_path,
                       const char *library_path,
+                      const char *report_path,
                       const CbsInputBinding *inputs, size_t input_count) {
     struct stat status;
     CbsFetchService service;
@@ -800,7 +852,14 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat firmware_status;
     struct stat input_status;
     CbsFinalizeCommand finalize_policy = {0};
+    CbsReportEventState report_state;
+    CbsBuildEventSink effective_event_sink = NULL;
+    void *effective_event_user = NULL;
+    int report_written = 1;
     memset(&service, 0, sizeof(service));
+    memset(&report_state, 0, sizeof(report_state));
+    if (report_path != NULL)
+        cbs_build_report_init(&report_state.report);
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
         cli_errorf("build", "CBS-E1004", "cli", 2,
                    "--command-path must contain only non-empty absolute "
@@ -865,6 +924,14 @@ static int build_file(const char *recipe, const char *architecture,
             return 3;
         }
     }
+    effective_event_sink = event_sink;
+    effective_event_user = event_stream;
+    if (report_path != NULL) {
+        report_state.primary = event_sink;
+        report_state.primary_user = event_stream;
+        effective_event_sink = report_event_sink;
+        effective_event_user = &report_state;
+    }
     if (cache != NULL &&
         (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
         cli_errorf(cache, "CBS-E1012", "input", 3,
@@ -886,10 +953,31 @@ static int build_file(const char *recipe, const char *architecture,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
             firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
-            library_path, inputs, input_count, event_sink, event_stream);
+            library_path, inputs, input_count, effective_event_sink,
+            effective_event_user);
     if (event_stream != stderr)
         fclose(event_stream);
     free(finalize_policy.resolved);
+    if (report_path != NULL) {
+        strncpy(report_state.report.recipe_path, recipe,
+                sizeof(report_state.report.recipe_path) - 1);
+        report_state.report.recipe_path[
+            sizeof(report_state.report.recipe_path) - 1] = '\0';
+        report_state.report.status = result ? 0 : 1;
+        if (output != NULL) {
+            strncpy(report_state.report.artifact_path, output,
+                    sizeof(report_state.report.artifact_path) - 1);
+            report_state.report.artifact_path[
+                sizeof(report_state.report.artifact_path) - 1] = '\0';
+            cbs_digest_file(output, report_state.report.artifact_digest);
+        }
+        report_written = write_report_file(report_path, &report_state.report);
+        if (!report_written) {
+            cli_errorf(report_path, "CBS-E1020", "report", 3,
+                       "cannot write report atomically");
+            return 3;
+        }
+    }
     if (!result) {
         cli_errorf("build", "CBS-E1014", "runtime", 3,
                    "recipe, staged tree, or package output was rejected");
@@ -1355,6 +1443,7 @@ int main(int argc, char **argv) {
                       options.events, options.finalize_command,
                           options.prune_policy, options.firmware_root,
                           options.command_path, options.library_path,
+                          options.report_path,
                           options.inputs, options.input_count);
         free_inputs(&options);
         return result;

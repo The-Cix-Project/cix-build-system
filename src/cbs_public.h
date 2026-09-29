@@ -35,6 +35,11 @@ typedef CbsOutputBinding CbsGlobBinding;
 
 typedef struct {
     unsigned version;
+    char build_id[64];
+    char recipe_path[4096];
+    char package_name[256];
+    char package_version[256];
+    char architecture[128];
     const char *type;
     unsigned long long sequence;
     unsigned long long timestamp_ms;
@@ -90,6 +95,7 @@ typedef struct {
     unsigned long long prune_bytes;
     int status;
     char artifact_path[4096];
+    char artifact_digest[65];
     char failure_message[1024];
 } CbsBuildReport;
 

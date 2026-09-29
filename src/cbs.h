@@ -319,6 +319,11 @@ typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *user);
 
 typedef struct {
     unsigned version;
+    char build_id[64];
+    char recipe_path[4096];
+    char package_name[256];
+    char package_version[256];
+    char architecture[128];
     unsigned long long event_count;
     unsigned long long phase_count;
     unsigned long long command_count;
@@ -339,6 +344,7 @@ typedef struct {
     unsigned long long prune_bytes;
     int status;
     char artifact_path[4096];
+    char artifact_digest[65];
     char failure_message[1024];
 } CbsBuildReport;
 
