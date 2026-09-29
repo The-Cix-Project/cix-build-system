@@ -103,6 +103,29 @@ static int fingerprint_append_tools(unsigned char **buffer, size_t *length,
     return 1;
 }
 
+/* Explain the first tool that prevents a stable fingerprint.  This is kept
+ * separate from fingerprint_append_tools so packaging can report an
+ * unavailable key without turning an otherwise valid build into a failure. */
+static int fingerprint_unavailable_reason(const CbsNode *node, char *reason,
+                                          size_t reason_size) {
+    size_t index;
+    if (node == NULL)
+        return 0;
+    if (node->kind == CBS_NODE_RUN && node->value != NULL &&
+        (strchr(node->value, '$') != NULL ||
+         (node->value[0] != '/' && strchr(node->value, '/') != NULL))) {
+        if (snprintf(reason, reason_size, "dynamic-run:%s", node->value) >=
+            (int)reason_size)
+            return 0;
+        return 1;
+    }
+    for (index = 0; index < node->child_count; ++index)
+        if (fingerprint_unavailable_reason(node->children[index], reason,
+                                           reason_size))
+            return 1;
+    return 0;
+}
+
 int cbs_build_fingerprint(const char *recipe, const char *architecture,
                           const char *command_path, const char *library_path,
                           const CbsInputBinding *inputs, size_t input_count,
@@ -315,24 +338,35 @@ done:
 /* Append provenance facts to the canonical manifest before it is packaged. */
 static int append_provenance(const char *manifest, const char *recipe,
                              const char *recipe_text, const CbsSourceSet *sources,
+                             const CbsNode *document,
                              const CbsExecutionContext *context) {
     FILE *file;
     char digest[65];
     char fingerprint[65];
+    char fingerprint_reason[256];
+    int fingerprint_available;
     size_t index;
 
     if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
         return 0;
-    if (!cbs_build_fingerprint(recipe, context->arch, context->command_path,
-                               context->library_path, context->inputs,
-                               context->input_count, fingerprint))
-        return 0;
+    fingerprint_available = cbs_build_fingerprint(
+        recipe, context->arch, context->command_path, context->library_path,
+        context->inputs, context->input_count, fingerprint);
+    fingerprint_reason[0] = '\0';
+    if (!fingerprint_available)
+        fingerprint_unavailable_reason(document, fingerprint_reason,
+                                       sizeof(fingerprint_reason));
     file = fopen(manifest, "ab");
     if (file == NULL)
         return 0;
     if (fprintf(file, "m recipe %s\n", recipe) < 0 ||
         fprintf(file, "m recipe_sha256 %s\n", digest) < 0 ||
-        fprintf(file, "m build_fingerprint %s\n", fingerprint) < 0 ||
+        (fingerprint_available
+             ? fprintf(file, "m build_fingerprint %s\n", fingerprint)
+             : fprintf(file, "m build_fingerprint unavailable\n")) < 0 ||
+        (!fingerprint_available && fingerprint_reason[0] != '\0' &&
+         fprintf(file, "m build_fingerprint_reason %s\n",
+                 fingerprint_reason) < 0) ||
         fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
         fprintf(file, "m architecture %s\n", context->arch) < 0 ||
         fprintf(file, "m toolchain %s\n", context->compiler == NULL
@@ -947,6 +981,7 @@ int cbs_build_standalone_with_events_policy_path_inputs(
                 manifest_error[0] != '\0' ? manifest_error
                                            : "cannot write staged-tree manifest");
         if (ok && !append_provenance(manifest, recipe, text, &sources,
+                                     document,
                                      &context)) {
             pipeline_error(recipe, text, document->location, "provenance",
                            "cannot append build provenance");

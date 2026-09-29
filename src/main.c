@@ -969,8 +969,11 @@ static int build_file(const char *recipe, const char *architecture,
         report_state.report.recipe_path[
             sizeof(report_state.report.recipe_path) - 1] = '\0';
         report_state.report.status = result ? 0 : 1;
-        cbs_build_fingerprint(recipe, architecture, command_path, library_path,
-                              inputs, input_count, report_state.report.fingerprint);
+    if (!cbs_build_fingerprint(recipe, architecture, command_path, library_path,
+                               inputs, input_count,
+                               report_state.report.fingerprint))
+        snprintf(report_state.report.fingerprint,
+                 sizeof(report_state.report.fingerprint), "unavailable");
         if (output != NULL) {
             strncpy(report_state.report.artifact_path, output,
                     sizeof(report_state.report.artifact_path) - 1);

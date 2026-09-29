@@ -181,6 +181,36 @@ test "$($cbs extract "$staged_artifact" --into "$staged_extract")" = \
     "extracted $staged_extract"
 test "$(cat "$staged_extract/hello")" = hello
 
+# A dynamic or relative run target is valid, but its tool identity cannot yet
+# be measured. Packaging must record that fact instead of failing the build.
+cat >"$temporary_dir/unmeasurable.cbs" <<'EOF'
+package "unmeasurable" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        write "${build}/configure" "#!/bin/sh\nexit 0\n" chmod 0755
+        run "./configure" {}
+        run "${build}/configure" {}
+        write "${dest}/done" "yes\n"
+    }
+}
+EOF
+unmeasurable_artifact="$temporary_dir/unmeasurable.cixpkg"
+unmeasurable_report="$temporary_dir/unmeasurable-report.json"
+mkdir "$temporary_dir/unmeasurable-workspace"
+"$cbs" build "$temporary_dir/unmeasurable.cbs" --arch x86_64 \
+    --staged "$temporary_dir/unmeasurable-workspace" \
+    --output "$unmeasurable_artifact" --report "$unmeasurable_report" \
+    >"$temporary_dir/unmeasurable.out"
+test "$(cat "$temporary_dir/unmeasurable.out")" = \
+    "built $unmeasurable_artifact"
+grep -q '"fingerprint":"unavailable"' "$unmeasurable_report"
+"$cbs" list "$unmeasurable_artifact" --json >"$temporary_dir/unmeasurable-list.json"
+grep -q 'build_fingerprint.*unavailable' "$temporary_dir/unmeasurable-list.json"
+grep -q 'build_fingerprint_reason.*dynamic-run:./configure' \
+    "$temporary_dir/unmeasurable-list.json"
+
 empty_stage="$temporary_dir/empty-stage"
 empty_artifact="$temporary_dir/empty-stage.cixpkg"
 mkdir "$empty_stage"
