@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 1U
+#define CBS_ABI_VERSION 2U
 #define CBS_CPDL_VERSION 1U
 #define CBS_CIXPKG_VERSION 2U
 #define CBS_CPDL_CONTRACT "0.1"
@@ -34,6 +34,14 @@ typedef struct {
     int secret;
 } CbsEnvironmentBinding;
 
+/* Verified identity for one tool supplied by an embedder.  The manifest
+ * digest is the digest of the complete verified CIXPKG manifest. */
+typedef struct {
+    const char *name;
+    const char *version;
+    const char *manifest_digest;
+} CbsToolIdentity;
+
 typedef struct {
     const char *firmware_root;
     const char *finalize_path;
@@ -43,6 +51,8 @@ typedef struct {
     int prune_strip_debug;
     int prune_drop_static_archives;
     int prune_drop_libtool_archives;
+    const CbsToolIdentity *tool_identities;
+    size_t tool_identity_count;
 } CbsFingerprintContext;
 
 typedef struct {

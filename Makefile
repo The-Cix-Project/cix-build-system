@@ -73,7 +73,7 @@ install: $(TARGET) $(LIBRARY)
 	sed -e 's|@prefix@|$(PREFIX)|g' -e 's|@version@|$(CBS_VERSION)|g' \
 		cbs.pc.in >$(DESTDIR)$(PREFIX)/lib/pkgconfig/cbs.pc
 
-src/%.o: src/%.c src/cbs.h VERSION
+src/%.o: src/%.c src/cbs.h src/cbs_public.h VERSION
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 test: $(TARGET) upstream-test recipe-test

@@ -36,6 +36,36 @@ static int valid_input_binding(const CbsInputBinding *inputs,
     return 1;
 }
 
+static int valid_digest(const char *digest) {
+    size_t index;
+    if (digest == NULL || strlen(digest) != 64)
+        return 0;
+    for (index = 0; index < 64; ++index)
+        if (!((digest[index] >= '0' && digest[index] <= '9') ||
+              (digest[index] >= 'a' && digest[index] <= 'f') ||
+              (digest[index] >= 'A' && digest[index] <= 'F')))
+            return 0;
+    return 1;
+}
+
+static int valid_tool_identities(const CbsToolIdentity *identities,
+                                 size_t count) {
+    size_t index, other;
+    if (count != 0 && identities == NULL)
+        return 0;
+    for (index = 0; index < count; ++index) {
+        if (identities[index].name == NULL || identities[index].version == NULL ||
+            identities[index].name[0] == '\0' || identities[index].version[0] == '\0' ||
+            !valid_digest(identities[index].manifest_digest))
+            return 0;
+        for (other = 0; other < index; ++other)
+            if (strcmp(identities[other].name, identities[index].name) == 0 &&
+                strcmp(identities[other].version, identities[index].version) == 0)
+                return 0;
+    }
+    return 1;
+}
+
 static int fingerprint_append(unsigned char **buffer, size_t *length,
                               size_t *capacity, const char *name,
                               const char *value) {
@@ -170,12 +200,58 @@ static int fingerprint_append_search_paths(unsigned char **buffer,
         root[size] = '\0';
         {
             struct stat status;
-            if (stat(root, &status) != 0 || !S_ISDIR(status.st_mode))
+            if (stat(root, &status) != 0) {
+                char field[128];
+                char value[4096];
+                if (errno != ENOENT ||
+                    snprintf(field, sizeof(field), "%s_root", label) >=
+                        (int)sizeof(field) ||
+                    snprintf(value, sizeof(value), "%s absent", root) >=
+                        (int)sizeof(value) ||
+                    !fingerprint_append(buffer, length, capacity, field, value))
+                    return 0;
+                cursor = end == NULL ? NULL : end + 1;
+                continue;
+            }
+            if (!S_ISDIR(status.st_mode))
                 return 0;
         }
         if (!fingerprint_append_tree(buffer, length, capacity, root, label))
             return 0;
         cursor = end == NULL ? NULL : end + 1;
+    }
+    return 1;
+}
+
+static int fingerprint_append_tool_identities(
+    unsigned char **buffer, size_t *length, size_t *capacity,
+    const CbsToolIdentity *identities, size_t count) {
+    size_t selected, index;
+    const char *last_name = "";
+    const char *last_version = "";
+    for (selected = 0; selected < count; ++selected) {
+        size_t best = SIZE_MAX;
+        char field[4096];
+        for (index = 0; index < count; ++index) {
+            int after = strcmp(identities[index].name, last_name) > 0 ||
+                        (strcmp(identities[index].name, last_name) == 0 &&
+                         strcmp(identities[index].version, last_version) > 0);
+            if (after &&
+                (best == SIZE_MAX ||
+                 strcmp(identities[index].name, identities[best].name) < 0 ||
+                 (strcmp(identities[index].name, identities[best].name) == 0 &&
+                  strcmp(identities[index].version, identities[best].version) < 0)))
+                best = index;
+        }
+        if (best == SIZE_MAX ||
+            snprintf(field, sizeof(field), "tool_identity.%s@%s",
+                     identities[best].name, identities[best].version) >=
+                (int)sizeof(field) ||
+            !fingerprint_append(buffer, length, capacity, field,
+                                identities[best].manifest_digest))
+            return 0;
+        last_name = identities[best].name;
+        last_version = identities[best].version;
     }
     return 1;
 }
@@ -206,7 +282,10 @@ int cbs_build_fingerprint_with_context(
         (input_count != 0 && inputs == NULL) ||
         (inputs != NULL && !valid_input_binding(inputs, input_count)) ||
         (material_context != NULL && material_context->environment_count != 0 &&
-         material_context->environment == NULL))
+         material_context->environment == NULL) ||
+        (material_context != NULL &&
+         !valid_tool_identities(material_context->tool_identities,
+                                material_context->tool_identity_count)))
         return 0;
     file = fopen(recipe, "rb");
     if (file == NULL || fseek(file, 0, SEEK_END) != 0 ||
@@ -289,14 +368,20 @@ int cbs_build_fingerprint_with_context(
                     goto done;
             }
         }
-        if (!fingerprint_append_search_paths(
-                &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
-                "command") ||
-            !fingerprint_append_search_paths(
-                &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
-                "library"))
+        if (material_context->tool_identity_count != 0) {
+            if (!fingerprint_append_tool_identities(
+                    &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                    material_context->tool_identities,
+                    material_context->tool_identity_count))
+                goto done;
+        } else if (!fingerprint_append_search_paths(
+                       &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                       command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
+                       "command") ||
+                   !fingerprint_append_search_paths(
+                       &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                       library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
+                       "library"))
             goto done;
         if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                 &fingerprint_capacity, "prune.strip_debug",
@@ -336,10 +421,11 @@ int cbs_build_fingerprint_with_context(
         }
     }
     selected = 0;
-    if (!fingerprint_append_tools(&fingerprint, &fingerprint_length,
-                                  &fingerprint_capacity, document,
-                                  command_path, &selected))
-        goto done;
+    if (material_context == NULL || material_context->tool_identity_count == 0)
+        if (!fingerprint_append_tools(&fingerprint, &fingerprint_length,
+                                      &fingerprint_capacity, document,
+                                      command_path, &selected))
+            goto done;
     for (selected = 0; selected < input_count; ++selected) {
         input = SIZE_MAX;
         for (size_t candidate = 0; candidate < input_count; ++candidate)

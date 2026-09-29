@@ -1,6 +1,6 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.93**. `VERSION`, the release tag,
+The current repository release is **CBS v0.1.94**. `VERSION`, the release tag,
 and the binary's `--version` output are kept in sync by the release gate.
 
 This directory contains the architecture and language documentation for:

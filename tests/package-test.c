@@ -239,6 +239,64 @@ static int run_test(const char *root) {
                                   package, excessive))
             return 1;
     }
+    /* An absent search root is a stable, hashable fact; an embedder-supplied
+     * verified identity set avoids walking those roots altogether. */
+    {
+        char command_root[4256], absent_root[4256], command[4256];
+        char command_path[4256], library_path[4256];
+        char baseline[65], changed[65];
+        char gcc_digest[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        char binutils_digest[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        CbsToolIdentity identities[2] = {
+            {"gcc", "14.2", gcc_digest}, {"binutils", "2.43", binutils_digest}};
+        CbsFingerprintContext materials = {0};
+        snprintf(command_root, sizeof(command_root), "%s/absent-commands", root);
+        snprintf(absent_root, sizeof(absent_root), "%s/absent-libraries", root);
+        snprintf(command, sizeof(command), "%s/true", command_root);
+        snprintf(command_path, sizeof(command_path), "%s", command_root);
+        snprintf(library_path, sizeof(library_path), "%s", absent_root);
+        if (mkdir(command_root, 0700) != 0)
+            return 1;
+        file = fopen(command, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("tool", file);
+        fclose(file);
+        if (chmod(command, 0755) != 0 ||
+            !cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_path, NULL, 0, &materials, baseline))
+            return 1;
+        if (mkdir(absent_root, 0700) != 0 ||
+            !cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_path, NULL, 0, &materials, changed) ||
+            strcmp(baseline, changed) == 0)
+            return 1;
+        materials.tool_identities = identities;
+        materials.tool_identity_count = 2;
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64",
+                "/missing-command-root", "/missing-library-root", NULL, 0,
+                &materials, baseline))
+            return 1;
+        {
+            CbsToolIdentity swapped[2] = {identities[1], identities[0]};
+            materials.tool_identities = swapped;
+            if (!cbs_build_fingerprint_with_context(
+                    "tests/fixtures/standalone-smoke.cbs", "x86_64",
+                    "/missing-command-root", "/missing-library-root", NULL, 0,
+                    &materials, changed) || strcmp(baseline, changed) != 0)
+                return 1;
+        }
+        gcc_digest[0] = 'c';
+        materials.tool_identities = identities;
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64",
+                "/missing-command-root", "/missing-library-root", NULL, 0,
+                &materials, changed) || strcmp(baseline, changed) == 0)
+            return 1;
+    }
     return 0;
 }
 
