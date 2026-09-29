@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <locale.h>
+#include <langinfo.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/wait.h>
@@ -1136,6 +1138,8 @@ typedef struct {
     const char *cache;
     const char *command_path;
     const char *library_path;
+    const char *report;
+    const char *events;
 } CbsDoctorOptions;
 
 static void doctor_result(const char *check, int pass, const char *message,
@@ -1158,6 +1162,77 @@ static int doctor_directory(const char *check, const char *path) {
     doctor_result(check, pass,
                   pass ? "directory is accessible and writable"
                        : "directory is missing, not writable, or not a directory",
+                  path);
+    return pass;
+}
+
+static int doctor_destination(const char *check, const char *path) {
+    struct stat status;
+    char parent[4096];
+    char *slash;
+    int pass;
+    if (path == NULL)
+        return 1;
+    if (stat(path, &status) == 0)
+        pass = S_ISREG(status.st_mode) && access(path, W_OK) == 0;
+    else {
+        if (snprintf(parent, sizeof(parent), "%s", path) >=
+            (int)sizeof(parent))
+            pass = 0;
+        else {
+            slash = strrchr(parent, '/');
+            if (slash == NULL)
+                pass = access(".", W_OK) == 0;
+            else {
+                if (slash == parent)
+                    slash[1] = '\0';
+                else
+                    *slash = '\0';
+                pass = access(parent, W_OK) == 0;
+            }
+        }
+    }
+    doctor_result(check, pass,
+                  pass ? "destination is writable or can be created"
+                       : "destination is not writable and its parent cannot create it",
+                  path);
+    return pass;
+}
+
+static int doctor_valid_architecture(const char *architecture) {
+    size_t index;
+    if (architecture == NULL || architecture[0] == '\0')
+        return 0;
+    for (index = 0; architecture[index] != '\0'; ++index)
+        if (!(isalnum((unsigned char)architecture[index]) ||
+              architecture[index] == '.' || architecture[index] == '_' ||
+              architecture[index] == '-'))
+            return 0;
+    return 1;
+}
+
+static int doctor_locale(void) {
+    const char *locale = setlocale(LC_CTYPE, "");
+    const char *codeset = locale == NULL ? NULL : nl_langinfo(CODESET);
+    int pass = codeset != NULL &&
+               (strcasecmp(codeset, "UTF-8") == 0 ||
+                strcasecmp(codeset, "UTF8") == 0);
+    doctor_result("locale", pass,
+                  pass ? "LC_CTYPE provides UTF-8" :
+                         "LC_CTYPE is unavailable or not UTF-8",
+                  codeset == NULL ? locale : codeset);
+    return pass;
+}
+
+static int doctor_temporary_space(const char *path) {
+    struct statvfs status;
+    unsigned long long available;
+    int pass = path != NULL && statvfs(path, &status) == 0;
+    available = pass ? (unsigned long long)status.f_bavail * status.f_frsize : 0;
+    pass = pass && available >= 64ULL * 1024ULL * 1024ULL;
+    doctor_result("temporary space", pass,
+                  pass ? "at least 64 MiB is available" :
+                         "temporary filesystem is unavailable or below 64 MiB",
                   path);
     return pass;
 }
@@ -1241,11 +1316,17 @@ static int parse_doctor_options(int argc, char **argv,
             value = argument + 15;
         else if (strncmp(argument, "--library-path=", 15) == 0)
             value = argument + 15;
+        else if (strncmp(argument, "--report=", 9) == 0)
+            value = argument + 9;
+        else if (strncmp(argument, "--events=", 9) == 0)
+            value = argument + 9;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--cache") == 0 ||
                  strcmp(argument, "--command-path") == 0 ||
-                 strcmp(argument, "--library-path") == 0) {
+                 strcmp(argument, "--library-path") == 0 ||
+                 strcmp(argument, "--report") == 0 ||
+                 strcmp(argument, "--events") == 0) {
             if (++index >= argc) {
                 cli_errorf("doctor", "CBS-E1001", "cli", 2,
                            "option `%s` requires a value", argument);
@@ -1274,6 +1355,12 @@ static int parse_doctor_options(int argc, char **argv,
         else if (strcmp(argument, "--command-path") == 0 ||
                  strncmp(argument, "--command-path=", 15) == 0)
             options->command_path = value;
+        else if (strcmp(argument, "--report") == 0 ||
+                 strncmp(argument, "--report=", 9) == 0)
+            options->report = value;
+        else if (strcmp(argument, "--events") == 0 ||
+                 strncmp(argument, "--events=", 9) == 0)
+            options->events = value;
         else
             options->library_path = value;
     }
@@ -1312,9 +1399,22 @@ static int doctor_file(const CbsDoctorOptions *options) {
     if (options->cache != NULL &&
         !doctor_directory("source cache", options->cache))
         ++failures;
+    if (!doctor_locale())
+        ++failures;
+    if (!doctor_temporary_space(options->staged != NULL ? options->staged :
+                                 options->cache != NULL ? options->cache : "/tmp"))
+        ++failures;
     if (options->architecture != NULL)
-        doctor_result("architecture", options->architecture[0] != '\0',
-                      "architecture is supplied", options->architecture);
+        if (!doctor_valid_architecture(options->architecture))
+            ++failures;
+    if (options->architecture != NULL)
+        doctor_result("architecture", doctor_valid_architecture(options->architecture),
+                      "architecture uses only portable identity characters",
+                      options->architecture);
+    if (options->report != NULL && !doctor_destination("report", options->report))
+        ++failures;
+    if (options->events != NULL && !doctor_destination("events", options->events))
+        ++failures;
     if (options->recipe == NULL) {
         doctor_result("runtime", 1, "no recipe supplied; static checks complete",
                       NULL);

@@ -36,4 +36,20 @@ before=$(find "$temporary_dir/workspace" -mindepth 1 -maxdepth 1 -printf '%f\n' 
 after=$(find "$temporary_dir/workspace" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
 test "$before" = "$after"
 
+set +e
+"$cbs" doctor tests/fixtures/standalone-smoke.cbs --arch 'x86_64/bad' \
+    --staged "$temporary_dir/workspace" >"$temporary_dir/arch.out"
+status=$?
+set -e
+test "$status" -eq 3
+grep -q 'doctor: FAIL architecture' "$temporary_dir/arch.out"
+
+report="$temporary_dir/report.json"
+events="$temporary_dir/events.jsonl"
+"$cbs" doctor tests/fixtures/standalone-smoke.cbs --arch x86_64 \
+    --staged "$temporary_dir/workspace" --report "$report" --events "$events" \
+    >"$temporary_dir/destinations.out"
+grep -q 'doctor: PASS report' "$temporary_dir/destinations.out"
+grep -q 'doctor: PASS events' "$temporary_dir/destinations.out"
+
 printf '%s\n' 'doctor tests: PASS (preflight, diagnostics, and no mutation)'
