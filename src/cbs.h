@@ -23,6 +23,9 @@
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
 #define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
+/* Select the same UTF-8 LC_CTYPE fallback used by archive processing. */
+const char *cbs_select_utf8_locale(void);
+
 typedef struct {
     /* Source filename or logical diagnostic origin. */
     const char *path;

@@ -1212,15 +1212,12 @@ static int doctor_valid_architecture(const char *architecture) {
 }
 
 static int doctor_locale(void) {
-    const char *locale = setlocale(LC_CTYPE, "");
-    const char *codeset = locale == NULL ? NULL : nl_langinfo(CODESET);
-    int pass = codeset != NULL &&
-               (strcasecmp(codeset, "UTF-8") == 0 ||
-                strcasecmp(codeset, "UTF8") == 0);
+    const char *locale = cbs_select_utf8_locale();
+    int pass = locale != NULL;
     doctor_result("locale", pass,
-                  pass ? "LC_CTYPE provides UTF-8" :
-                         "LC_CTYPE is unavailable or not UTF-8",
-                  codeset == NULL ? locale : codeset);
+                  pass ? "selected UTF-8 LC_CTYPE" :
+                         "no usable UTF-8 LC_CTYPE is available",
+                  locale);
     return pass;
 }
 

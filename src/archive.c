@@ -54,14 +54,22 @@ static int archive_locale_is_utf8(void) {
             strcmp(codeset, "UTF8") == 0);
 }
 
+const char *cbs_select_utf8_locale(void) {
+    const char *selected;
+    selected = setlocale(LC_CTYPE, "");
+    if (selected != NULL && archive_locale_is_utf8())
+        return selected;
+    selected = setlocale(LC_CTYPE, "C.UTF-8");
+    if (selected != NULL && archive_locale_is_utf8())
+        return selected;
+    selected = setlocale(LC_CTYPE, "C.utf8");
+    if (selected != NULL && archive_locale_is_utf8())
+        return selected;
+    return NULL;
+}
+
 static int prepare_archive_locale(void) {
-    if (setlocale(LC_CTYPE, "") != NULL && archive_locale_is_utf8())
-        return 1;
-    if (setlocale(LC_CTYPE, "C.UTF-8") != NULL && archive_locale_is_utf8())
-        return 1;
-    if (setlocale(LC_CTYPE, "C.utf8") != NULL && archive_locale_is_utf8())
-        return 1;
-    return 0;
+    return cbs_select_utf8_locale() != NULL;
 }
 
 /* Accept only archive formats supported by the package policy. */

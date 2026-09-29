@@ -11,6 +11,11 @@ mkdir -p -- "$temporary_dir/workspace" "$temporary_dir/tools"
     >"$temporary_dir/pass.out"
 grep -q 'doctor: PASS recipe:' "$temporary_dir/pass.out"
 grep -q 'doctor: PASS summary:' "$temporary_dir/pass.out"
+env -i PATH=/usr/bin:/bin "$cbs" doctor \
+    tests/fixtures/standalone-smoke.cbs --arch x86_64 \
+    --staged "$temporary_dir/workspace" >"$temporary_dir/empty-env.out"
+grep -q 'doctor: PASS locale: selected UTF-8 LC_CTYPE' \
+    "$temporary_dir/empty-env.out"
 
 cat >"$temporary_dir/missing.cbs" <<'EOF'
 package "doctor-missing" {
