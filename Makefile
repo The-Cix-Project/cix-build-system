@@ -69,7 +69,7 @@ install: $(TARGET) $(LIBRARY)
 		$(DESTDIR)$(PREFIX)/include/cbs $(DESTDIR)$(PREFIX)/lib/pkgconfig
 	$(INSTALL) -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/cbs
 	$(INSTALL) -m 644 $(LIBRARY) $(DESTDIR)$(PREFIX)/lib/$(LIBRARY)
-	$(INSTALL) -m 644 src/cbs_public.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
+	$(INSTALL) -m 644 src/cbs.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
 	sed -e 's|@prefix@|$(PREFIX)|g' -e 's|@version@|$(CBS_VERSION)|g' \
 		cbs.pc.in >$(DESTDIR)$(PREFIX)/lib/pkgconfig/cbs.pc
 
