@@ -11,6 +11,7 @@
 #include <locale.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -1139,30 +1140,12 @@ static void doctor_result(const char *check, int pass, const char *message,
 static int doctor_directory(const char *check, const char *path) {
     struct stat status;
     int pass = path != NULL && stat(path, &status) == 0 &&
-               S_ISDIR(status.st_mode);
+               S_ISDIR(status.st_mode) && access(path, W_OK) == 0;
     doctor_result(check, pass,
-                  pass ? "directory is accessible"
-                       : "directory is missing or not a directory",
+                  pass ? "directory is accessible and writable"
+                       : "directory is missing, not writable, or not a directory",
                   path);
     return pass;
-}
-
-static int doctor_search_path(const char *roots, const char *value,
-                              int executable, char *found, size_t found_size) {
-    const char *cursor = roots;
-    while (cursor != NULL) {
-        const char *end = strchr(cursor, ':');
-        size_t length = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
-        if (length > 0 && snprintf(found, found_size, "%.*s/%s", (int)length,
-                                   cursor, value) < (int)found_size &&
-            access(found, executable ? X_OK : F_OK) == 0)
-            return 1;
-        if (end == NULL)
-            break;
-        cursor = end + 1;
-    }
-    found[0] = '\0';
-    return 0;
 }
 
 static void doctor_walk(const CbsNode *node, const char *command_path,
@@ -1170,47 +1153,47 @@ static void doctor_walk(const CbsNode *node, const char *command_path,
     size_t index;
     if (node == NULL)
         return;
-    if (node->kind == CBS_NODE_RUN && node->value != NULL) {
-        char found[4096];
+    if ((node->kind == CBS_NODE_RUN || node->kind == CBS_NODE_TOOL) &&
+        node->value != NULL) {
+        char *found = NULL;
         int pass = 0;
         if (strchr(node->value, '$') != NULL) {
             doctor_result("command", 1,
                           "command is resolved during build because it uses an interpolation",
                           node->value);
             pass = 1;
-        } else if (node->value[0] == '/') {
-            pass = access(node->value, X_OK) == 0;
-            if (pass)
-                snprintf(found, sizeof(found), "%s", node->value);
-        } else
-            pass = doctor_search_path(command_path, node->value, 1, found,
-                                      sizeof(found));
+        } else if (node->value[0] != '/' && strchr(node->value, '/') != NULL) {
+            doctor_result("command", 1,
+                          "relative command is resolved after the build directory is materialized",
+                          node->value);
+            pass = 1;
+        } else {
+            found = cbs_resolve_executable(node->value, "/", command_path);
+            pass = found != NULL && access(found, X_OK) == 0;
+        }
         doctor_result("command", pass,
                       pass ? "executable resolves under the command-path policy"
                            : "executable is absent under the command-path policy",
                       node->value);
         if (!pass)
             ++*failures;
+        free(found);
     } else if (node->kind == CBS_NODE_STAGE && node->value != NULL) {
-        char found[4096];
-        int pass;
-        const char *primary = strcmp(node->name == NULL ? "" : node->name,
-                                     "library") == 0
-                                  ? library_path
-                                  : command_path;
-        pass = node->value[0] == '/' &&
-               doctor_search_path(primary, node->value + 1, 0, found,
-                                  sizeof(found));
-        if (!pass && primary != library_path)
-            pass = node->value[0] == '/' &&
-                   doctor_search_path(library_path, node->value + 1, 0, found,
-                                      sizeof(found));
+        char searched[2048];
+        char *found;
+        int pass = node->value[0] == '/';
+        int want_tree = strcmp(node->name == NULL ? "" : node->name, "tree") == 0;
+        found = pass ? cbs_resolve_stage_source(node->value, command_path,
+                                                library_path, want_tree,
+                                                searched, sizeof(searched)) : NULL;
+        pass = pass && found != NULL;
         doctor_result("stage source", pass,
                       pass ? "source exists under an approved image path"
                            : "source is absent from approved image paths",
                       node->value);
         if (!pass)
             ++*failures;
+        free(found);
     }
     for (index = 0; index < node->child_count; ++index)
         doctor_walk(node->children[index], command_path, library_path,

@@ -452,6 +452,9 @@ int cbs_library_path_is_valid(const char *library_path);
 char *cbs_resolve_executable(const char *program,
                              const char *working_directory,
                              const char *command_path);
+char *cbs_resolve_stage_source(const char *source, const char *command_path,
+                               const char *library_path, int want_tree,
+                               char *searched, size_t searched_size);
 
 /* Create, attach, and destroy nodes in the CPDL abstract syntax tree. */
 CbsNode *cbs_node_create(CbsNodeKind kind, CbsLocation location);

@@ -1339,6 +1339,23 @@ static char *stage_image_source(const char *source, const char *search_path,
     return NULL;
 }
 
+char *cbs_resolve_stage_source(const char *source, const char *command_path,
+                               const char *library_path, int want_tree,
+                               char *searched, size_t searched_size) {
+    char *candidate;
+    if (source == NULL || source[0] != '/' || searched == NULL ||
+        searched_size == 0 || !cbs_command_path_is_valid(command_path) ||
+        !cbs_library_path_is_valid(library_path))
+        return NULL;
+    searched[0] = '\0';
+    candidate = stage_image_source(source, command_path, want_tree, searched,
+                                   searched_size);
+    if (candidate == NULL)
+        candidate = stage_image_source(source, library_path, want_tree, searched,
+                                       searched_size);
+    return candidate;
+}
+
 /* Return the package named by `from`, when the syntax supplied one.  CBS
  * records this declaration in the AST; package-file ownership is verified by
  * the composing embedder, which owns the package index. */
