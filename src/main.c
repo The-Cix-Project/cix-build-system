@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <locale.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -217,6 +218,8 @@ static void usage(FILE *stream) {
         "  cbs package ROOT --name NAME --version VERSION --release N "
         "--arch ARCH --output FILE [--license SPDX]\n"
         "      [--diagnostics=jsonl]            Emit versioned machine diagnostics\n"
+        "  cbs doctor [RECIPE.cbs] [--arch ARCH] [--staged ROOT] [--cache DIR]\n"
+        "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -1016,6 +1019,241 @@ static int package_file(const CbsPackageOptions *options) {
     return 0;
 }
 
+typedef struct {
+    const char *recipe;
+    const char *architecture;
+    const char *staged;
+    const char *cache;
+    const char *command_path;
+    const char *library_path;
+} CbsDoctorOptions;
+
+static void doctor_result(const char *check, int pass, const char *message,
+                          const char *subject) {
+    if (cbs_diagnostic_is_json()) {
+        cbs_cli_diagnostic(pass ? "info" : "error",
+                           pass ? "CBS-D0000" : "CBS-D0001", "doctor",
+                           message, subject == NULL ? check : subject,
+                           pass ? 0 : 3);
+    } else {
+        printf("doctor: %s %s: %s\n", pass ? "PASS" : "FAIL", check,
+               message);
+    }
+}
+
+static int doctor_directory(const char *check, const char *path) {
+    struct stat status;
+    int pass = path != NULL && stat(path, &status) == 0 &&
+               S_ISDIR(status.st_mode);
+    doctor_result(check, pass,
+                  pass ? "directory is accessible"
+                       : "directory is missing or not a directory",
+                  path);
+    return pass;
+}
+
+static int doctor_search_path(const char *roots, const char *value,
+                              int executable, char *found, size_t found_size) {
+    const char *cursor = roots;
+    while (cursor != NULL) {
+        const char *end = strchr(cursor, ':');
+        size_t length = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
+        if (length > 0 && snprintf(found, found_size, "%.*s/%s", (int)length,
+                                   cursor, value) < (int)found_size &&
+            access(found, executable ? X_OK : F_OK) == 0)
+            return 1;
+        if (end == NULL)
+            break;
+        cursor = end + 1;
+    }
+    found[0] = '\0';
+    return 0;
+}
+
+static void doctor_walk(const CbsNode *node, const char *command_path,
+                        const char *library_path, size_t *failures) {
+    size_t index;
+    if (node == NULL)
+        return;
+    if (node->kind == CBS_NODE_RUN && node->value != NULL) {
+        char found[4096];
+        int pass = 0;
+        if (strchr(node->value, '$') != NULL) {
+            doctor_result("command", 1,
+                          "command is resolved during build because it uses an interpolation",
+                          node->value);
+            pass = 1;
+        } else if (node->value[0] == '/') {
+            pass = access(node->value, X_OK) == 0;
+            if (pass)
+                snprintf(found, sizeof(found), "%s", node->value);
+        } else
+            pass = doctor_search_path(command_path, node->value, 1, found,
+                                      sizeof(found));
+        doctor_result("command", pass,
+                      pass ? "executable resolves under the command-path policy"
+                           : "executable is absent under the command-path policy",
+                      node->value);
+        if (!pass)
+            ++*failures;
+    } else if (node->kind == CBS_NODE_STAGE && node->value != NULL) {
+        char found[4096];
+        int pass;
+        const char *primary = strcmp(node->name == NULL ? "" : node->name,
+                                     "library") == 0
+                                  ? library_path
+                                  : command_path;
+        pass = node->value[0] == '/' &&
+               doctor_search_path(primary, node->value + 1, 0, found,
+                                  sizeof(found));
+        if (!pass && primary != library_path)
+            pass = node->value[0] == '/' &&
+                   doctor_search_path(library_path, node->value + 1, 0, found,
+                                      sizeof(found));
+        doctor_result("stage source", pass,
+                      pass ? "source exists under an approved image path"
+                           : "source is absent from approved image paths",
+                      node->value);
+        if (!pass)
+            ++*failures;
+    }
+    for (index = 0; index < node->child_count; ++index)
+        doctor_walk(node->children[index], command_path, library_path,
+                    failures);
+}
+
+static int parse_doctor_options(int argc, char **argv,
+                                CbsDoctorOptions *options) {
+    int index;
+    memset(options, 0, sizeof(*options));
+    for (index = 2; index < argc; ++index) {
+        const char *argument = argv[index];
+        const char *value = NULL;
+        if (is_diagnostic_option(argument))
+            continue;
+        if (strcmp(argument, "--json") == 0) {
+            cbs_diagnostic_set_json(1);
+            continue;
+        }
+        if (argument[0] != '-' && options->recipe == NULL) {
+            options->recipe = argument;
+            continue;
+        }
+        if (strncmp(argument, "--arch=", 7) == 0)
+            value = argument + 7;
+        else if (strncmp(argument, "--staged=", 9) == 0)
+            value = argument + 9;
+        else if (strncmp(argument, "--cache=", 8) == 0)
+            value = argument + 8;
+        else if (strncmp(argument, "--command-path=", 15) == 0)
+            value = argument + 15;
+        else if (strncmp(argument, "--library-path=", 15) == 0)
+            value = argument + 15;
+        else if (strcmp(argument, "--arch") == 0 ||
+                 strcmp(argument, "--staged") == 0 ||
+                 strcmp(argument, "--cache") == 0 ||
+                 strcmp(argument, "--command-path") == 0 ||
+                 strcmp(argument, "--library-path") == 0) {
+            if (++index >= argc) {
+                cli_errorf("doctor", "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
+                return 0;
+            }
+            value = argv[index];
+        } else {
+            cli_errorf("doctor", "CBS-E1001", "cli", 2,
+                       "unknown option `%s`", argument);
+            return 0;
+        }
+        if (value == NULL || value[0] == '\0') {
+            cli_errorf("doctor", "CBS-E1001", "cli", 2,
+                       "option `%s` requires a non-empty value", argument);
+            return 0;
+        }
+        if (strcmp(argument, "--arch") == 0 ||
+            strncmp(argument, "--arch=", 7) == 0)
+            options->architecture = value;
+        else if (strcmp(argument, "--staged") == 0 ||
+                 strncmp(argument, "--staged=", 9) == 0)
+            options->staged = value;
+        else if (strcmp(argument, "--cache") == 0 ||
+                 strncmp(argument, "--cache=", 8) == 0)
+            options->cache = value;
+        else if (strcmp(argument, "--command-path") == 0 ||
+                 strncmp(argument, "--command-path=", 15) == 0)
+            options->command_path = value;
+        else
+            options->library_path = value;
+    }
+    return 1;
+}
+
+static int doctor_file(const CbsDoctorOptions *options) {
+    const char *command_path = options->command_path == NULL
+                                   ? CBS_DEFAULT_COMMAND_PATH
+                                   : options->command_path;
+    const char *library_path = options->library_path == NULL
+                                   ? CBS_DEFAULT_LIBRARY_PATH
+                                   : options->library_path;
+    CbsTokenList tokens = {0};
+    CbsNode *document = NULL;
+    char *source = NULL;
+    size_t length = 0;
+    size_t failures = 0;
+    int pass = 1;
+
+    if (!cbs_command_path_is_valid(command_path)) {
+        doctor_result("command path", 0, "invalid absolute directory list",
+                      command_path);
+        ++failures;
+    } else
+        doctor_result("command path", 1, "policy is valid", command_path);
+    if (!cbs_library_path_is_valid(library_path)) {
+        doctor_result("library path", 0, "invalid absolute directory list",
+                      library_path);
+        ++failures;
+    } else
+        doctor_result("library path", 1, "policy is valid", library_path);
+    if (options->staged != NULL &&
+        !doctor_directory("staged workspace", options->staged))
+        ++failures;
+    if (options->cache != NULL &&
+        !doctor_directory("source cache", options->cache))
+        ++failures;
+    if (options->architecture != NULL)
+        doctor_result("architecture", options->architecture[0] != '\0',
+                      "architecture is supplied", options->architecture);
+    if (options->recipe == NULL) {
+        doctor_result("runtime", 1, "no recipe supplied; static checks complete",
+                      NULL);
+        return failures == 0 ? 0 : 3;
+    }
+    if (!has_cbs_extension(options->recipe)) {
+        cli_errorf(options->recipe, "CPDL-E3004", "validation", 3,
+                   "recipe must use the .cbs extension");
+        return 3;
+    }
+    source = read_file(options->recipe, &length);
+    if (source == NULL)
+        return 3;
+    if (!cbs_lex(options->recipe, source, length, &tokens))
+        goto cleanup;
+    document = cbs_parse(options->recipe, source, length, &tokens);
+    if (document == NULL || !cbs_validate(document, options->recipe, source))
+        goto cleanup;
+    doctor_result("recipe", 1, "valid CPDL and execution plan", options->recipe);
+    doctor_walk(document, command_path, library_path, &failures);
+cleanup:
+    pass = failures == 0 && document != NULL;
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(source);
+    doctor_result("summary", pass, pass ? "all requested preflight checks pass"
+                                         : "one or more preflight checks failed",
+                  options->recipe);
+    return pass ? 0 : 3;
+}
+
 /* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
@@ -1075,6 +1313,12 @@ int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--version") == 0) {
         printf("cbs %s\n", CBS_VERSION);
         return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "doctor") == 0) {
+        CbsDoctorOptions options;
+        if (!parse_doctor_options(argc, argv, &options))
+            return 2;
+        return doctor_file(&options);
     }
     if (argc >= 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);

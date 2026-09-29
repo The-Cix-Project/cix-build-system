@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.72 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.73 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -120,6 +120,17 @@ verb, stable diagnostic code/category, message, subject, and status; located
 CPDL diagnostics additionally contain the recipe path, line, and column. This
 is the preferred boundary for CI, editors, and cixd rather than parsing human
 text. The schema identifier is `cbs.diagnostic/v1`.
+
+Use `doctor` to preflight an image and recipe without executing it:
+
+```sh
+./cbs doctor hello.cbs --arch x86_64 --staged /tmp/cbs-hello
+```
+
+Doctor checks the recipe, approved command/library search policies, declared
+run executables, stage sources, and caller-supplied directories. It never
+fetches sources, runs phases, or mutates the workspace. Use
+`--diagnostics=jsonl` when a parent process needs structured check results.
 
 ## 4. Build a package
 

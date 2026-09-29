@@ -774,6 +774,8 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
 void cbs_diagnostic_set_json(int enabled);
 /* Set the CLI verb carried by the versioned diagnostic envelope. */
 void cbs_diagnostic_set_verb(const char *verb);
+/* Return nonzero when machine-readable diagnostics are enabled. */
+int cbs_diagnostic_is_json(void);
 /* Emit one non-located CLI diagnostic in the versioned JSON envelope. */
 void cbs_cli_diagnostic(const char *severity, const char *code,
                         const char *category, const char *message,

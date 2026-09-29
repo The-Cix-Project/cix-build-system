@@ -18,6 +18,17 @@ mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
 ./cbs extract package.cixpkg --into /tmp/cbs-extracted
 ```
 
+Before spending a build cycle on a composed image, run the non-executing
+preflight. It validates the recipe, approved command/library paths, and any
+workspace supplied to it:
+
+```sh
+./cbs doctor recipe.cbs --arch x86_64 --staged /tmp/cbs-workspace
+```
+
+Add `--diagnostics=jsonl` for cixd or CI. Doctor never fetches sources, runs
+recipe commands, or mutates the workspace or source cache.
+
 To package a directory assembled by a caller (for example, a hostbuild), use
 the same CBS CIXPKG writer directly:
 

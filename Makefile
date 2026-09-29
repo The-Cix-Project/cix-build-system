@@ -92,6 +92,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/prune-test.sh ./$(TARGET)
 	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
+	./tests/doctor-test.sh ./$(TARGET)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o src/validate.o \
 		-larchive -o tests/exec-test

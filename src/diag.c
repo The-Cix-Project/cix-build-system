@@ -31,6 +31,8 @@ void cbs_diagnostic_set_json(int enabled) { json_diagnostics = enabled != 0; }
 
 void cbs_diagnostic_set_verb(const char *verb) { diagnostic_verb = verb; }
 
+int cbs_diagnostic_is_json(void) { return json_diagnostics; }
+
 /* Map an internal diagnostic category to its stable wire name. */
 static const char *category_name(CbsDiagCategory category) {
     switch (category) {
