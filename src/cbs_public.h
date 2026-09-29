@@ -1,9 +1,299 @@
 #ifndef CBS_PUBLIC_H
 #define CBS_PUBLIC_H
 
-/* Compatibility include for embedders. cbs.h is the single canonical
- * declaration surface; this wrapper prevents a second ABI copy from drifting
- * away from the implementation header again. */
-#include "cbs.h"
+/* Stable embedding surface for libcbs. Recipe-parser internals live in the
+ * repository-private cbs.h and are deliberately not part of this header. */
+#include <stddef.h>
+#include <stdio.h>
+
+#ifndef CBS_INTERNAL_HEADER
+
+#define CBS_API_VERSION 1U
+#define CBS_ABI_VERSION 1U
+#define CBS_CPDL_VERSION 1U
+#define CBS_CIXPKG_VERSION 2U
+#define CBS_CPDL_CONTRACT "0.1"
+#define CBS_CIXPKG_CONTRACT "2"
+#define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
+#define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
+
+typedef struct CbsNode CbsNode;
+
+typedef struct {
+    const char *name;
+    const char *path;
+} CbsNamedSource;
+
+typedef struct {
+    const char *name;
+    const char *path;
+} CbsInputBinding;
+
+typedef struct {
+    const char *name;
+    const char *value;
+} CbsEnvironmentBinding;
+
+typedef struct {
+    const char *firmware_root;
+    const char *finalize_path;
+    const char *tool_directory;
+    const CbsEnvironmentBinding *environment;
+    size_t environment_count;
+    int prune_strip_debug;
+    int prune_drop_static_archives;
+    int prune_drop_libtool_archives;
+} CbsFingerprintContext;
+
+typedef struct {
+    const char *name;
+    char *value;
+    int stderr_stream;
+} CbsOutputBinding;
+typedef CbsOutputBinding CbsGlobBinding;
+
+typedef int (*CbsPhaseEvent)(const char *, const char *, int, void *);
+
+typedef struct {
+    unsigned version;
+    const char *type;
+    unsigned long long sequence;
+    unsigned long long timestamp_ms;
+    const char *build_id;
+    const char *package_name;
+    const char *package_version;
+    long package_release;
+    const char *arch;
+    const char *phase;
+    const char *command;
+    const char *arguments;
+    const char *environment_names;
+    const char *working_directory;
+    const char *log_path;
+    const char *message;
+    const char *path;
+    const char *rule;
+    int status;
+    long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+    unsigned long long cpu_ms;
+    unsigned long long max_memory_bytes;
+    unsigned long long source_bytes;
+    unsigned long long fetch_duration_ms;
+    unsigned long long tree_bytes;
+    unsigned long long tree_files;
+    unsigned long long artifact_bytes;
+    unsigned long long prune_bytes;
+    unsigned long long prune_files;
+} CbsBuildEvent;
+
+typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
+
+typedef struct {
+    unsigned version;
+    char build_id[64];
+    char recipe_path[4096];
+    char package_name[256];
+    char package_version[256];
+    char architecture[128];
+    char fingerprint[65];
+    unsigned long long event_count;
+    unsigned long long phase_count;
+    unsigned long long command_count;
+    unsigned long long cache_hits;
+    unsigned long long cache_misses;
+    unsigned long long sources_fetched;
+    unsigned long long source_bytes;
+    unsigned long long fetch_duration_ms;
+    unsigned long long tree_bytes;
+    unsigned long long tree_files;
+    unsigned long long artifact_bytes;
+    unsigned long long cpu_ms;
+    unsigned long long max_memory_bytes;
+    unsigned long long duration_ms;
+    unsigned long long stdout_bytes;
+    unsigned long long stderr_bytes;
+    unsigned long long prune_files;
+    unsigned long long prune_bytes;
+    int status;
+    char artifact_path[4096];
+    char artifact_digest[65];
+    char failure_message[1024];
+} CbsBuildReport;
+
+typedef struct {
+    const char *recipe_path;
+    const char *recipe_source;
+    const char *name;
+    const char *version;
+    long release;
+    const char *arch;
+    const char *compiler;
+    const char *src;
+    const char *build;
+    const char *dest;
+    const char *case_directory;
+    const char *firmware_root;
+    long jobs;
+    const char *working_directory;
+    const char *command_path;
+    const char *library_path;
+    const CbsNode *tool_policy;
+    const char *tool_directory;
+    const char *tool_target;
+    const char *log_directory;
+    const char *current_log_path;
+    const char *current_arguments;
+    const char *current_environment_names;
+    const CbsNamedSource *sources;
+    size_t source_count;
+    const CbsEnvironmentBinding *environment;
+    size_t environment_count;
+    CbsOutputBinding *output_bindings;
+    size_t output_binding_count;
+    size_t output_binding_capacity;
+    CbsGlobBinding *glob_bindings;
+    size_t glob_binding_count;
+    size_t glob_binding_capacity;
+    CbsPhaseEvent phase_event;
+    void *phase_event_user;
+    CbsBuildEventSink event_sink;
+    void *event_sink_user;
+    const char *build_id;
+    const char *current_phase;
+    const char *current_prune_path;
+    const char *current_prune_rule;
+    unsigned long long current_prune_bytes;
+    unsigned long long event_sequence;
+    unsigned long long current_cpu_ms;
+    unsigned long long current_max_memory_bytes;
+    unsigned long long current_source_bytes;
+    unsigned long long current_fetch_duration_ms;
+    unsigned long long current_tree_bytes;
+    unsigned long long current_tree_files;
+    unsigned long long current_artifact_bytes;
+    struct {
+        long address_space_mb;
+        long file_size_mb;
+        long cpu_seconds;
+        long open_files;
+        long processes;
+    } limits;
+    const CbsInputBinding *inputs;
+    size_t input_count;
+} CbsExecutionContext;
+
+typedef int (*CbsFetchFunction)(const char *, const char *, void *, char *,
+                                size_t);
+typedef struct {
+    CbsFetchFunction fetch;
+    void *user;
+} CbsFetchService;
+
+typedef struct {
+    const char *path;
+    char type;
+    unsigned mode;
+    unsigned uid;
+    unsigned gid;
+    unsigned long long size;
+    const char *digest;
+    const char *target;
+} CbsManifestEntry;
+
+typedef int (*CbsFinalizePolicy)(const char *, void *);
+typedef struct {
+    int strip_debug;
+    int drop_static_archives;
+    int drop_libtool_archives;
+} CbsPrunePolicy;
+typedef int (*CbsDependencyObserver)(const char *, void *);
+typedef int (*CbsSignatureVerifier)(const unsigned char *, size_t, void *);
+
+const char *cbs_version(void);
+unsigned cbs_api_version(void);
+unsigned cbs_abi_version(void);
+size_t cbs_execution_context_size(void);
+
+int cbs_build_event_jsonl(const CbsBuildEvent *, void *);
+int cbs_build_event_human(const CbsBuildEvent *, void *);
+void cbs_build_report_init(CbsBuildReport *);
+int cbs_build_report_consume(const CbsBuildEvent *, void *);
+int cbs_build_report_write_json(const CbsBuildReport *, FILE *);
+
+void *cbs_allocate(size_t);
+void *cbs_reallocate(void *, size_t);
+char *cbs_duplicate(const char *);
+char *cbs_duplicate_range(const char *, size_t);
+int cbs_command_path_is_valid(const char *);
+int cbs_library_path_is_valid(const char *);
+char *cbs_resolve_executable(const char *, const char *, const char *);
+int cbs_build_fingerprint_with_context(
+    const char *, const char *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsFingerprintContext *, char[65]);
+
+int cbs_cli_fetch_service(CbsFetchService *, char *, size_t);
+int cbs_cli_fetch_service_with_ca(CbsFetchService *, char *, size_t,
+                                  const char *);
+int cbs_build_standalone(const char *, const char *, const char *, const char *,
+                         const CbsFetchService *);
+int cbs_build_standalone_with_cache(const char *, const char *, const char *,
+                                    const char *, const CbsFetchService *,
+                                    const char *);
+int cbs_build_standalone_with_cache_policy(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *);
+int cbs_build_standalone_with_events(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy_path(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    CbsBuildEventSink,
+    void *);
+int cbs_build_standalone_with_events_policy_path_inputs(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, CbsBuildEventSink, void *);
+int cbs_build_package(const char *, const char *, const char *);
+int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
+
+int cbs_workspace_prepare(const char *);
+int cbs_manifest_collect(const char *, CbsManifestEntry **, size_t *);
+int cbs_manifest_collect_with_error(const char *, CbsManifestEntry **,
+                                    size_t *, char *, size_t);
+void cbs_manifest_entries_destroy(CbsManifestEntry *, size_t);
+int cbs_manifest_write(const char *, const char *);
+int cbs_manifest_compare(const void *, const void *);
+int cbs_cixpkg_verify_tree(const char *, char *, size_t);
+int cbs_cixpkg_extract(const char *, const char *);
+int cbs_cixpkg_write_tree(const char *, const char *, const char *,
+                          const char *);
+int cbs_cixpkg_write_tree_with_flags(const char *, const char *, const char *,
+                                     const char *, unsigned);
+int cbs_cixpkg_compress(const char *, const char *);
+int cbs_cixpkg_decompress(const char *, const char *);
+int cbs_cixpkg_list(const char *, FILE *, int);
+int cbs_cixpkg_list_filtered(const char *, FILE *, int, const char *, char);
+int cbs_cixpkg_diff(const char *, const char *, FILE *, int, int *);
+int cbs_cixpkg_diff_filtered(const char *, const char *, FILE *, int, int *,
+                             const char *, char);
+int cbs_compare_files(const char *, const char *);
+int cbs_install_atomic(const char *, const char *, unsigned);
+
+int cbs_is_forbidden_executable(const char *);
+int cbs_is_forbidden_compiler(const char *);
+int cbs_observe_dependencies(CbsDependencyObserver, const char *, void *);
+int cbs_verify_signature(CbsSignatureVerifier, const char *, void *);
+
+#endif
 
 #endif

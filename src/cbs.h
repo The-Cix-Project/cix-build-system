@@ -11,6 +11,8 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#define CBS_INTERNAL_HEADER 1
+#include "cbs_public.h"
 
 #define CBS_API_VERSION 1U
 #define CBS_ABI_VERSION 1U

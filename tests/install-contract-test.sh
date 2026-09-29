@@ -9,6 +9,8 @@ test -f "$root/usr/bin/cbs"
 test -f "$root/usr/lib/libcbs.a"
 test -f "$root/usr/include/cbs/cbs.h"
 test -f "$root/usr/lib/pkgconfig/cbs.pc"
+! grep -q '^struct CbsNode {' "$root/usr/include/cbs/cbs.h"
+! grep -q 'cbs_parse' "$root/usr/include/cbs/cbs.h"
 
 capabilities=$("$root/usr/bin/cbs" --capabilities)
 printf '%s\n' "$capabilities" | grep -q '"schema":"cbs.capabilities/v1"'

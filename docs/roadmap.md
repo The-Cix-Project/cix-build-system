@@ -1,6 +1,6 @@
 # CBS delivery roadmap
 
-Release baseline: **v0.1.87**. The complete standalone implementation and its
+Release baseline: **v0.1.88**. The complete standalone implementation and its
 regression gate are shipped and tagged. The improvement queue is tracked in
 the issue tracker; the workstreams below describe ownership boundaries and
 future qualification, not unclaimed defects in the current release.
