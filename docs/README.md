@@ -17,6 +17,23 @@ in the repository brand directory.
 - **CPDL** — the Cix Package Definition Language; and
 - **CIXPKG** — the distributable package format produced and consumed by CBS.
 
+## Start here
+
+- New users: [CBS user manual](user-manual.md)
+- Operators and CI: [standalone runbook](standalone-runbook.md)
+- Recipe authors: [CPDL 0.1 specification](spec/cpdl-0.1.md) and the
+  [test coverage map](cpdl-test-coverage.md)
+- cixd developers: [integration contract](integration-contract.md) and the
+  [library boundary guide](library.md)
+- Maintainers: [CI and release guide](guides/ci-and-release.md)
+- cixd embedders: [cixd embedding guide](guides/cixd-embedding.md)
+- Release and qualification work: [repository status](repository-status.md),
+  [roadmap](roadmap.md), and the [integration blockers](integration-blockers.md)
+
+The practical guides are deliberately separate from the normative
+specifications: guides explain a workflow, while specifications define the
+accepted language, artifact format, and machine-readable contracts.
+
 ## Architecture decisions
 
 - [ADR-0001: Establish CBS and CPDL](adr/0001-cbs-and-cpdl.md)

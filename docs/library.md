@@ -39,3 +39,21 @@ macros with `cbs_api_version()`, `cbs_abi_version()`, and
 and executable together from the same CBS tag, then rerun the install
 contract test. The supported cixd integration remains the child-process
 contract; the static archive is an explicit embedding option.
+
+## Consumer checklist
+
+1. Obtain `cbs/cbs.h`, `libcbs.a`, and the `cbs --version` binary from one
+   release tag.
+2. Check `cbs_api_version()`, `cbs_abi_version()`, and
+   `cbs_execution_context_size()` before constructing an execution context.
+3. Provide explicit command and library roots, fetch/finalization policy, and
+   event/report sinks; do not rely on the host environment.
+4. If supplying `CbsToolIdentity` values, cover every reachable file in the
+   composed command/library roots and pass the identical set used to compute a
+   pre-build fingerprint.
+5. Treat event callback pointers as borrowed for the callback duration and
+   reject a build if the event sink rejects an event.
+
+The process boundary remains the simplest integration: invoke `cbs`, consume
+`--events jsonl` and `--report`, and retain the verified artifact. Use the
+static API when the caller needs synchronous in-process policy control.

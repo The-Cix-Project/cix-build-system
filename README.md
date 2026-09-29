@@ -28,8 +28,9 @@ every declared source has verified successfully.
 
 ## Build
 
-TCC is the only supported compiler. The runtime also requires libcurl (for
-standalone HTTP/HTTPS source fetching), libarchive, and zstd:
+TCC is the only supported compiler. The executable links against libarchive,
+zstd, and the platform dynamic-loader library. Cache misses in standalone
+source fetching additionally require a compatible runtime libcurl:
 
 ```text
 make

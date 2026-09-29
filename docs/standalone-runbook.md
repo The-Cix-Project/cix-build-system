@@ -41,6 +41,12 @@ executing the recipe. It excludes workspace paths and timestamps, so cixd can
 use it for lookup decisions while retaining storage, authorization, and
 eviction ownership outside CBS.
 
+For a recipe with `tools { ... }`, give `fingerprint` and `build` the same
+`--command-path` roots. CBS fingerprints each declared alias using the resolved
+target digest and alias name; it does not fingerprint the temporary
+`.cbs-tools` directory. For composed tool roots, repeat the same complete
+`--tool-identity NAME@VERSION=MANIFEST_SHA256` set on both commands.
+
 To package a directory assembled by a caller (for example, a hostbuild), use
 the same CBS CIXPKG writer directly:
 

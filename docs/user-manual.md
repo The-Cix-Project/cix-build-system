@@ -24,12 +24,15 @@ apply it.
 - [Complete authoring workflow](#12-the-complete-authoring-workflow)
 - [Security and language limits](#16-security-and-deliberate-language-limits)
 - [Troubleshooting](#17-troubleshooting)
+- [cixd and embedding guide](guides/cixd-embedding.md)
 
 ## 1. Prerequisites
 
-CBS is currently built with TCC and links against libarchive, zstd, libcurl,
-and the platform dynamic-loader library. On a Debian-like system, install the
-compiler and development packages before building:
+CBS is currently built with TCC and links against libarchive, zstd, and the
+platform dynamic-loader library. Standalone source-cache misses load libcurl
+at runtime. On a Debian-like system, install the compiler, archive, and zstd
+development packages before building; install `libcurl4` when fetching sources
+directly:
 
 ```text
 sudo apt install tcc libarchive-dev libzstd-dev libcurl4
@@ -266,6 +269,10 @@ The remaining build options are for callers embedding CBS in a larger system:
                           default is `/usr/bin:/bin`, with no ambient PATH
 --library-path DIRS       use these colon-separated absolute library roots;
                           default is `/usr/lib:/lib:/usr/lib64:/lib64`
+--tool-identity NAME@VERSION=MANIFEST_SHA256
+                          repeatable verified identities for composed tool
+                          roots; use the same complete set for build and
+                          fingerprint
 ```
 
 Cache hits do not require network access. Source archives are extracted by
@@ -441,6 +448,9 @@ package "name" {
     toolchain "gcc" {                       # explicit compiler exception
         reason "why the exception is required"
     }
+    tools {                                  # optional CBS-owned aliases
+        compiler alias "cc"
+    }
 
     prepare { ... }
     configure { ... }
@@ -452,7 +462,8 @@ package "name" {
 
 Package items must appear in this order: identity (`version`, `release`,
 `format`, optional `license`), `upstream`, `sources`, `requires`, execution
-metadata (`build_image`, `capability`, `toolchain`, `metadata`), then phases.
+metadata (`build_image`, `capability`, `toolchain`, `metadata`, `tools`), then
+phases.
 Each phase is optional and may appear once. Empty phases are allowed
 syntactically but are rarely useful. Declaration order is always `prepare`,
 `configure`, `build`, `check`, `install`; CBS executes `check` after `install`
@@ -468,6 +479,9 @@ provider. `build_image` and `capability` describe what an orchestrator must
 provide; standalone CBS validates and reports them but cannot create an image
 or grant a Linux capability. A compiler other than TCC is rejected unless the
 recipe declares the matching `toolchain` exception with a non-empty reason.
+A `tools` alias is materialized before phases run; its resolved target digest,
+not the workspace-specific wrapper directory, participates in the build
+fingerprint.
 
 ### 11.1 Values and interpolation
 
