@@ -24,10 +24,23 @@ cat >"$root/consumer.c" <<'EOF'
 #include <cbs/cbs.h>
 
 int main(void) {
+    CbsBuildEvent event = {0};
+    CbsBuildReport report;
+    FILE *stream;
     if (cbs_api_version() != CBS_API_VERSION ||
         cbs_abi_version() != CBS_ABI_VERSION ||
-        cbs_execution_context_size() == 0 || cbs_version()[0] == '\0')
+        cbs_execution_context_size() != sizeof(CbsExecutionContext) ||
+        sizeof(event) == 0 || sizeof(report) == 0 || cbs_version()[0] == '\0')
         return 1;
+    cbs_build_report_init(&report);
+    event.version = 1;
+    event.type = "build-begin";
+    if (!cbs_build_report_consume(&event, &report))
+        return 1;
+    stream = tmpfile();
+    if (stream == NULL || !cbs_build_report_write_json(&report, stream))
+        return 1;
+    fclose(stream);
     puts("consumer-ok");
     return 0;
 }

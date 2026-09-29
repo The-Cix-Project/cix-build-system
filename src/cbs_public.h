@@ -37,14 +37,10 @@ typedef struct {
 } CbsOutputBinding;
 typedef CbsOutputBinding CbsGlobBinding;
 
+typedef int (*CbsPhaseEvent)(const char *, const char *, int, void *);
+
 typedef struct {
     unsigned version;
-    char build_id[64];
-    char recipe_path[4096];
-    char package_name[256];
-    char package_version[256];
-    char architecture[128];
-    char fingerprint[65];
     const char *type;
     unsigned long long sequence;
     unsigned long long timestamp_ms;
@@ -74,12 +70,19 @@ typedef struct {
     unsigned long long tree_files;
     unsigned long long artifact_bytes;
     unsigned long long prune_bytes;
+    unsigned long long prune_files;
 } CbsBuildEvent;
 
 typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *);
 
 typedef struct {
     unsigned version;
+    char build_id[64];
+    char recipe_path[4096];
+    char package_name[256];
+    char package_version[256];
+    char architecture[128];
+    char fingerprint[65];
     unsigned long long event_count;
     unsigned long long phase_count;
     unsigned long long command_count;
@@ -138,7 +141,7 @@ typedef struct {
     CbsGlobBinding *glob_bindings;
     size_t glob_binding_count;
     size_t glob_binding_capacity;
-    int (*phase_event)(const char *, const char *, int, void *);
+    CbsPhaseEvent phase_event;
     void *phase_event_user;
     CbsBuildEventSink event_sink;
     void *event_sink_user;
