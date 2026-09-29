@@ -59,6 +59,48 @@ static int run_test(const char *root) {
                  extracted) >= (int)sizeof(extracted_file) ||
         access(extracted_file, F_OK) != 0)
         return 1;
+
+    /* Every embedder material that participates in execution must perturb the
+     * key, while environment ordering remains canonical. */
+    {
+        char firmware[4256], finalizer[4256];
+        char baseline[65], changed[65];
+        CbsEnvironmentBinding environment[2] = {
+            {"CBS_TEST_B", "two"}, {"CBS_TEST_A", "one"}};
+        CbsFingerprintContext materials = {0};
+        snprintf(firmware, sizeof(firmware), "%s/firmware", root);
+        snprintf(finalizer, sizeof(finalizer), "%s/finalizer", root);
+        file = fopen(firmware, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("firmware", file);
+        fclose(file);
+        file = fopen(finalizer, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("finalizer", file);
+        fclose(file);
+        if (!cbs_build_fingerprint("tests/fixtures/standalone-smoke.cbs",
+                                   "x86_64", NULL, NULL, NULL, 0, baseline) ||
+            !cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                NULL, 0, &materials, changed) ||
+            strcmp(baseline, changed) == 0)
+            return 1;
+        materials.firmware_root = firmware;
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                NULL, 0, &materials, changed) || strcmp(baseline, changed) == 0)
+            return 1;
+        materials.finalize_path = finalizer;
+        materials.environment = environment;
+        materials.environment_count = 2;
+        materials.prune_strip_debug = 1;
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                NULL, 0, &materials, changed) || strcmp(baseline, changed) == 0)
+            return 1;
+    }
     if (!flip_byte(build, 32) ||
         cbs_cixpkg_verify_tree(build, NULL, 0))
         return 1;

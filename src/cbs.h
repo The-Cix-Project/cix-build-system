@@ -215,6 +215,17 @@ typedef struct {
 } CbsEnvironmentBinding;
 
 typedef struct {
+    const char *firmware_root;
+    const char *finalize_path;
+    const char *tool_directory;
+    const CbsEnvironmentBinding *environment;
+    size_t environment_count;
+    int prune_strip_debug;
+    int prune_drop_static_archives;
+    int prune_drop_libtool_archives;
+} CbsFingerprintContext;
+
+typedef struct {
     /* Package name declared by the recipe. */
     const char *name;
     /* Package version declared by the recipe. */
@@ -787,6 +798,11 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
                           const char *command_path, const char *library_path,
                           const CbsInputBinding *inputs, size_t input_count,
                           char output[65]);
+int cbs_build_fingerprint_with_context(
+    const char *recipe, const char *architecture, const char *command_path,
+    const char *library_path, const CbsInputBinding *inputs,
+    size_t input_count, const CbsFingerprintContext *context,
+    char output[65]);
 /* Collect dependencies selected by one named phase. */
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);

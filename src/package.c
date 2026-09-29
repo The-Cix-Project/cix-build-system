@@ -126,10 +126,10 @@ static int fingerprint_unavailable_reason(const CbsNode *node, char *reason,
     return 0;
 }
 
-int cbs_build_fingerprint(const char *recipe, const char *architecture,
-                          const char *command_path, const char *library_path,
-                          const CbsInputBinding *inputs, size_t input_count,
-                          char output[65]) {
+int cbs_build_fingerprint_with_context(
+    const char *recipe, const char *architecture, const char *command_path,
+    const char *library_path, const CbsInputBinding *inputs, size_t input_count,
+    const CbsFingerprintContext *material_context, char output[65]) {
     FILE *file = NULL;
     long size;
     char *source = NULL;
@@ -150,7 +150,9 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
                                        ? CBS_DEFAULT_LIBRARY_PATH
                                        : library_path) ||
         (input_count != 0 && inputs == NULL) ||
-        (inputs != NULL && !valid_input_binding(inputs, input_count)))
+        (inputs != NULL && !valid_input_binding(inputs, input_count)) ||
+        (material_context != NULL && material_context->environment_count != 0 &&
+         material_context->environment == NULL))
         return 0;
     file = fopen(recipe, "rb");
     if (file == NULL || fseek(file, 0, SEEK_END) != 0 ||
@@ -180,7 +182,10 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
         !fingerprint_append(&fingerprint, &fingerprint_length,
                             &fingerprint_capacity, "cbs_version", CBS_VERSION) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
-                            &fingerprint_capacity, "cpdl_version", CBS_CPDL_CONTRACT) ||
+                            &fingerprint_capacity, "cpdl_version", "1") ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "cpdl_contract",
+                            CBS_CPDL_CONTRACT) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
                             &fingerprint_capacity, "cixpkg_version", CBS_CIXPKG_CONTRACT) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
@@ -194,6 +199,67 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
                             library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH
                                                  : library_path))
         goto done;
+    if (material_context != NULL) {
+        const char *paths[] = {material_context->firmware_root,
+                               material_context->finalize_path,
+                               material_context->tool_directory};
+        const char *names[] = {"firmware_root", "finalize_path",
+                               "tool_directory"};
+        size_t material;
+        for (material = 0; material < 3; ++material) {
+            char digest_field[96], material_digest[65];
+            struct stat status;
+            if (paths[material] == NULL)
+                continue;
+            if (!fingerprint_append(&fingerprint, &fingerprint_length,
+                                    &fingerprint_capacity, names[material],
+                                    paths[material]))
+                goto done;
+            if (stat(paths[material], &status) == 0 && S_ISREG(status.st_mode) &&
+                cbs_digest_file(paths[material], material_digest)) {
+                snprintf(digest_field, sizeof(digest_field), "%s_sha256",
+                         names[material]);
+                if (!fingerprint_append(&fingerprint, &fingerprint_length,
+                                        &fingerprint_capacity, digest_field,
+                                        material_digest))
+                    goto done;
+            }
+        }
+        if (!fingerprint_append(&fingerprint, &fingerprint_length,
+                                &fingerprint_capacity, "prune.strip_debug",
+                                material_context->prune_strip_debug ? "1" : "0") ||
+            !fingerprint_append(&fingerprint, &fingerprint_length,
+                                &fingerprint_capacity, "prune.drop_static_archives",
+                                material_context->prune_drop_static_archives ? "1" : "0") ||
+            !fingerprint_append(&fingerprint, &fingerprint_length,
+                                &fingerprint_capacity, "prune.drop_libtool_archives",
+                                material_context->prune_drop_libtool_archives ? "1" : "0"))
+            goto done;
+        {
+            const char *last_environment = "";
+            for (selected = 0;
+                 selected < material_context->environment_count; ++selected) {
+            size_t selected_input = SIZE_MAX;
+            size_t candidate;
+            for (candidate = 0; candidate < material_context->environment_count;
+                 ++candidate)
+                if (material_context->environment[candidate].name != NULL &&
+                    strcmp(material_context->environment[candidate].name,
+                           last_environment) > 0 &&
+                    (selected_input == SIZE_MAX ||
+                     strcmp(material_context->environment[candidate].name,
+                            material_context->environment[selected_input].name) < 0))
+                    selected_input = candidate;
+            if (selected_input == SIZE_MAX ||
+                !fingerprint_append(&fingerprint, &fingerprint_length,
+                                    &fingerprint_capacity,
+                                    material_context->environment[selected_input].name,
+                                    material_context->environment[selected_input].value))
+                goto done;
+            last_environment = material_context->environment[selected_input].name;
+            }
+        }
+    }
     selected = 0;
     if (!fingerprint_append_tools(&fingerprint, &fingerprint_length,
                                   &fingerprint_capacity, document,
@@ -227,6 +293,15 @@ done:
     cbs_token_list_destroy(&tokens);
     free(fingerprint);
     return ok;
+}
+
+int cbs_build_fingerprint(const char *recipe, const char *architecture,
+                          const char *command_path, const char *library_path,
+                          const CbsInputBinding *inputs, size_t input_count,
+                          char output[65]) {
+    return cbs_build_fingerprint_with_context(
+        recipe, architecture, command_path, library_path, inputs, input_count,
+        NULL, output);
 }
 
 /* Select the compiler dependency that applies to the build pipeline. */
@@ -339,19 +414,36 @@ done:
 static int append_provenance(const char *manifest, const char *recipe,
                              const char *recipe_text, const CbsSourceSet *sources,
                              const CbsNode *document,
-                             const CbsExecutionContext *context) {
+                             const CbsExecutionContext *context,
+                             const char *finalize_path,
+                             const CbsPrunePolicy *prune_policy) {
     FILE *file;
     char digest[65];
     char fingerprint[65];
     char fingerprint_reason[256];
     int fingerprint_available;
+    CbsFingerprintContext fingerprint_context;
     size_t index;
 
     if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
         return 0;
-    fingerprint_available = cbs_build_fingerprint(
+    memset(&fingerprint_context, 0, sizeof(fingerprint_context));
+    fingerprint_context.firmware_root = context->firmware_root;
+    fingerprint_context.finalize_path = finalize_path;
+    fingerprint_context.tool_directory = context->tool_directory;
+    fingerprint_context.environment = context->environment;
+    fingerprint_context.environment_count = context->environment_count;
+    if (prune_policy != NULL) {
+        fingerprint_context.prune_strip_debug = prune_policy->strip_debug;
+        fingerprint_context.prune_drop_static_archives =
+            prune_policy->drop_static_archives;
+        fingerprint_context.prune_drop_libtool_archives =
+            prune_policy->drop_libtool_archives;
+    }
+    fingerprint_available = cbs_build_fingerprint_with_context(
         recipe, context->arch, context->command_path, context->library_path,
-        context->inputs, context->input_count, fingerprint);
+        context->inputs, context->input_count, &fingerprint_context,
+        fingerprint);
     fingerprint_reason[0] = '\0';
     if (!fingerprint_available)
         fingerprint_unavailable_reason(document, fingerprint_reason,
@@ -982,7 +1074,9 @@ int cbs_build_standalone_with_events_policy_path_inputs(
                                            : "cannot write staged-tree manifest");
         if (ok && !append_provenance(manifest, recipe, text, &sources,
                                      document,
-                                     &context)) {
+                                     &context, finalize == NULL ? NULL
+                                                                : "callback",
+                                     prune_policy)) {
             pipeline_error(recipe, text, document->location, "provenance",
                            "cannot append build provenance");
             ok = 0;

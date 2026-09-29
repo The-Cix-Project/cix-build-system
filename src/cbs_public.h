@@ -33,6 +33,17 @@ typedef struct {
 } CbsEnvironmentBinding;
 
 typedef struct {
+    const char *firmware_root;
+    const char *finalize_path;
+    const char *tool_directory;
+    const CbsEnvironmentBinding *environment;
+    size_t environment_count;
+    int prune_strip_debug;
+    int prune_drop_static_archives;
+    int prune_drop_libtool_archives;
+} CbsFingerprintContext;
+
+typedef struct {
     const char *name;
     char *value;
     int stderr_stream;
@@ -216,6 +227,9 @@ char *cbs_duplicate_range(const char *, size_t);
 int cbs_command_path_is_valid(const char *);
 int cbs_library_path_is_valid(const char *);
 char *cbs_resolve_executable(const char *, const char *, const char *);
+int cbs_build_fingerprint_with_context(
+    const char *, const char *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsFingerprintContext *, char[65]);
 
 int cbs_cli_fetch_service(CbsFetchService *, char *, size_t);
 int cbs_cli_fetch_service_with_ca(CbsFetchService *, char *, size_t,

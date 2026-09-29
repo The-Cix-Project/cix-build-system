@@ -857,12 +857,14 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat firmware_status;
     struct stat input_status;
     CbsFinalizeCommand finalize_policy = {0};
+    CbsFingerprintContext fingerprint_context;
     CbsReportEventState report_state;
     CbsBuildEventSink effective_event_sink = NULL;
     void *effective_event_user = NULL;
     int report_written = 1;
     memset(&service, 0, sizeof(service));
     memset(&report_state, 0, sizeof(report_state));
+    memset(&fingerprint_context, 0, sizeof(fingerprint_context));
     if (report_path != NULL)
         cbs_build_report_init(&report_state.report);
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
@@ -962,16 +964,25 @@ static int build_file(const char *recipe, const char *architecture,
             effective_event_user);
     if (event_stream != stderr)
         fclose(event_stream);
-    free(finalize_policy.resolved);
     if (report_path != NULL) {
         strncpy(report_state.report.recipe_path, recipe,
                 sizeof(report_state.report.recipe_path) - 1);
         report_state.report.recipe_path[
             sizeof(report_state.report.recipe_path) - 1] = '\0';
         report_state.report.status = result ? 0 : 1;
-    if (!cbs_build_fingerprint(recipe, architecture, command_path, library_path,
-                               inputs, input_count,
-                               report_state.report.fingerprint))
+    fingerprint_context.firmware_root = firmware_root;
+    fingerprint_context.finalize_path = finalize_policy.resolved;
+    if (prune_policy_path != NULL) {
+        fingerprint_context.prune_strip_debug = prune_policy.strip_debug;
+        fingerprint_context.prune_drop_static_archives =
+            prune_policy.drop_static_archives;
+        fingerprint_context.prune_drop_libtool_archives =
+            prune_policy.drop_libtool_archives;
+    }
+    if (!cbs_build_fingerprint_with_context(
+            recipe, architecture, command_path, library_path, inputs,
+            input_count, &fingerprint_context,
+            report_state.report.fingerprint))
         snprintf(report_state.report.fingerprint,
                  sizeof(report_state.report.fingerprint), "unavailable");
         if (output != NULL) {
@@ -988,6 +999,7 @@ static int build_file(const char *recipe, const char *architecture,
             return 3;
         }
     }
+    free(finalize_policy.resolved);
     if (!result) {
         cli_errorf("build", "CBS-E1014", "runtime", 3,
                    "recipe, staged tree, or package output was rejected");
