@@ -1354,7 +1354,46 @@ typedef struct {
     const char *architecture;
     const char *command_path;
     const char *library_path;
+    CbsInputBinding inputs[32];
+    size_t input_count;
 } CbsFingerprintOptions;
+
+static int add_fingerprint_input(CbsFingerprintOptions *options,
+                                 const char *spec) {
+    const char *separator = strchr(spec, '=');
+    char *name;
+    if (options->input_count == 32 || separator == NULL || separator == spec ||
+        separator[1] != '/') {
+        cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                   "--input requires NAME=ABSOLUTE_FILE with a portable name");
+        return 0;
+    }
+    name = cbs_duplicate_range(spec, (size_t)(separator - spec));
+    if (!valid_input_name(name)) {
+        free(name);
+        cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                   "--input requires NAME=ABSOLUTE_FILE with a portable name");
+        return 0;
+    }
+    for (size_t index = 0; index < options->input_count; ++index)
+        if (strcmp(options->inputs[index].name, name) == 0) {
+            cli_errorf("fingerprint", "CBS-E1002", "cli", 2,
+                       "duplicate --input name `%s`", name);
+            free(name);
+            return 0;
+        }
+    options->inputs[options->input_count].name = name;
+    options->inputs[options->input_count].path = cbs_duplicate(separator + 1);
+    ++options->input_count;
+    return 1;
+}
+
+static void free_fingerprint_inputs(CbsFingerprintOptions *options) {
+    for (size_t index = 0; index < options->input_count; ++index) {
+        free((void *)options->inputs[index].name);
+        free((void *)options->inputs[index].path);
+    }
+}
 
 static int parse_fingerprint_options(int argc, char **argv,
                                      CbsFingerprintOptions *options) {
@@ -1371,6 +1410,16 @@ static int parse_fingerprint_options(int argc, char **argv,
         const char *value = NULL;
         if (is_diagnostic_option(argument))
             continue;
+        if (strncmp(argument, "--input=", 8) == 0) {
+            if (!add_fingerprint_input(options, argument + 8))
+                return 0;
+            continue;
+        }
+        if (strcmp(argument, "--input") == 0) {
+            if (++index >= argc || !add_fingerprint_input(options, argv[index]))
+                return 0;
+            continue;
+        }
         if (strncmp(argument, "--arch=", 7) == 0)
             value = argument + 7;
         else if (strncmp(argument, "--command-path=", 15) == 0)
@@ -1408,16 +1457,19 @@ static int parse_fingerprint_options(int argc, char **argv,
     return 1;
 }
 
-static int fingerprint_file(const CbsFingerprintOptions *options) {
+static int fingerprint_file(CbsFingerprintOptions *options) {
     char fingerprint[65];
     if (!cbs_build_fingerprint(
             options->recipe, options->architecture, options->command_path,
-            options->library_path, NULL, 0, fingerprint)) {
+            options->library_path, options->inputs, options->input_count,
+            fingerprint)) {
         cli_errorf(options->recipe, "CBS-E1021", "fingerprint", 3,
                    "cannot validate recipe or measure all build inputs");
+        free_fingerprint_inputs(options);
         return 3;
     }
     printf("fingerprint %s\n", fingerprint);
+    free_fingerprint_inputs((CbsFingerprintOptions *)options);
     return 0;
 }
 

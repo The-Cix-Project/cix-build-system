@@ -68,6 +68,41 @@ static int fingerprint_append(unsigned char **buffer, size_t *length,
     return 1;
 }
 
+static int fingerprint_append_tools(unsigned char **buffer, size_t *length,
+                                    size_t *capacity, const CbsNode *node,
+                                    const char *command_path, size_t *number) {
+    size_t index;
+    if (node == NULL)
+        return 1;
+    if (node->kind == CBS_NODE_RUN && node->value != NULL) {
+        char field[128], digest[65];
+        char *resolved;
+        if (strchr(node->value, '$') != NULL ||
+            (node->value[0] != '/' && strchr(node->value, '/') != NULL))
+            return 0;
+        resolved = node->value[0] == '/' ? cbs_duplicate(node->value) :
+            cbs_resolve_executable(node->value, "/",
+                                   command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path);
+        if (resolved == NULL || !cbs_digest_file(resolved, digest)) {
+            free(resolved);
+            return 0;
+        }
+        if (snprintf(field, sizeof(field), "tool.%zu", (*number)++) >=
+                (int)sizeof(field) ||
+            !fingerprint_append(buffer, length, capacity, field, digest)) {
+            free(resolved);
+            return 0;
+        }
+        free(resolved);
+    }
+    for (index = 0; index < node->child_count; ++index)
+        if (!fingerprint_append_tools(buffer, length, capacity,
+                                      node->children[index], command_path,
+                                      number))
+            return 0;
+    return 1;
+}
+
 int cbs_build_fingerprint(const char *recipe, const char *architecture,
                           const char *command_path, const char *library_path,
                           const CbsInputBinding *inputs, size_t input_count,
@@ -75,7 +110,8 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
     FILE *file = NULL;
     long size;
     char *source = NULL;
-    size_t length, input, normalized;
+    size_t length, input, normalized, selected;
+    const char *last_input_name = "";
     CbsTokenList tokens = {0};
     CbsNode *document = NULL;
     unsigned char *fingerprint = NULL;
@@ -121,9 +157,9 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
         !fingerprint_append(&fingerprint, &fingerprint_length,
                             &fingerprint_capacity, "cbs_version", CBS_VERSION) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
-                            &fingerprint_capacity, "cpdl_version", "0.1") ||
+                            &fingerprint_capacity, "cpdl_version", CBS_CPDL_CONTRACT) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
-                            &fingerprint_capacity, "cixpkg_version", "2") ||
+                            &fingerprint_capacity, "cixpkg_version", CBS_CIXPKG_CONTRACT) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
                             &fingerprint_capacity, "architecture", architecture) ||
         !fingerprint_append(&fingerprint, &fingerprint_length,
@@ -135,7 +171,21 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
                             library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH
                                                  : library_path))
         goto done;
-    for (input = 0; input < input_count; ++input) {
+    selected = 0;
+    if (!fingerprint_append_tools(&fingerprint, &fingerprint_length,
+                                  &fingerprint_capacity, document,
+                                  command_path, &selected))
+        goto done;
+    for (selected = 0; selected < input_count; ++selected) {
+        input = SIZE_MAX;
+        for (size_t candidate = 0; candidate < input_count; ++candidate)
+            if (strcmp(inputs[candidate].name, last_input_name) > 0 &&
+                (input == SIZE_MAX ||
+                 strcmp(inputs[candidate].name, inputs[input].name) < 0))
+                input = candidate;
+        if (input == SIZE_MAX)
+            goto done;
+        last_input_name = inputs[input].name;
         char input_digest[65];
         char field[256];
         if (!cbs_digest_file(inputs[input].path, input_digest) ||

@@ -114,6 +114,20 @@ fingerprint_two=$("$cbs" fingerprint "$recipe" --arch x86_64)
 test "$fingerprint_one" = "$fingerprint_two"
 printf '%s\n' "$fingerprint_one" | grep -Eq \
     '^fingerprint [0-9a-f]{64}$'
+printf one >"$temporary_dir/input-one"
+printf two >"$temporary_dir/input-two"
+ordered_one=$("$cbs" fingerprint "$recipe" --arch x86_64 \
+    --input first="$temporary_dir/input-one" \
+    --input second="$temporary_dir/input-two")
+ordered_two=$("$cbs" fingerprint "$recipe" --arch x86_64 \
+    --input second="$temporary_dir/input-two" \
+    --input first="$temporary_dir/input-one")
+test "$ordered_one" = "$ordered_two"
+printf changed >"$temporary_dir/input-one"
+changed_input=$("$cbs" fingerprint "$recipe" --arch x86_64 \
+    --input first="$temporary_dir/input-one" \
+    --input second="$temporary_dir/input-two")
+test "$ordered_one" != "$changed_input"
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"
