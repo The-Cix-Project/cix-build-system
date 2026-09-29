@@ -32,6 +32,8 @@ typedef struct {
 typedef struct {
     const char *name;
     const char *value;
+    /* Nonzero values are represented by a stable marker in fingerprints. */
+    int secret;
 } CbsEnvironmentBinding;
 
 typedef struct {

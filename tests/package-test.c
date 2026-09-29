@@ -100,6 +100,16 @@ static int run_test(const char *root) {
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
                 NULL, 0, &materials, changed) || strcmp(baseline, changed) == 0)
             return 1;
+        environment[0].secret = 1;
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                NULL, 0, &materials, baseline))
+            return 1;
+        environment[0].value = "changed-secret";
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                NULL, 0, &materials, changed) || strcmp(baseline, changed) != 0)
+            return 1;
     }
     if (!flip_byte(build, 32) ||
         cbs_cixpkg_verify_tree(build, NULL, 0))

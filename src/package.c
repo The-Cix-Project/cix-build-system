@@ -126,6 +126,76 @@ static int fingerprint_unavailable_reason(const CbsNode *node, char *reason,
     return 0;
 }
 
+/* Add a canonical digest of a directory tree.  The root path is deliberately
+ * excluded so temporary workspace names do not poison reproducibility. */
+static int fingerprint_append_tree(unsigned char **buffer, size_t *length,
+                                   size_t *capacity, const char *root,
+                                   const char *label, int executable_only,
+                                   int library_only) {
+    CbsManifestEntry *entries = NULL;
+    size_t count = 0, index;
+    if (root == NULL || !cbs_manifest_collect(root, &entries, &count))
+        return 0;
+    for (index = 0; index < count; ++index) {
+        char field[4096], value[8192];
+        char absolute[8192];
+        const CbsManifestEntry *entry = &entries[index];
+        if (entry->type != 'f' ||
+            (executable_only &&
+             (snprintf(absolute, sizeof(absolute), "%s/%s", root,
+                       entry->path) >= (int)sizeof(absolute) ||
+              access(absolute, X_OK) != 0)) ||
+            (library_only && strstr(entry->path, ".so") == NULL))
+            continue;
+        if (snprintf(field, sizeof(field), "%s.%s", label, entry->path) >=
+                (int)sizeof(field) ||
+            snprintf(value, sizeof(value), "%c|%u|%llu|%s|%s", entry->type,
+                     entry->mode, entry->size,
+                     entry->digest == NULL ? "" : entry->digest,
+                     entry->target == NULL ? "" : entry->target) >=
+                (int)sizeof(value) ||
+            !fingerprint_append(buffer, length, capacity, field, value)) {
+            cbs_manifest_entries_destroy(entries, count);
+            return 0;
+        }
+    }
+    cbs_manifest_entries_destroy(entries, count);
+    return 1;
+}
+
+static int fingerprint_append_search_paths(unsigned char **buffer,
+                                           size_t *length, size_t *capacity,
+                                           const char *paths, const char *label,
+                                           int executable_only, int library_only) {
+    const char *cursor = paths;
+    while (cursor != NULL && *cursor != '\0') {
+        const char *end = strchr(cursor, ':');
+        size_t size = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
+        char root[4096];
+        if (size == 0 || size >= sizeof(root))
+            return 0;
+        memcpy(root, cursor, size);
+        root[size] = '\0';
+        {
+            struct stat status;
+            if (stat(root, &status) != 0 || !S_ISDIR(status.st_mode)) {
+                cursor = end == NULL ? NULL : end + 1;
+                continue;
+            }
+        }
+        if (!fingerprint_append_tree(buffer, length, capacity, root, label,
+                                     executable_only, library_only)) {
+            char field[128];
+            if (snprintf(field, sizeof(field), "%s.unavailable", label) >=
+                    (int)sizeof(field) ||
+                !fingerprint_append(buffer, length, capacity, field, root))
+                return 0;
+        }
+        cursor = end == NULL ? NULL : end + 1;
+    }
+    return 1;
+}
+
 int cbs_build_fingerprint_with_context(
     const char *recipe, const char *architecture, const char *command_path,
     const char *library_path, const CbsInputBinding *inputs, size_t input_count,
@@ -211,12 +281,22 @@ int cbs_build_fingerprint_with_context(
             struct stat status;
             if (paths[material] == NULL)
                 continue;
+            if (stat(paths[material], &status) != 0)
+                goto done;
+            if (S_ISDIR(status.st_mode)) {
+                if (!fingerprint_append_tree(
+                        &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                        paths[material], names[material], 0, 0))
+                    goto done;
+                continue;
+            }
             if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                     &fingerprint_capacity, names[material],
-                                    paths[material]))
+                                    paths[material]) ||
+                !S_ISREG(status.st_mode) ||
+                !cbs_digest_file(paths[material], material_digest))
                 goto done;
-            if (stat(paths[material], &status) == 0 && S_ISREG(status.st_mode) &&
-                cbs_digest_file(paths[material], material_digest)) {
+            {
                 snprintf(digest_field, sizeof(digest_field), "%s_sha256",
                          names[material]);
                 if (!fingerprint_append(&fingerprint, &fingerprint_length,
@@ -225,6 +305,15 @@ int cbs_build_fingerprint_with_context(
                     goto done;
             }
         }
+        if (!fingerprint_append_search_paths(
+                &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
+                "command", 1, 0) ||
+            !fingerprint_append_search_paths(
+                &fingerprint, &fingerprint_length, &fingerprint_capacity,
+                library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
+                "library", 0, 1))
+            goto done;
         if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                 &fingerprint_capacity, "prune.strip_debug",
                                 material_context->prune_strip_debug ? "1" : "0") ||
@@ -254,7 +343,9 @@ int cbs_build_fingerprint_with_context(
                 !fingerprint_append(&fingerprint, &fingerprint_length,
                                     &fingerprint_capacity,
                                     material_context->environment[selected_input].name,
-                                    material_context->environment[selected_input].value))
+                                    material_context->environment[selected_input].secret
+                                        ? "<secret>"
+                                        : material_context->environment[selected_input].value))
                 goto done;
             last_environment = material_context->environment[selected_input].name;
             }
@@ -448,6 +539,9 @@ static int append_provenance(const char *manifest, const char *recipe,
     if (!fingerprint_available)
         fingerprint_unavailable_reason(document, fingerprint_reason,
                                        sizeof(fingerprint_reason));
+    if (!fingerprint_available && fingerprint_reason[0] == '\0')
+        snprintf(fingerprint_reason, sizeof(fingerprint_reason),
+                 "fingerprint-material-unavailable");
     file = fopen(manifest, "ab");
     if (file == NULL)
         return 0;

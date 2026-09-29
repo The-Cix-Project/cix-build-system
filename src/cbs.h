@@ -217,6 +217,7 @@ typedef struct {
     const char *name;
     /* Environment value supplied by the recipe or embedder. */
     const char *value;
+    int secret;
 } CbsEnvironmentBinding;
 
 typedef struct {
