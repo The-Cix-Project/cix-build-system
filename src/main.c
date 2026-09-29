@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -22,6 +23,23 @@ static int has_cbs_extension(const char *path) {
     return length >= 4 && strcmp(path + length - 4, ".cbs") == 0;
 }
 
+static int is_diagnostic_option(const char *argument) {
+    return argument != NULL &&
+           (strcmp(argument, "--diagnostics=jsonl") == 0 ||
+            strcmp(argument, "--diagnostics=json") == 0);
+}
+
+static void cli_errorf(const char *subject, const char *code,
+                       const char *category, int status, const char *format,
+                       ...) {
+    char message[1024];
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(message, sizeof(message), format, arguments);
+    va_end(arguments);
+    cbs_cli_diagnostic("error", code, category, message, subject, status);
+}
+
 /* Read and normalize one recipe file for the lexer. */
 static char *read_file(const char *path, size_t *length) {
     FILE *file;
@@ -31,37 +49,29 @@ static char *read_file(const char *path, size_t *length) {
 
     file = fopen(path, "rb");
     if (file == NULL) {
-        fprintf(
-            stderr,
-            "%s:1:1: error[CPDL-E1001]: lex: cannot read recipe; errno=%d\n",
-            path, errno);
+        cli_errorf(path, "CPDL-E1001", "lex", 3,
+                   "cannot read recipe; errno=%d", errno);
         return NULL;
     }
     if (fseek(file, 0, SEEK_END) != 0 || (size = ftell(file)) < 0 ||
         fseek(file, 0, SEEK_SET) != 0) {
-        fprintf(
-            stderr,
-            "%s:1:1: error[CPDL-E1001]: lex: cannot measure recipe; errno=%d\n",
-            path, errno);
+        cli_errorf(path, "CPDL-E1001", "lex", 3,
+                   "cannot measure recipe; errno=%d", errno);
         fclose(file);
         return NULL;
     }
     source = cbs_allocate((size_t)size + 1);
     read_length = fread(source, 1, (size_t)size, file);
     if (read_length != (size_t)size || ferror(file)) {
-        fprintf(stderr,
-                "%s:1:1: error[CPDL-E1001]: lex: cannot read complete recipe; "
-                "errno=%d\n",
-                path, errno);
+        cli_errorf(path, "CPDL-E1001", "lex", 3,
+                   "cannot read complete recipe; errno=%d", errno);
         fclose(file);
         free(source);
         return NULL;
     }
     if (fclose(file) != 0) {
-        fprintf(
-            stderr,
-            "%s:1:1: error[CPDL-E1001]: lex: cannot close recipe; errno=%d\n",
-            path, errno);
+        cli_errorf(path, "CPDL-E1001", "lex", 3,
+                   "cannot close recipe; errno=%d", errno);
         free(source);
         return NULL;
     }
@@ -94,10 +104,8 @@ static int validate_file(const char *path) {
 
     memset(&tokens, 0, sizeof(tokens));
     if (!has_cbs_extension(path)) {
-        fprintf(stderr,
-                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the "
-                ".cbs extension\n",
-                path);
+        cli_errorf(path, "CPDL-E3004", "validation", 3,
+                   "recipe must use the .cbs extension");
         return 3;
     }
     source = read_file(path, &length);
@@ -132,30 +140,25 @@ static int extract_file(const char *artifact, const char *destination) {
 
     if (destination == NULL || destination[0] == '\0' ||
         strlen(destination) > sizeof(parent) - 32) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4002]: invalid extraction destination\n",
-                destination == NULL ? "(null)" : destination);
+        cli_errorf(destination == NULL ? "(null)" : destination,
+                   "CIXPKG-E4002", "artifact", 4,
+                   "invalid extraction destination");
         return 4;
     }
     if (lstat(destination, &status) == 0) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4003]: extraction destination already "
-                "exists\n",
-                destination);
+        cli_errorf(destination, "CIXPKG-E4003", "artifact", 4,
+                   "extraction destination already exists");
         return 4;
     }
     if (errno != ENOENT) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4002]: cannot inspect extraction "
-                "destination; errno=%d\n",
-                destination, errno);
+        cli_errorf(destination, "CIXPKG-E4002", "artifact", 4,
+                   "cannot inspect extraction destination; errno=%d", errno);
         return 4;
     }
     if (snprintf(parent, sizeof(parent), "%s", destination) >=
         (int)sizeof(parent)) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4002]: invalid extraction destination\n",
-                destination);
+        cli_errorf(destination, "CIXPKG-E4002", "artifact", 4,
+                   "invalid extraction destination");
         return 4;
     }
     slash = strrchr(parent, '/');
@@ -168,35 +171,27 @@ static int extract_file(const char *artifact, const char *destination) {
     }
     if (stat(parent, &status) != 0) {
         if (errno == ENOENT)
-            fprintf(stderr,
-                    "%s: error[CIXPKG-E4004]: extraction destination "
-                    "parent does not exist\n",
-                    destination);
+            cli_errorf(destination, "CIXPKG-E4004", "artifact", 4,
+                       "extraction destination parent does not exist");
         else
-            fprintf(stderr,
-                    "%s: error[CIXPKG-E4002]: extraction destination "
-                    "parent is unavailable; errno=%d\n",
-                    destination, errno);
+            cli_errorf(destination, "CIXPKG-E4002", "artifact", 4,
+                       "extraction destination parent is unavailable; errno=%d",
+                       errno);
         return 4;
     }
     if (!S_ISDIR(status.st_mode)) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4002]: extraction destination parent is "
-                "not a directory\n",
-                destination);
+        cli_errorf(destination, "CIXPKG-E4002", "artifact", 4,
+                   "extraction destination parent is not a directory");
         return 4;
     }
     if (!cbs_cixpkg_verify_tree(artifact, NULL, 0)) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4001]: artifact verification failed\n",
-                artifact);
+        cli_errorf(artifact, "CIXPKG-E4001", "artifact", 4,
+                   "artifact verification failed");
         return 4;
     }
     if (!cbs_cixpkg_extract(artifact, destination)) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4002]: could not populate extraction "
-                "destination\n",
-                destination);
+        cli_errorf(destination, "CIXPKG-E4002", "artifact", 4,
+                   "could not populate extraction destination");
         return 4;
     }
     printf("extracted %s\n", destination);
@@ -221,6 +216,7 @@ static void usage(FILE *stream) {
         "      [--library-path DIRS]\n"
         "  cbs package ROOT --name NAME --version VERSION --release N "
         "--arch ARCH --output FILE [--license SPDX]\n"
+        "      [--diagnostics=jsonl]            Emit versioned machine diagnostics\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -262,21 +258,22 @@ static int add_input(CbsBuildOptions *options, const char *spec) {
     int valid;
     if (options->input_count == 32 || separator == NULL || separator == spec ||
         separator[1] == '\0' || separator[1] != '/') {
-        fprintf(stderr,
-                "build: --input requires NAME=ABSOLUTE_FILE with a portable name\n");
+        cli_errorf("build", "CBS-E1001", "cli", 2,
+                   "--input requires NAME=ABSOLUTE_FILE with a portable name");
         return 0;
     }
     name = cbs_duplicate_range(spec, (size_t)(separator - spec));
     valid = valid_input_name(name);
     if (!valid) {
         free(name);
-        fprintf(stderr,
-                "build: --input requires NAME=ABSOLUTE_FILE with a portable name\n");
+        cli_errorf("build", "CBS-E1001", "cli", 2,
+                   "--input requires NAME=ABSOLUTE_FILE with a portable name");
         return 0;
     }
     for (size_t index = 0; index < options->input_count; ++index) {
         if (strcmp(options->inputs[index].name, name) == 0) {
-            fprintf(stderr, "build: duplicate --input name `%s`\n", name);
+            cli_errorf("build", "CBS-E1002", "cli", 2,
+                       "duplicate --input name `%s`", name);
             free(name);
             return 0;
         }
@@ -300,13 +297,15 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
     int index;
     memset(options, 0, sizeof(*options));
     if (argc < 3 || strcmp(argv[1], "build") != 0) {
-        fprintf(stderr, "build: missing recipe\n");
+        cli_errorf("build", "CBS-E1003", "cli", 2, "missing recipe");
         return 0;
     }
     options->recipe = argv[2];
     for (index = 3; index < argc; ++index) {
         const char *argument = argv[index];
         const char *value = NULL;
+        if (is_diagnostic_option(argument))
+            continue;
         if (strncmp(argument, "--input=", 8) == 0) {
             if (!add_input(options, argument + 8))
                 return 0;
@@ -315,7 +314,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         if (strcmp(argument, "--input") == 0) {
             if (++index >= argc || !add_input(options, argv[index])) {
                 if (index >= argc)
-                    fprintf(stderr, "build: option `--input` requires a value\n");
+                    cli_errorf("build", "CBS-E1001", "cli", 2,
+                               "option `--input` requires a value");
                 return 0;
             }
             continue;
@@ -353,25 +353,26 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--firmware-root") == 0 ||
                  strcmp(argument, "--command-path") == 0) {
             if (++index >= argc) {
-                fprintf(stderr, "build: option `%s` requires a value\n",
-                        argument);
+                cli_errorf("build", "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
                 return 0;
             }
             value = argv[index];
         } else if (strcmp(argument, "--library-path") == 0) {
             if (++index >= argc) {
-                fprintf(stderr, "build: option `%s` requires a value\n",
-                        argument);
+                cli_errorf("build", "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
                 return 0;
             }
             value = argv[index];
         } else {
-            fprintf(stderr, "build: unknown option `%s`\n", argument);
+            cli_errorf("build", "CBS-E1001", "cli", 2,
+                       "unknown option `%s`", argument);
             return 0;
         }
         if (value == NULL || value[0] == '\0') {
-            fprintf(stderr, "build: option `%s` requires a non-empty value\n",
-                    argument);
+            cli_errorf("build", "CBS-E1001", "cli", 2,
+                       "option `%s` requires a non-empty value", argument);
             return 0;
         }
         if (strcmp(argument, "--arch") == 0 ||
@@ -408,7 +409,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             options->events = value;
     }
     if (options->architecture == NULL || options->staged == NULL) {
-        fprintf(stderr, "build: --arch and --staged are required\n");
+        cli_errorf("build", "CBS-E1001", "cli", 2,
+                   "--arch and --staged are required");
         return 0;
     }
     return 1;
@@ -418,9 +420,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
 static int verify_file(const char *path) {
     char identity[129];
     if (!cbs_cixpkg_verify_tree(path, identity, sizeof(identity))) {
-        fprintf(stderr,
-                "%s: error[CIXPKG-E4001]: artifact verification failed\n",
-                path);
+        cli_errorf(path, "CIXPKG-E4001", "artifact", 4,
+                   "artifact verification failed");
         return 4;
     }
     printf("%s: verified CIXPKG (identity=%s)\n", path, identity);
@@ -474,10 +475,8 @@ static int explain_file(const char *path, int json) {
     CbsBuildMetadata metadata;
 
     if (!has_cbs_extension(path)) {
-        fprintf(stderr,
-                "%s:1:1: error[CPDL-E3004]: validation: recipe must use the "
-                ".cbs extension\n",
-                path);
+        cli_errorf(path, "CPDL-E3004", "validation", 3,
+                   "recipe must use the .cbs extension");
         return 3;
     }
     source = read_file(path, &length);
@@ -800,13 +799,15 @@ static int build_file(const char *recipe, const char *architecture,
     CbsFinalizeCommand finalize_policy = {0};
     memset(&service, 0, sizeof(service));
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
-        fprintf(stderr, "build: --command-path must contain only non-empty "
-                        "absolute directories without . or .. components\n");
+        cli_errorf("build", "CBS-E1004", "cli", 2,
+                   "--command-path must contain only non-empty absolute "
+                   "directories without . or .. components");
         return 2;
     }
     if (library_path != NULL && !cbs_library_path_is_valid(library_path)) {
-        fprintf(stderr, "build: --library-path must contain only non-empty "
-                        "absolute directories without . or .. components\n");
+        cli_errorf("build", "CBS-E1005", "cli", 2,
+                   "--library-path must contain only non-empty absolute "
+                   "directories without . or .. components");
         return 2;
     }
     if (finalize_command != NULL) {
@@ -814,29 +815,31 @@ static int build_file(const char *recipe, const char *architecture,
             finalize_command,
             command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path);
         if (finalize_policy.resolved == NULL) {
-            fprintf(stderr, "build: finalize command is not executable under "
-                            "the approved command-path policy\n");
+            cli_errorf("build", "CBS-E1006", "policy", 2,
+                       "finalize command is not executable under the approved "
+                       "command-path policy");
             return 2;
         }
     }
     if (prune_policy_path != NULL &&
         !cbs_prune_policy_load(prune_policy_path, &prune_policy,
                                prune_error, sizeof(prune_error))) {
-        fprintf(stderr, "build: %s\n", prune_error);
+        cli_errorf("build", "CBS-E1007", "policy", 2, "%s", prune_error);
         return 2;
     }
     if (firmware_root != NULL &&
         (stat(firmware_root, &firmware_status) != 0 ||
          !S_ISDIR(firmware_status.st_mode))) {
-        fprintf(stderr, "build: firmware root is not an accessible directory: %s\n",
-                firmware_root);
+        cli_errorf(firmware_root, "CBS-E1008", "input", 3,
+                   "firmware root is not an accessible directory");
         return 3;
     }
     for (size_t input_index = 0; input_index < input_count; ++input_index) {
         if (stat(inputs[input_index].path, &input_status) != 0 ||
             !S_ISREG(input_status.st_mode)) {
-            fprintf(stderr, "build: input `%s` is not an accessible regular file: %s\n",
-                    inputs[input_index].name, inputs[input_index].path);
+            cli_errorf(inputs[input_index].path, "CBS-E1009", "input", 3,
+                       "input `%s` is not an accessible regular file",
+                       inputs[input_index].name);
             return 3;
         }
     }
@@ -846,25 +849,29 @@ static int build_file(const char *recipe, const char *architecture,
         else if (strcmp(events, "jsonl") == 0)
             event_sink = cbs_build_event_jsonl;
         else {
-            fprintf(stderr, "build: --events must be human or jsonl\n");
+            cli_errorf("build", "CBS-E1010", "cli", 2,
+                       "--events must be human or jsonl");
             return 2;
         }
         event_fd = dup(fileno(stderr));
         if (event_fd < 0 || (event_stream = fdopen(event_fd, "w")) == NULL) {
             if (event_fd >= 0)
                 close(event_fd);
-            fprintf(stderr, "build: cannot initialize event reporter\n");
+            cli_errorf("build", "CBS-E1011", "internal", 3,
+                       "cannot initialize event reporter");
             return 3;
         }
     }
     if (cache != NULL &&
         (stat(cache, &status) != 0 || !S_ISDIR(status.st_mode))) {
-        fprintf(stderr, "%s: cache directory is not accessible\n", cache);
+        cli_errorf(cache, "CBS-E1012", "input", 3,
+                   "cache directory is not accessible");
         return 3;
     }
     if (ca_file != NULL &&
         (stat(ca_file, &status) != 0 || !S_ISREG(status.st_mode))) {
-        fprintf(stderr, "%s: CA file is not accessible\n", ca_file);
+        cli_errorf(ca_file, "CBS-E1013", "input", 3,
+                   "CA file is not accessible");
         return 3;
     }
     /* Cache hits must work in a network-less image without libcurl. */
@@ -881,8 +888,8 @@ static int build_file(const char *recipe, const char *architecture,
         fclose(event_stream);
     free(finalize_policy.resolved);
     if (!result) {
-        fprintf(stderr, "build failed: recipe, staged tree, or package output "
-                        "was rejected\n");
+        cli_errorf("build", "CBS-E1014", "runtime", 3,
+                   "recipe, staged tree, or package output was rejected");
         return 3;
     }
     if (output == NULL)
@@ -908,13 +915,15 @@ static int parse_package_options(int argc, char **argv,
     int index;
     memset(options, 0, sizeof(*options));
     if (argc < 3 || strcmp(argv[1], "package") != 0) {
-        fprintf(stderr, "package: missing staged tree\n");
+        cli_errorf("package", "CBS-E1015", "cli", 2, "missing staged tree");
         return 0;
     }
     options->root = argv[2];
     for (index = 3; index < argc; ++index) {
         const char *argument = argv[index];
         const char *value = NULL;
+        if (is_diagnostic_option(argument))
+            continue;
         if (strncmp(argument, "--name=", 7) == 0)
             value = argument + 7;
         else if (strncmp(argument, "--version=", 10) == 0)
@@ -934,18 +943,19 @@ static int parse_package_options(int argc, char **argv,
                  strcmp(argument, "--output") == 0 ||
                  strcmp(argument, "--license") == 0) {
             if (++index >= argc) {
-                fprintf(stderr, "package: option `%s` requires a value\n",
-                        argument);
+                cli_errorf("package", "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
                 return 0;
             }
             value = argv[index];
         } else {
-            fprintf(stderr, "package: unknown option `%s`\n", argument);
+            cli_errorf("package", "CBS-E1001", "cli", 2,
+                       "unknown option `%s`", argument);
             return 0;
         }
         if (value == NULL || value[0] == '\0') {
-            fprintf(stderr, "package: option `%s` requires a non-empty value\n",
-                    argument);
+            cli_errorf("package", "CBS-E1001", "cli", 2,
+                       "option `%s` requires a non-empty value", argument);
             return 0;
         }
         if (strcmp(argument, "--name") == 0 ||
@@ -959,7 +969,8 @@ static int parse_package_options(int argc, char **argv,
             char *end;
             options->release = strtol(value, &end, 10);
             if (*end != '\0' || options->release <= 0) {
-                fprintf(stderr, "package: --release must be positive\n");
+                cli_errorf("package", "CBS-E1016", "validation", 2,
+                           "--release must be positive");
                 return 0;
             }
             options->release_set = 1;
@@ -975,8 +986,8 @@ static int parse_package_options(int argc, char **argv,
     if (options->name == NULL || options->version == NULL ||
         !options->release_set || options->architecture == NULL ||
         options->output == NULL) {
-        fprintf(stderr,
-                "package: --name, --version, --release, --arch, and --output are required\n");
+        cli_errorf("package", "CBS-E1017", "cli", 2,
+                   "--name, --version, --release, --arch, and --output are required");
         return 0;
     }
     return 1;
@@ -986,8 +997,8 @@ static int package_file(const CbsPackageOptions *options) {
     CbsPackageIdentity identity;
     struct stat status;
     if (stat(options->root, &status) != 0 || !S_ISDIR(status.st_mode)) {
-        fprintf(stderr, "package: staged tree is not an accessible directory: %s\n",
-                options->root);
+        cli_errorf(options->root, "CBS-E1018", "input", 3,
+                   "staged tree is not an accessible directory");
         return 3;
     }
     memset(&identity, 0, sizeof(identity));
@@ -997,7 +1008,8 @@ static int package_file(const CbsPackageOptions *options) {
     identity.architecture = options->architecture;
     if (!cbs_package_staged_tree(options->root, &identity, options->license,
                                  options->output)) {
-        fprintf(stderr, "package failed: staged tree or package output was rejected\n");
+        cli_errorf("package", "CBS-E1019", "runtime", 3,
+                   "staged tree or package output was rejected");
         return 3;
     }
     printf("packaged %s\n", options->output);
@@ -1049,6 +1061,12 @@ static int inspect_file(const char *path, const char *artifact) {
 
 /* Dispatch the command-line request selected by the user. */
 int main(int argc, char **argv) {
+    int argument_index;
+    for (argument_index = 1; argument_index < argc; ++argument_index)
+        if (is_diagnostic_option(argv[argument_index]))
+            cbs_diagnostic_set_json(1);
+    if (argc > 1)
+        cbs_diagnostic_set_verb(argv[1]);
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         usage(stdout);
@@ -1058,22 +1076,30 @@ int main(int argc, char **argv) {
         printf("cbs %s\n", CBS_VERSION);
         return 0;
     }
-    if (argc == 3 && strcmp(argv[1], "verify") == 0)
+    if (argc >= 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);
-    if (argc == 3 && strcmp(argv[1], "explain") == 0)
-        return explain_file(argv[2], 0);
-    if (argc == 4 && strcmp(argv[1], "explain") == 0 &&
-        strcmp(argv[3], "--json") == 0)
-        return explain_file(argv[2], 1);
-    if (argc == 4 &&
-        (strcmp(argv[1], "check") == 0 || strcmp(argv[1], "validate") == 0) &&
-        strcmp(argv[3], "--json") == 0) {
-        cbs_diagnostic_set_json(1);
+    if (argc >= 3 && strcmp(argv[1], "explain") == 0) {
+        int json = 0;
+        for (argument_index = 3; argument_index < argc; ++argument_index)
+            if (strcmp(argv[argument_index], "--json") == 0)
+                json = 1;
+        return explain_file(argv[2], json);
+    }
+    if (argc >= 3 &&
+        (strcmp(argv[1], "check") == 0 || strcmp(argv[1], "validate") == 0)) {
+        for (argument_index = 3; argument_index < argc; ++argument_index)
+            if (strcmp(argv[argument_index], "--json") == 0)
+                cbs_diagnostic_set_json(1);
         return validate_file(argv[2]);
     }
-    if (argc == 5 && strcmp(argv[1], "extract") == 0 &&
-        strcmp(argv[3], "--into") == 0) {
-        return extract_file(argv[2], argv[4]);
+    if (argc >= 5 && strcmp(argv[1], "extract") == 0) {
+        for (argument_index = 3; argument_index + 1 < argc;
+             ++argument_index)
+            if (strcmp(argv[argument_index], "--into") == 0)
+                return extract_file(argv[2], argv[argument_index + 1]);
+        cli_errorf("extract", "CBS-E1001", "cli", 2,
+                   "--into requires a destination");
+        return 2;
     }
     if (argc >= 3 && strcmp(argv[1], "build") == 0) {
         CbsBuildOptions options;
@@ -1095,11 +1121,22 @@ int main(int argc, char **argv) {
             return 2;
         return package_file(&options);
     }
-    if (argc == 3 && strcmp(argv[1], "inspect") == 0)
-        return inspect_file(argv[2], NULL);
-    if (argc == 4 && strcmp(argv[1], "inspect") == 0)
-        return inspect_file(argv[2], argv[3]);
-    if (argc != 3 ||
+    if (argc >= 3 && strcmp(argv[1], "inspect") == 0) {
+        const char *paths[2] = {NULL, NULL};
+        size_t path_count = 0;
+        for (argument_index = 2; argument_index < argc; ++argument_index)
+            if (!is_diagnostic_option(argv[argument_index]) &&
+                path_count < 2)
+                paths[path_count++] = argv[argument_index];
+        if (path_count == 1)
+            return inspect_file(paths[0], NULL);
+        if (path_count == 2)
+            return inspect_file(paths[0], paths[1]);
+        cli_errorf("inspect", "CBS-E1001", "cli", 2,
+                   "expected a recipe and optional artifact");
+        return 2;
+    }
+    if (argc < 3 ||
         (strcmp(argv[1], "validate") != 0 && strcmp(argv[1], "check") != 0)) {
         usage(stderr);
         return 2;

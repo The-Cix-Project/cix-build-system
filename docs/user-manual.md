@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.71 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.72 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -112,6 +112,14 @@ before allowing a build. Add `--json` for a machine-readable object containing
 the package identity fields, `architecture: null`, all source URLs and SHA-256
 digests, dependency groups by kind, and the ordered phase names and operation
 counts. Architecture is selected by `build --arch`, not declared in CPDL.
+
+All commands that can fail also accept `--diagnostics=jsonl`. This writes one
+versioned diagnostic envelope per failure to standard error, without changing
+the normal human-readable output or exit status. The envelope contains the
+verb, stable diagnostic code/category, message, subject, and status; located
+CPDL diagnostics additionally contain the recipe path, line, and column. This
+is the preferred boundary for CI, editors, and cixd rather than parsing human
+text. The schema identifier is `cbs.diagnostic/v1`.
 
 ## 4. Build a package
 

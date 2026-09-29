@@ -33,6 +33,12 @@ while `library` remains a soname/library assertion.
 cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output ARTIFACT --cache CACHE
 ```
 
+Every CLI verb that can fail accepts `--diagnostics=jsonl`. It emits one
+`cbs.diagnostic/v1` JSON object per diagnostic on standard error, preserving
+the stable CPDL/CIXPKG code, category, subject, status, and (when available)
+recipe location. This is the machine-readable failure boundary for cixd and
+CI; human output remains the default and exit statuses remain independent.
+
 For process-level embedders, `cbs build` also accepts
 `--finalize-command CMD`. CBS invokes `CMD WORKSPACE/dest` after the recipe
 phases and before manifest/package creation; a non-zero exit rejects the build

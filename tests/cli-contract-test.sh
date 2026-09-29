@@ -177,6 +177,16 @@ test "$status" -eq 4
 grep -q 'error\[CIXPKG-E4001\].*artifact verification failed' \
     "$temporary_dir/bad-extract.err"
 
+set +e
+"$cbs" verify "$bad_artifact" --diagnostics=jsonl \
+    >"$temporary_dir/bad-json.out" 2>"$temporary_dir/bad-json.err"
+status=$?
+set -e
+test "$status" -eq 4
+grep -q '"schema":"cbs.diagnostic/v1"' "$temporary_dir/bad-json.err"
+grep -q '"verb":"verify"' "$temporary_dir/bad-json.err"
+grep -q '"code":"CIXPKG-E4001"' "$temporary_dir/bad-json.err"
+
 cat >"$temporary_dir/empty-list.cbs" <<'EOF'
 package "empty-list" {
     version "1"
@@ -193,6 +203,18 @@ set -e
 test "$status" -ne 0
 grep -q 'list declaration must contain at least one value' \
     "$temporary_dir/empty-list.err"
+
+set +e
+"$cbs" validate "$temporary_dir/empty-list.cbs" --diagnostics=jsonl \
+    >"$temporary_dir/empty-list-json.out" \
+    2>"$temporary_dir/empty-list-json.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q '"schema":"cbs.diagnostic/v1"' \
+    "$temporary_dir/empty-list-json.err"
+grep -q '"verb":"validate"' "$temporary_dir/empty-list-json.err"
+grep -q '"code":"CPDL-E3004"' "$temporary_dir/empty-list-json.err"
 
 cat >"$temporary_dir/failing-list.cbs" <<'EOF'
 package "failing-list" {
@@ -217,6 +239,29 @@ status=$?
 set -e
 test "$status" -ne 0
 grep -q '/missing' "$temporary_dir/failing-list.err"
+
+set +e
+"$cbs" build "$temporary_dir/failing-list.cbs" --arch x86_64 \
+    --staged "$temporary_dir/failing-stage-json" \
+    --output "$temporary_dir/failing-json.cixpkg" --diagnostics=jsonl \
+    >"$temporary_dir/failing-json.out" 2>"$temporary_dir/failing-json.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -q '"schema":"cbs.diagnostic/v1"' \
+    "$temporary_dir/failing-json.err"
+grep -q '"verb":"build"' "$temporary_dir/failing-json.err"
+
+set +e
+"$cbs" package "$temporary_dir/missing-stage" --name bad --version 1 \
+    --release 1 --arch x86_64 --output "$temporary_dir/bad-package.cixpkg" \
+    --diagnostics=jsonl >"$temporary_dir/package-json.out" \
+    2>"$temporary_dir/package-json.err"
+status=$?
+set -e
+test "$status" -eq 3
+grep -q '"verb":"package"' "$temporary_dir/package-json.err"
+grep -q '"code":"CBS-E1018"' "$temporary_dir/package-json.err"
 
 cp "$artifact" "$bad_artifact"
 printf 'x' | dd of="$bad_artifact" bs=1 seek=0 conv=notrunc 2>/dev/null

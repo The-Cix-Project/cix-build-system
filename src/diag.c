@@ -6,6 +6,7 @@
 #include <string.h>
 
 static int json_diagnostics;
+static const char *diagnostic_verb;
 
 /* Serialize one diagnostic value as a JSON string. */
 static void json_string(const char *text) {
@@ -27,6 +28,8 @@ static void json_string(const char *text) {
 
 /* Enable or disable machine-readable diagnostic output. */
 void cbs_diagnostic_set_json(int enabled) { json_diagnostics = enabled != 0; }
+
+void cbs_diagnostic_set_verb(const char *verb) { diagnostic_verb = verb; }
 
 /* Map an internal diagnostic category to its stable wire name. */
 static const char *category_name(CbsDiagCategory category) {
@@ -56,7 +59,10 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
     size_t prefix;
 
     if (json_diagnostics) {
-        fputs("{\"path\":\"", stderr);
+        fputs("{\"schema\":\"cbs.diagnostic/v1\",\"version\":1,"
+              "\"verb\":\"", stderr);
+        json_string(diagnostic_verb == NULL ? "unknown" : diagnostic_verb);
+        fputs("\",\"path\":\"", stderr);
         json_string(path);
         fprintf(stderr, "\",\"line\":%lu,\"column\":%lu,\"severity\":\"",
                 (unsigned long)location.line, (unsigned long)location.column);
@@ -91,6 +97,34 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
     while (prefix-- > 0)
         fputc(' ', stderr);
     fputs("^\n", stderr);
+}
+
+void cbs_cli_diagnostic(const char *severity, const char *code,
+                        const char *category, const char *message,
+                        const char *subject, int status) {
+    if (json_diagnostics) {
+        fputs("{\"schema\":\"cbs.diagnostic/v1\",\"version\":1,"
+              "\"verb\":\"", stderr);
+        json_string(diagnostic_verb == NULL ? "unknown" : diagnostic_verb);
+        fputs("\",\"severity\":\"", stderr);
+        json_string(severity == NULL ? "error" : severity);
+        fputs("\",\"code\":\"", stderr);
+        json_string(code == NULL ? "CBS-E0000" : code);
+        fputs("\",\"category\":\"", stderr);
+        json_string(category == NULL ? "internal" : category);
+        fputs("\",\"message\":\"", stderr);
+        json_string(message == NULL ? "" : message);
+        fputs("\",\"subject\":\"", stderr);
+        json_string(subject == NULL ? "" : subject);
+        fprintf(stderr, "\",\"status\":%d}\n", status);
+        return;
+    }
+    if (subject != NULL && subject[0] != '\0')
+        fprintf(stderr, "%s: ", subject);
+    fprintf(stderr, "%s[%s]: %s: %s\n", severity == NULL ? "error" : severity,
+            code == NULL ? "CBS-E0000" : code,
+            category == NULL ? "internal" : category,
+            message == NULL ? "" : message);
 }
 
 void cbs_diagnostic_expected(const char *path, const char *source,

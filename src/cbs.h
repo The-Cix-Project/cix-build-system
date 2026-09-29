@@ -772,6 +772,12 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
                     CbsDiagCategory category, const char *message);
 /* Select JSON diagnostics when enabled is nonzero. */
 void cbs_diagnostic_set_json(int enabled);
+/* Set the CLI verb carried by the versioned diagnostic envelope. */
+void cbs_diagnostic_set_verb(const char *verb);
+/* Emit one non-located CLI diagnostic in the versioned JSON envelope. */
+void cbs_cli_diagnostic(const char *severity, const char *code,
+                        const char *category, const char *message,
+                        const char *subject, int status);
 /* Emit the expected-value detail associated with a failed assertion. */
 void cbs_diagnostic_expected(const char *path, const char *source,
                              CbsLocation location, const char *expected,
