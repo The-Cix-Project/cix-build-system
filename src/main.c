@@ -946,14 +946,12 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat firmware_status;
     struct stat input_status;
     CbsFinalizeCommand finalize_policy = {0};
-    CbsFingerprintContext fingerprint_context;
     CbsReportEventState report_state;
     CbsBuildEventSink effective_event_sink = NULL;
     void *effective_event_user = NULL;
     int report_written = 1;
     memset(&service, 0, sizeof(service));
     memset(&report_state, 0, sizeof(report_state));
-    memset(&fingerprint_context, 0, sizeof(fingerprint_context));
     if (report_path != NULL)
         cbs_build_report_init(&report_state.report);
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
@@ -1043,14 +1041,15 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+    result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
             firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, inputs, input_count, tool_identities,
-            tool_identity_count, effective_event_sink, effective_event_user);
+            tool_identity_count, effective_event_sink, effective_event_user,
+            report_path == NULL ? NULL : report_state.report.fingerprint);
     if (event_stream != stderr)
         fclose(event_stream);
     if (report_path != NULL) {
@@ -1059,21 +1058,7 @@ static int build_file(const char *recipe, const char *architecture,
         report_state.report.recipe_path[
             sizeof(report_state.report.recipe_path) - 1] = '\0';
         report_state.report.status = result ? 0 : 1;
-    fingerprint_context.firmware_root = firmware_root;
-    fingerprint_context.finalize_path = finalize_policy.resolved;
-    fingerprint_context.tool_identities = tool_identities;
-    fingerprint_context.tool_identity_count = tool_identity_count;
-    if (prune_policy_path != NULL) {
-        fingerprint_context.prune_strip_debug = prune_policy.strip_debug;
-        fingerprint_context.prune_drop_static_archives =
-            prune_policy.drop_static_archives;
-        fingerprint_context.prune_drop_libtool_archives =
-            prune_policy.drop_libtool_archives;
-    }
-    if (!cbs_build_fingerprint_with_context(
-            recipe, architecture, command_path, library_path, inputs,
-            input_count, &fingerprint_context,
-            report_state.report.fingerprint))
+    if (report_path != NULL && report_state.report.fingerprint[0] == '\0')
         snprintf(report_state.report.fingerprint,
                  sizeof(report_state.report.fingerprint), "unavailable");
         if (output != NULL) {

@@ -143,6 +143,11 @@ mkdir "$identity_workspace"
 identity_digest=$(sed -n 's/.*"fingerprint":"\([^"]*\)".*/\1/p' \
     "$identity_report")
 test "$identity_fingerprint" = "fingerprint $identity_digest"
+"$cbs" list "$identity_artifact" --json >"$temporary_dir/identity-list.json"
+identity_artifact_digest=$(sed -n \
+    's/.*"key":"build_fingerprint","value":"\([^"]*\)".*/\1/p' \
+    "$temporary_dir/identity-list.json")
+test "$identity_fingerprint" = "fingerprint $identity_artifact_digest"
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"

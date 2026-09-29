@@ -577,34 +577,18 @@ static int append_provenance(const char *manifest, const char *recipe,
                              const CbsNode *document,
                              const CbsExecutionContext *context,
                              const char *finalize_path,
-                             const CbsPrunePolicy *prune_policy) {
+                             const CbsPrunePolicy *prune_policy,
+                             const char *fingerprint,
+                             int fingerprint_available) {
     FILE *file;
     char digest[65];
-    char fingerprint[65];
     char fingerprint_reason[256];
-    int fingerprint_available;
-    CbsFingerprintContext fingerprint_context;
     size_t index;
 
     if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
         return 0;
-    memset(&fingerprint_context, 0, sizeof(fingerprint_context));
-    fingerprint_context.firmware_root = context->firmware_root;
-    fingerprint_context.finalize_path = finalize_path;
-    fingerprint_context.tool_directory = context->tool_directory;
-    fingerprint_context.environment = context->environment;
-    fingerprint_context.environment_count = context->environment_count;
-    if (prune_policy != NULL) {
-        fingerprint_context.prune_strip_debug = prune_policy->strip_debug;
-        fingerprint_context.prune_drop_static_archives =
-            prune_policy->drop_static_archives;
-        fingerprint_context.prune_drop_libtool_archives =
-            prune_policy->drop_libtool_archives;
-    }
-    fingerprint_available = cbs_build_fingerprint_with_context(
-        recipe, context->arch, context->command_path, context->library_path,
-        context->inputs, context->input_count, &fingerprint_context,
-        fingerprint);
+    (void)finalize_path;
+    (void)prune_policy;
     fingerprint_reason[0] = '\0';
     if (!fingerprint_available)
         fingerprint_unavailable_reason(document, fingerprint_reason,
@@ -1055,7 +1039,7 @@ done:
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
@@ -1064,8 +1048,8 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     const char *library_path,
     const CbsInputBinding *inputs, size_t input_count,
     const CbsToolIdentity *tool_identities, size_t tool_identity_count,
-    CbsBuildEventSink event_sink,
-    void *event_sink_user) {
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]) {
     FILE *f;
     long n;
     char *text;
@@ -1083,6 +1067,9 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         manifest_error[512], *package_identity = NULL;
     char tool_command_path[8192];
+    char fingerprint[65];
+    CbsFingerprintContext fingerprint_context;
+    int fingerprint_available = 0;
     unsigned flags = 0;
     int ok;
     if (!recipe || !workspace || !architecture ||
@@ -1145,6 +1132,9 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     if (cache_directory != NULL)
         snprintf(cache, sizeof(cache), "%s", cache_directory);
     memset(&context, 0, sizeof(context));
+    memset(&fingerprint_context, 0, sizeof(fingerprint_context));
+    if (build_fingerprint != NULL)
+        build_fingerprint[0] = '\0';
     snprintf(build_id, sizeof(build_id), "%ld-%ld", (long)time(NULL),
              (long)getpid());
     context.recipe_path = recipe;
@@ -1230,6 +1220,28 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
                        "prune policy rejected the staged tree");
         ok = 0;
     }
+    if (ok) {
+        fingerprint_context.firmware_root = context.firmware_root;
+        fingerprint_context.finalize_path = finalize == NULL ? NULL : "callback";
+        fingerprint_context.tool_directory = context.tool_directory;
+        fingerprint_context.environment = context.environment;
+        fingerprint_context.environment_count = context.environment_count;
+        fingerprint_context.tool_identities = context.tool_identities;
+        fingerprint_context.tool_identity_count = context.tool_identity_count;
+        if (prune_policy != NULL) {
+            fingerprint_context.prune_strip_debug = prune_policy->strip_debug;
+            fingerprint_context.prune_drop_static_archives =
+                prune_policy->drop_static_archives;
+            fingerprint_context.prune_drop_libtool_archives =
+                prune_policy->drop_libtool_archives;
+        }
+        fingerprint_available = cbs_build_fingerprint_with_context(
+            recipe, context.arch, context.command_path, context.library_path,
+            context.inputs, context.input_count, &fingerprint_context,
+            fingerprint);
+    }
+    if (build_fingerprint != NULL && fingerprint_available)
+        memcpy(build_fingerprint, fingerprint, sizeof(fingerprint));
     if (ok && package_path != NULL) {
         snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
         ok = cbs_manifest_write_with_license_policy_error(
@@ -1244,7 +1256,8 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
                                      document,
                                      &context, finalize == NULL ? NULL
                                                                 : "callback",
-                                     prune_policy)) {
+                                     prune_policy, fingerprint,
+                                     fingerprint_available)) {
             pipeline_error(recipe, text, document->location, "provenance",
                            "cannot append build provenance");
             ok = 0;
@@ -1302,6 +1315,22 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
+    return cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy,
+        command_path, library_path, inputs, input_count, tool_identities,
+        tool_identity_count, event_sink, event_sink_user, NULL);
 }
 
 int cbs_build_standalone_with_events_policy_path_inputs(

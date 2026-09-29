@@ -281,6 +281,12 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     const char *, const CbsPrunePolicy *, const char *, const char *,
     const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
     CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
+    CbsBuildEventSink, void *, char[65]);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 
