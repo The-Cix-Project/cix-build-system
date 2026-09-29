@@ -12,6 +12,15 @@ test -f "$root/usr/lib/pkgconfig/cbs.pc"
 ! grep -q '^struct CbsNode {' "$root/usr/include/cbs/cbs.h"
 ! grep -q 'cbs_parse' "$root/usr/include/cbs/cbs.h"
 
+# The implementation header must consume the public definitions rather than
+# silently selecting a second copy behind an internal-header macro.
+grep -q '^#include "cbs_public.h"' src/cbs.h
+! grep -q 'CBS_INTERNAL_HEADER' src/cbs.h src/cbs_public.h
+! grep -q '^} CbsEnvironmentBinding;' src/cbs.h
+! grep -q '^} CbsBuildEvent;' src/cbs.h
+! grep -q '^} CbsBuildReport;' src/cbs.h
+! grep -q '^} CbsExecutionContext;' src/cbs.h
+
 capabilities=$("$root/usr/bin/cbs" --capabilities)
 printf '%s\n' "$capabilities" | grep -q '"schema":"cbs.capabilities/v1"'
 printf '%s\n' "$capabilities" | grep -q '"api_version":1'
@@ -54,4 +63,4 @@ ${CC:-tcc} $(PKG_CONFIG_PATH="$root/usr/lib/pkgconfig" \
         pkg-config --define-prefix --libs --static cbs) \
     -o "$root/consumer"
 test "$("$root/consumer")" = consumer-ok
-echo 'install contract tests: PASS (staged pkg-config, capabilities, and consumer ABI guard)'
+echo 'install contract tests: PASS (staged pkg-config, shared public definitions, and consumer ABI guard)'

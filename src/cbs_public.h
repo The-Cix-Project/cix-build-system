@@ -6,8 +6,6 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#ifndef CBS_INTERNAL_HEADER
-
 #define CBS_API_VERSION 1U
 #define CBS_ABI_VERSION 1U
 #define CBS_CPDL_VERSION 1U
@@ -295,7 +293,5 @@ int cbs_is_forbidden_executable(const char *);
 int cbs_is_forbidden_compiler(const char *);
 int cbs_observe_dependencies(CbsDependencyObserver, const char *, void *);
 int cbs_verify_signature(CbsSignatureVerifier, const char *, void *);
-
-#endif
 
 #endif

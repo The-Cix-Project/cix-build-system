@@ -11,17 +11,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
-#define CBS_INTERNAL_HEADER 1
 #include "cbs_public.h"
-
-#define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 1U
-#define CBS_CPDL_VERSION 1U
-#define CBS_CIXPKG_VERSION 2U
-#define CBS_CPDL_CONTRACT "0.1"
-#define CBS_CIXPKG_CONTRACT "2"
-#define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
-#define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
 /* Select the same UTF-8 LC_CTYPE fallback used by archive processing. */
 const char *cbs_select_utf8_locale(void);
@@ -191,47 +181,6 @@ typedef enum {
 } CbsDiagCategory;
 
 typedef struct {
-    /* Human-readable source name used in diagnostics and interpolation. */
-    const char *name;
-    /* Source path or URL recorded for this named source. */
-    const char *path;
-} CbsNamedSource;
-
-typedef struct {
-    /* Embedder-provided optional input name and path. */
-    const char *name;
-    const char *path;
-} CbsInputBinding;
-
-typedef struct {
-    const char *name;
-    char *value;
-    /* Nonzero when this binding came from stderr rather than stdout. */
-    int stderr_stream;
-} CbsOutputBinding;
-
-typedef CbsOutputBinding CbsGlobBinding;
-
-typedef struct {
-    /* Environment variable name visible to a phase. */
-    const char *name;
-    /* Environment value supplied by the recipe or embedder. */
-    const char *value;
-    int secret;
-} CbsEnvironmentBinding;
-
-typedef struct {
-    const char *firmware_root;
-    const char *finalize_path;
-    const char *tool_directory;
-    const CbsEnvironmentBinding *environment;
-    size_t environment_count;
-    int prune_strip_debug;
-    int prune_drop_static_archives;
-    int prune_drop_libtool_archives;
-} CbsFingerprintContext;
-
-typedef struct {
     /* Package name declared by the recipe. */
     const char *name;
     /* Package version declared by the recipe. */
@@ -266,16 +215,6 @@ typedef struct {
     CbsNamedSource *bindings;
 } CbsSourceSet;
 
-typedef int (*CbsFetchFunction)(const char *url, const char *destination,
-                                void *user, char *error, size_t error_size);
-
-typedef struct {
-    /* Callback used to fetch one URL. */
-    CbsFetchFunction fetch;
-    /* Opaque state passed to the callback. */
-    void *user;
-} CbsFetchService;
-
 int cbs_cli_fetch_service(CbsFetchService *service, char *error,
                           size_t error_size);
 int cbs_cli_fetch_service_with_ca(CbsFetchService *service, char *error,
@@ -296,162 +235,6 @@ typedef struct {
     /* Number of selected dependencies. */
     size_t count;
 } CbsDependencySet;
-
-typedef int (*CbsPhaseEvent)(const char *event, const char *phase, int status,
-                             void *user);
-
-typedef struct {
-    /* Versioned event name: build-begin, phase-begin, command-begin, etc. */
-    unsigned version;
-    const char *type;
-    unsigned long long sequence;
-    /* Unix epoch timestamp in milliseconds, captured at emission time. */
-    unsigned long long timestamp_ms;
-    /* Correlation identifier shared by all events in one build. */
-    const char *build_id;
-    const char *package_name;
-    const char *package_version;
-    long package_release;
-    const char *arch;
-    const char *phase;
-    const char *command;
-    const char *arguments;
-    /* Names of selected environment variables; values are never exposed. */
-    const char *environment_names;
-    const char *working_directory;
-    const char *log_path;
-    const char *message;
-    const char *path;
-    const char *rule;
-    int status;
-    long duration_ms;
-    unsigned long long stdout_bytes;
-    unsigned long long stderr_bytes;
-    unsigned long long cpu_ms;
-    unsigned long long max_memory_bytes;
-    unsigned long long source_bytes;
-    unsigned long long fetch_duration_ms;
-    unsigned long long tree_bytes;
-    unsigned long long tree_files;
-    unsigned long long artifact_bytes;
-    unsigned long long prune_bytes;
-    unsigned long long prune_files;
-} CbsBuildEvent;
-
-typedef int (*CbsBuildEventSink)(const CbsBuildEvent *, void *user);
-
-typedef struct {
-    unsigned version;
-    char build_id[64];
-    char recipe_path[4096];
-    char package_name[256];
-    char package_version[256];
-    char architecture[128];
-    char fingerprint[65];
-    unsigned long long event_count;
-    unsigned long long phase_count;
-    unsigned long long command_count;
-    unsigned long long cache_hits;
-    unsigned long long cache_misses;
-    unsigned long long sources_fetched;
-    unsigned long long source_bytes;
-    unsigned long long fetch_duration_ms;
-    unsigned long long tree_bytes;
-    unsigned long long tree_files;
-    unsigned long long artifact_bytes;
-    unsigned long long cpu_ms;
-    unsigned long long max_memory_bytes;
-    unsigned long long duration_ms;
-    unsigned long long stdout_bytes;
-    unsigned long long stderr_bytes;
-    unsigned long long prune_files;
-    unsigned long long prune_bytes;
-    int status;
-    char artifact_path[4096];
-    char artifact_digest[65];
-    char failure_message[1024];
-} CbsBuildReport;
-
-typedef struct {
-    /* Recipe path and source used for runtime diagnostics. */
-    const char *recipe_path;
-    const char *recipe_source;
-    /* Canonical package fields copied from the recipe. */
-    const char *name;
-    const char *version;
-    long release;
-    const char *arch;
-    /* Compiler selected by the package's structural compiler dependency. */
-    const char *compiler;
-    /* Confined source, build, and destination roots. */
-    const char *src;
-    const char *build;
-    const char *dest;
-    /* Per-check-case scratch directory, or NULL outside a case. */
-    const char *case_directory;
-    /* Caller-supplied, validated firmware tree for executor integrations. */
-    const char *firmware_root;
-    long jobs;
-    /* Working directory used when launching child processes. */
-    const char *working_directory;
-    /* Approved colon-separated absolute roots used to resolve commands. */
-    const char *command_path;
-    /* Colon-separated absolute roots used to locate staged libraries. */
-    const char *library_path;
-    /* Validated package tool declarations, materialized before phases. */
-    const CbsNode *tool_policy;
-    const char *tool_directory;
-    const char *tool_target;
-    const char *log_directory;
-    const char *current_log_path;
-    const char *current_arguments;
-    const char *current_environment_names;
-    /* Verified source interpolation bindings. */
-    const CbsNamedSource *sources;
-    size_t source_count;
-    const CbsEnvironmentBinding *environment;
-    size_t environment_count;
-    CbsOutputBinding *output_bindings;
-    size_t output_binding_count;
-    size_t output_binding_capacity;
-    CbsGlobBinding *glob_bindings;
-    size_t glob_binding_count;
-    size_t glob_binding_capacity;
-    CbsPhaseEvent phase_event;
-    /* State passed to the phase-event callback. */
-    void *phase_event_user;
-    CbsBuildEventSink event_sink;
-    /* State passed to the structured event sink. */
-    void *event_sink_user;
-    const char *build_id;
-    const char *current_phase;
-    const char *current_prune_path;
-    const char *current_prune_rule;
-    unsigned long long current_prune_bytes;
-    unsigned long long event_sequence;
-    unsigned long long current_cpu_ms;
-    unsigned long long current_max_memory_bytes;
-    unsigned long long current_source_bytes;
-    unsigned long long current_fetch_duration_ms;
-    unsigned long long current_tree_bytes;
-    unsigned long long current_tree_files;
-    unsigned long long current_artifact_bytes;
-    struct {
-        /* Maximum child address space in MiB; zero selects policy default. */
-        long address_space_mb;
-        /* Maximum child-created file size in MiB. */
-        long file_size_mb;
-        /* Maximum child CPU time in seconds. */
-        long cpu_seconds;
-        /* Maximum number of simultaneously open file descriptors. */
-        long open_files;
-        /* Maximum number of child processes. */
-        long processes;
-    } limits;
-    /* Optional caller-supplied inputs, absent inputs are valid. */
-    const CbsInputBinding *inputs;
-    size_t input_count;
-} CbsExecutionContext;
 
 /* Allocate memory or terminate the process if the request cannot succeed. */
 void *cbs_allocate(size_t size);
@@ -535,24 +318,6 @@ int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy);
 typedef struct {
     /* Canonical path relative to the staged package root. */
     const char *path;
-    /* Entry kind, such as a regular file, directory, or symlink. */
-    char type;
-    /* Permission bits preserved in the package manifest. */
-    unsigned mode;
-    /* Original owner user ID observed during staging. */
-    unsigned uid;
-    /* Original owner group ID observed during staging. */
-    unsigned gid;
-    /* Regular-file length in bytes. */
-    unsigned long long size;
-    /* SHA-256 digest for a regular file, when applicable. */
-    const char *digest;
-    /* Symlink destination, when this entry is a symbolic link. */
-    const char *target;
-} CbsManifestEntry;
-typedef struct {
-    /* Canonical path relative to the staged package root. */
-    const char *path;
     /* Exact permission bits authorized for this path. */
     unsigned mode;
 } CbsPrivilegedAllowance;
@@ -600,12 +365,6 @@ int cbs_build_standalone_with_cache(const char *recipe, const char *workspace,
                                     const char *architecture,
                                     const CbsFetchService *fetch_service,
                                     const char *cache_directory);
-typedef int (*CbsFinalizePolicy)(const char *staged_root, void *user);
-typedef struct {
-    int strip_debug;
-    int drop_static_archives;
-    int drop_libtool_archives;
-} CbsPrunePolicy;
 int cbs_prune_policy_load(const char *path, CbsPrunePolicy *policy,
                           char *error, size_t error_size);
 int cbs_prune_staged_tree(const char *root, const CbsPrunePolicy *policy,
@@ -699,12 +458,9 @@ int cbs_sandbox_run(CbsSandboxHook enter, CbsSandboxHook leave,
 typedef int (*CbsHealthCheck)(void *user);
 /* Ask an embedder-provided service health check whether it is ready. */
 int cbs_service_health(CbsHealthCheck check, void *user);
-typedef int (*CbsDependencyObserver)(const char *path, void *user);
 /* Inspect an ELF file and report its declared shared-library dependencies. */
 int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
                              void *user);
-typedef int (*CbsSignatureVerifier)(const unsigned char *data, size_t length,
-                                    void *user);
 const char *cbs_version(void);
 unsigned cbs_api_version(void);
 unsigned cbs_abi_version(void);
