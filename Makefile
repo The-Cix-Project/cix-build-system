@@ -66,10 +66,12 @@ $(LIBRARY): $(LIB_OBJECTS)
 
 install: $(TARGET) $(LIBRARY)
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/lib \
-		$(DESTDIR)$(PREFIX)/include/cbs
+		$(DESTDIR)$(PREFIX)/include/cbs $(DESTDIR)$(PREFIX)/lib/pkgconfig
 	$(INSTALL) -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/cbs
 	$(INSTALL) -m 644 $(LIBRARY) $(DESTDIR)$(PREFIX)/lib/$(LIBRARY)
 	$(INSTALL) -m 644 src/cbs_public.h $(DESTDIR)$(PREFIX)/include/cbs/cbs.h
+	sed -e 's|@prefix@|$(PREFIX)|g' -e 's|@version@|$(CBS_VERSION)|g' \
+		cbs.pc.in >$(DESTDIR)$(PREFIX)/lib/pkgconfig/cbs.pc
 
 src/%.o: src/%.c src/cbs.h VERSION
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -93,6 +95,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
 	./tests/doctor-test.sh ./$(TARGET)
+	./tests/install-contract-test.sh
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
 		src/ast.o src/archive.o src/diag.o src/exec.o src/fs.o src/observe.o src/source.o src/lexer.o src/parser.o src/validate.o \
 		-larchive -o tests/exec-test

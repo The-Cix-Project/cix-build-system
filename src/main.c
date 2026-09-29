@@ -225,6 +225,7 @@ static void usage(FILE *stream) {
         "      [--library-path DIRS] Compute the build action fingerprint\n"
         "  cbs list ARTIFACT.cixpkg [--json]    List verified manifest entries\n"
         "  cbs diff LEFT.cixpkg RIGHT.cixpkg [--json] Compare manifests\n"
+        "  cbs --capabilities                    Show integration capabilities\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -1439,6 +1440,14 @@ static int diff_file(const char *left, const char *right, int json) {
     return different ? 1 : 0;
 }
 
+static void print_capabilities(void) {
+    fputs("{\"schema\":\"cbs.capabilities/v1\",\"version\":", stdout);
+    print_json_string(cbs_version());
+    printf(",\"api_version\":%u,\"abi_version\":%u,\"cpdl_version\":%u,\"cixpkg_version\":%u,\"execution_context_size\":%zu,\"integration\":[\"child-process\",\"static-library\"],\"commands\":[\"build\",\"doctor\",\"explain\",\"fingerprint\",\"list\",\"diff\",\"package\",\"verify\"]}\n",
+           cbs_api_version(), cbs_abi_version(), CBS_CPDL_VERSION,
+           CBS_CIXPKG_VERSION, cbs_execution_context_size());
+}
+
 /* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
@@ -1497,6 +1506,10 @@ int main(int argc, char **argv) {
     }
     if (argc == 2 && strcmp(argv[1], "--version") == 0) {
         printf("cbs %s\n", CBS_VERSION);
+        return 0;
+    }
+    if (argc == 2 && strcmp(argv[1], "--capabilities") == 0) {
+        print_capabilities();
         return 0;
     }
     if (argc >= 2 && strcmp(argv[1], "doctor") == 0) {

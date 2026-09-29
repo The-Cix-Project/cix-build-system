@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: cbs
+Description: Cix Build System static embedding library
+Version: @version@
+Libs: -L${libdir} -lcbs
+Libs.private: -larchive -lzstd -ldl
+Cflags: -I${includedir}

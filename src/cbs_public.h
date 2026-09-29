@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define CBS_API_VERSION 1U
+#define CBS_ABI_VERSION 1U
+#define CBS_CPDL_VERSION 1U
+#define CBS_CIXPKG_VERSION 2U
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
 #define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
@@ -188,6 +192,11 @@ typedef struct {
 } CbsPrunePolicy;
 typedef int (*CbsDependencyObserver)(const char *, void *);
 typedef int (*CbsSignatureVerifier)(const unsigned char *, size_t, void *);
+
+const char *cbs_version(void);
+unsigned cbs_api_version(void);
+unsigned cbs_abi_version(void);
+size_t cbs_execution_context_size(void);
 
 int cbs_build_event_jsonl(const CbsBuildEvent *, void *);
 int cbs_build_event_human(const CbsBuildEvent *, void *);

@@ -23,3 +23,19 @@ fetch, finalization, prune, observation, and signature callbacks where the
 integration owns those policies.
 
 Build and install with `make` and `make install PREFIX=/usr/local`.
+
+The install also provides `lib/pkgconfig/cbs.pc`. A consumer can use the
+matching static archive and header without repository paths:
+
+```sh
+cc $(pkg-config --cflags --libs --static cbs) consumer.c -o consumer
+cbs --capabilities
+```
+
+The public header exposes `CBS_API_VERSION`, `CBS_ABI_VERSION`,
+`CBS_CPDL_VERSION`, and `CBS_CIXPKG_VERSION`; applications can compare those
+macros with `cbs_api_version()`, `cbs_abi_version()`, and
+`cbs_execution_context_size()` before embedding. Upgrade the header, archive,
+and executable together from the same CBS tag, then rerun the install
+contract test. The supported cixd integration remains the child-process
+contract; the static archive is an explicit embedding option.

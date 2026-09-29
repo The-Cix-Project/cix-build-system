@@ -12,6 +12,10 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define CBS_API_VERSION 1U
+#define CBS_ABI_VERSION 1U
+#define CBS_CPDL_VERSION 1U
+#define CBS_CIXPKG_VERSION 2U
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
 #define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"
 
@@ -679,6 +683,10 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
                              void *user);
 typedef int (*CbsSignatureVerifier)(const unsigned char *data, size_t length,
                                     void *user);
+const char *cbs_version(void);
+unsigned cbs_api_version(void);
+unsigned cbs_abi_version(void);
+size_t cbs_execution_context_size(void);
 /* Verify a file through an embedder-provided detached-signature adapter. */
 int cbs_verify_signature(CbsSignatureVerifier verifier, const char *path,
                          void *user);
