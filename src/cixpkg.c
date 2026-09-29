@@ -496,9 +496,17 @@ typedef struct {
 } CbsListEntry;
 
 typedef struct {
+    char key[64];
+    char value[4096];
+} CbsListMetadata;
+
+typedef struct {
     CbsListEntry *entries;
     size_t count;
     size_t capacity;
+    CbsListMetadata *metadata;
+    size_t metadata_count;
+    size_t metadata_capacity;
     char manifest_digest[65];
     char identity[65];
 } CbsList;
@@ -524,7 +532,44 @@ static void list_json_string(FILE *stream, const char *value) {
 
 static void cbs_list_destroy(CbsList *list) {
     free(list->entries);
+    free(list->metadata);
     memset(list, 0, sizeof(*list));
+}
+
+static int cbs_list_add_metadata(CbsList *list, const char *key,
+                                 const char *value) {
+    CbsListMetadata *grown;
+    if (list->metadata_count == list->metadata_capacity) {
+        size_t next = list->metadata_capacity == 0 ? 16 : list->metadata_capacity * 2;
+        grown = realloc(list->metadata, next * sizeof(*grown));
+        if (grown == NULL)
+            return 0;
+        list->metadata = grown;
+        list->metadata_capacity = next;
+    }
+    if (snprintf(list->metadata[list->metadata_count].key, 64, "%s", key) >= 64 ||
+        snprintf(list->metadata[list->metadata_count].value, 4096, "%s", value) >= 4096)
+        return 0;
+    ++list->metadata_count;
+    return 1;
+}
+
+static int cbs_list_metadata_equal(const CbsList *left, const CbsList *right) {
+    size_t index, match;
+    if (left->metadata_count != right->metadata_count)
+        return 0;
+    for (index = 0; index < left->metadata_count; ++index) {
+        match = 0;
+        for (size_t other = 0; other < right->metadata_count; ++other)
+            if (strcmp(left->metadata[index].key, right->metadata[other].key) == 0 &&
+                strcmp(left->metadata[index].value, right->metadata[other].value) == 0) {
+                match = 1;
+                break;
+            }
+        if (!match)
+            return 0;
+    }
+    return 1;
 }
 
 static int cbs_list_add(CbsList *list, const CbsListEntry *entry) {
@@ -578,8 +623,12 @@ static int cbs_list_load(const char *path, CbsList *list) {
         memset(&entry, 0, sizeof(entry));
         if (sscanf(line, "%c", &type) != 1)
             goto failure;
-        if (type == 'm')
+        if (type == 'm') {
+            if (sscanf(line, "m %31s %4095[^\n]", mode_text, relative) != 2 ||
+                !cbs_list_add_metadata(list, mode_text, relative))
+                goto failure;
             continue;
+        }
         if (type == 'f') {
             if (sscanf(line, "f %31s %u %u %llu %64s %4095[^\n]",
                        mode_text, &uid, &gid, &entry_size, entry_digest,
@@ -632,11 +681,21 @@ int cbs_cixpkg_list(const char *package_path, FILE *stream, int json) {
     if (stream == NULL || !cbs_list_load(package_path, &list))
         return 0;
     if (json) {
-        fputs("{\"schema\":\"cbs.cixpkg-list/v1\",\"identity\":", stream);
+        fputs("{\"schema\":\"cbs.cixpkg-list/v2\",\"identity\":", stream);
         list_json_string(stream, list.identity);
         fputs(",\"manifest_digest\":", stream);
         list_json_string(stream, list.manifest_digest);
-        fputs(",\"entries\":[", stream);
+        fputs(",\"metadata\":[", stream);
+        for (index = 0; index < list.metadata_count; ++index) {
+            if (index != 0)
+                fputc(',', stream);
+            fputs("{\"key\":", stream);
+            list_json_string(stream, list.metadata[index].key);
+            fputs(",\"value\":", stream);
+            list_json_string(stream, list.metadata[index].value);
+            fputc('}', stream);
+        }
+        fputs("],\"entries\":[", stream);
         for (index = 0; index < list.count; ++index) {
             CbsListEntry *entry = &list.entries[index];
             if (index != 0)
@@ -654,6 +713,9 @@ int cbs_cixpkg_list(const char *package_path, FILE *stream, int json) {
     } else {
         fprintf(stream, "identity %s\nmanifest-digest %s\n", list.identity,
                 list.manifest_digest);
+        for (index = 0; index < list.metadata_count; ++index)
+            fprintf(stream, "metadata %s %s\n", list.metadata[index].key,
+                    list.metadata[index].value);
         for (index = 0; index < list.count; ++index)
             fprintf(stream, "%c %04o %llu %s %s%s%s\n", list.entries[index].type,
                     list.entries[index].mode, list.entries[index].size,
@@ -671,6 +733,8 @@ int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
     size_t ai = 0, bi = 0;
     int differs = 0;
     int first = 1;
+    size_t added = 0, removed = 0, changed = 0;
+    unsigned long long changed_bytes = 0;
     if (different != NULL)
         *different = 0;
     if (stream == NULL || !cbs_list_load(left, &a) || !cbs_list_load(right, &b))
@@ -685,10 +749,12 @@ int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
             (ai < a.count && strcmp(a.entries[ai].path, b.entries[bi].path) < 0)) {
             kind = '-';
             entry = &a.entries[ai++];
+            ++removed;
         } else if (ai == a.count ||
                    strcmp(a.entries[ai].path, b.entries[bi].path) > 0) {
             kind = '+';
             entry = &b.entries[bi++];
+            ++added;
         } else {
             entry = &a.entries[ai++];
             same = entry->type == b.entries[bi].type &&
@@ -699,6 +765,10 @@ int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
             if (same)
                 continue;
             kind = '~';
+            ++changed;
+            changed_bytes += entry->size > b.entries[bi - 1].size
+                                 ? entry->size - b.entries[bi - 1].size
+                                 : b.entries[bi - 1].size - entry->size;
         }
         differs = 1;
         if (json) {
@@ -707,21 +777,59 @@ int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
             first = 0;
             fprintf(stream, "{\"change\":\"%c\",\"path\":", kind);
             list_json_string(stream, entry->path);
+            if (kind == '~') {
+                const CbsListEntry *other = &b.entries[bi - 1];
+                int field_first = 1;
+                fputs(",\"fields\":[", stream);
+                if (entry->type != other->type) {
+                    fputs("\"type\"", stream); field_first = 0;
+                }
+                if (entry->mode != other->mode) {
+                    if (!field_first) fputc(',', stream);
+                    fputs("\"mode\"", stream); field_first = 0;
+                }
+                if (entry->size != other->size) {
+                    if (!field_first) fputc(',', stream);
+                    fputs("\"size\"", stream); field_first = 0;
+                }
+                if (strcmp(entry->digest, other->digest) != 0) {
+                    if (!field_first) fputc(',', stream);
+                    fputs("\"digest\"", stream); field_first = 0;
+                }
+                if (strcmp(entry->target, other->target) != 0) {
+                    if (!field_first) fputc(',', stream);
+                    fputs("\"target\"", stream);
+                }
+                fputc(']', stream);
+            }
             fputc('}', stream);
-        } else
-            fprintf(stream, "%c %s\n", kind, entry->path);
+        } else {
+            if (kind == '~') {
+                const CbsListEntry *other = &b.entries[bi - 1];
+                fprintf(stream, "~ %s [", entry->path);
+                if (entry->type != other->type) fputs("type,", stream);
+                if (entry->mode != other->mode) fputs("mode,", stream);
+                if (entry->size != other->size) fputs("size,", stream);
+                if (strcmp(entry->digest, other->digest) != 0) fputs("digest,", stream);
+                if (strcmp(entry->target, other->target) != 0) fputs("target", stream);
+                fputs("]\n", stream);
+            } else
+                fprintf(stream, "%c %s\n", kind, entry->path);
+        }
     }
-    if (!differs && strcmp(a.manifest_digest, b.manifest_digest) != 0) {
+    if (!cbs_list_metadata_equal(&a, &b)) {
         differs = 1;
         if (json) {
             if (!first)
                 fputc(',', stream);
+            first = 0;
             fputs("{\"change\":\"~\",\"path\":\"<metadata>\"}", stream);
         } else
             fputs("~ <metadata>\n", stream);
     }
     if (json)
-        fputs("]}\n", stream);
+        fprintf(stream, "],\"summary\":{\"added\":%zu,\"removed\":%zu,\"changed\":%zu,\"changed_bytes\":%llu}}\n",
+                added, removed, changed, changed_bytes);
     cbs_list_destroy(&a);
     cbs_list_destroy(&b);
     if (different != NULL)

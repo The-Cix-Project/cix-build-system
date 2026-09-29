@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.80 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.81 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -180,7 +180,7 @@ Inspect or compare artifacts without extracting them:
 Both commands verify the complete CIXPKG first. `diff` returns 0 for equal
 manifests, 1 for a valid difference, and 4 for corruption or another artifact
 error. Its output distinguishes added (`+`), removed (`-`), and changed (`~`)
-paths; `--json` provides the `cbs.cixpkg-list/v1` or
+paths; the listing uses `cbs.cixpkg-list/v2` and the diff uses
 `cbs.cixpkg-diff/v1` envelope for the corresponding command.
 
 ## 5. Sources and the cache
