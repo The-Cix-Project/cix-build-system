@@ -675,11 +675,34 @@ failure:
     return 0;
 }
 
+static int cbs_list_matches(const CbsListEntry *entry, const char *prefix,
+                            char type) {
+    return entry != NULL &&
+           (prefix == NULL || strncmp(entry->path, prefix, strlen(prefix)) == 0) &&
+           (type == '\0' || entry->type == type);
+}
+
+static void cbs_list_filter(CbsList *list, const char *prefix, char type) {
+    size_t read, write = 0;
+    if (prefix == NULL && type == '\0')
+        return;
+    for (read = 0; read < list->count; ++read)
+        if (cbs_list_matches(&list->entries[read], prefix, type))
+            list->entries[write++] = list->entries[read];
+    list->count = write;
+}
+
 int cbs_cixpkg_list(const char *package_path, FILE *stream, int json) {
+    return cbs_cixpkg_list_filtered(package_path, stream, json, NULL, '\0');
+}
+
+int cbs_cixpkg_list_filtered(const char *package_path, FILE *stream, int json,
+                             const char *prefix, char type) {
     CbsList list = {0};
     size_t index;
     if (stream == NULL || !cbs_list_load(package_path, &list))
         return 0;
+    cbs_list_filter(&list, prefix, type);
     if (json) {
         fputs("{\"schema\":\"cbs.cixpkg-list/v2\",\"identity\":", stream);
         list_json_string(stream, list.identity);
@@ -729,6 +752,13 @@ int cbs_cixpkg_list(const char *package_path, FILE *stream, int json) {
 
 int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
                     int json, int *different) {
+    return cbs_cixpkg_diff_filtered(left, right, stream, json, different,
+                                    NULL, '\0');
+}
+
+int cbs_cixpkg_diff_filtered(const char *left, const char *right, FILE *stream,
+                             int json, int *different, const char *prefix,
+                             char type) {
     CbsList a = {0}, b = {0};
     size_t ai = 0, bi = 0;
     int differs = 0;
@@ -739,6 +769,8 @@ int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
         *different = 0;
     if (stream == NULL || !cbs_list_load(left, &a) || !cbs_list_load(right, &b))
         goto failure;
+    cbs_list_filter(&a, prefix, type);
+    cbs_list_filter(&b, prefix, type);
     if (json)
         fputs("{\"schema\":\"cbs.cixpkg-diff/v1\",\"changes\":[", stream);
     while (ai < a.count || bi < b.count) {

@@ -138,6 +138,10 @@ grep -q '"fingerprint":"[0-9a-f]\{64\}"' "$report"
 "$cbs" list "$artifact" --json >"$temporary_dir/list.json"
 grep -q '"schema":"cbs.cixpkg-list/v2"' "$temporary_dir/list.json"
 grep -q '"path":"hello"' "$temporary_dir/list.json"
+"$cbs" list "$artifact" --json --path-prefix hello --type file \
+    >"$temporary_dir/list-filtered.json"
+grep -q '"path":"hello"' "$temporary_dir/list-filtered.json"
+test "$(grep -o '"path"' "$temporary_dir/list-filtered.json" | wc -l)" -eq 1
 "$cbs" diff "$artifact" "$artifact" >"$temporary_dir/self-diff.out"
 test ! -s "$temporary_dir/self-diff.out"
 mkdir "$temporary_dir/different-stage"
@@ -155,6 +159,13 @@ status=$?
 set -e
 test "$status" -eq 1
 grep -q '^~ hello \[' "$temporary_dir/diff.out"
+set +e
+"$cbs" diff "$artifact" "$different_artifact" --path-prefix hello \
+    --type file >"$temporary_dir/diff-filtered.out"
+filtered_status=$?
+set -e
+test "$filtered_status" -eq 1
+grep -q '^~ hello \[' "$temporary_dir/diff-filtered.out"
 "$cbs" inspect "$recipe" "$artifact" >"$temporary_dir/inspect-artifact.out"
 grep -Eq '^artifact-digest [0-9a-f]{64}$' "$temporary_dir/inspect-artifact.out"
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect-artifact.out"

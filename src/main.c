@@ -1570,8 +1570,8 @@ static int fingerprint_file(CbsFingerprintOptions *options) {
     return 0;
 }
 
-static int list_file(const char *path, int json) {
-    if (!cbs_cixpkg_list(path, stdout, json)) {
+static int list_file(const char *path, int json, const char *prefix, char type) {
+    if (!cbs_cixpkg_list_filtered(path, stdout, json, prefix, type)) {
         cli_errorf(path, "CIXPKG-E4001", "artifact", 4,
                    "artifact verification or manifest listing failed");
         return 4;
@@ -1579,14 +1579,69 @@ static int list_file(const char *path, int json) {
     return 0;
 }
 
-static int diff_file(const char *left, const char *right, int json) {
+static int diff_file(const char *left, const char *right, int json,
+                     const char *prefix, char type) {
     int different = 0;
-    if (!cbs_cixpkg_diff(left, right, stdout, json, &different)) {
+    if (!cbs_cixpkg_diff_filtered(left, right, stdout, json, &different,
+                                  prefix, type)) {
         cli_errorf(left, "CIXPKG-E4001", "artifact", 4,
                    "artifact verification or manifest diff failed");
         return 4;
     }
     return different ? 1 : 0;
+}
+
+static int parse_entry_filters(int argc, char **argv, int start,
+                               const char *verb, const char **prefix,
+                               char *type) {
+    int index;
+    *prefix = NULL;
+    *type = '\0';
+    for (index = start; index < argc; ++index) {
+        const char *argument = argv[index];
+        const char *value = NULL;
+        if (strcmp(argument, "--json") == 0 || is_diagnostic_option(argument))
+            continue;
+        if (strncmp(argument, "--path-prefix=", 14) == 0)
+            value = argument + 14;
+        else if (strncmp(argument, "--type=", 7) == 0)
+            value = argument + 7;
+        else if (strcmp(argument, "--path-prefix") == 0 ||
+                 strcmp(argument, "--type") == 0) {
+            if (++index >= argc) {
+                cli_errorf(verb, "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
+                return 0;
+            }
+            value = argv[index];
+        } else {
+            cli_errorf(verb, "CBS-E1001", "cli", 2,
+                       "unknown option `%s`", argument);
+            return 0;
+        }
+        if (value == NULL || value[0] == '\0') {
+            cli_errorf(verb, "CBS-E1001", "cli", 2,
+                       "filter value must not be empty");
+            return 0;
+        }
+        if (strncmp(argument, "--path-prefix", 13) == 0 ||
+            strcmp(argument, "--path-prefix") == 0)
+            *prefix = value;
+        else {
+            if (strcmp(value, "f") == 0 || strcmp(value, "file") == 0)
+                *type = 'f';
+            else if (strcmp(value, "d") == 0 || strcmp(value, "directory") == 0)
+                *type = 'd';
+            else if (strcmp(value, "l") == 0 || strcmp(value, "symlink") == 0)
+                *type = 'l';
+            else {
+                cli_errorf(verb, "CBS-E1001", "cli", 2,
+                           "--type must be file, directory, or symlink");
+                return 0;
+            }
+        }
+    }
+    return 1;
 }
 
 static void print_capabilities(void) {
@@ -1675,27 +1730,25 @@ int main(int argc, char **argv) {
     }
     if (argc >= 3 && strcmp(argv[1], "list") == 0) {
         int json = 0;
+        const char *prefix;
+        char type;
         for (argument_index = 3; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 json = 1;
-            else if (!is_diagnostic_option(argv[argument_index])) {
-                cli_errorf("list", "CBS-E1001", "cli", 2,
-                           "unknown option `%s`", argv[argument_index]);
-                return 2;
-            }
-        return list_file(argv[2], json);
+        if (!parse_entry_filters(argc, argv, 3, "list", &prefix, &type))
+            return 2;
+        return list_file(argv[2], json, prefix, type);
     }
     if (argc >= 4 && strcmp(argv[1], "diff") == 0) {
         int json = 0;
+        const char *prefix;
+        char type;
         for (argument_index = 4; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 json = 1;
-            else if (!is_diagnostic_option(argv[argument_index])) {
-                cli_errorf("diff", "CBS-E1001", "cli", 2,
-                           "unknown option `%s`", argv[argument_index]);
-                return 2;
-            }
-        return diff_file(argv[2], argv[3], json);
+        if (!parse_entry_filters(argc, argv, 4, "diff", &prefix, &type))
+            return 2;
+        return diff_file(argv[2], argv[3], json, prefix, type);
     }
     if (argc >= 3 && strcmp(argv[1], "verify") == 0) {
         for (argument_index = 3; argument_index < argc; ++argument_index)

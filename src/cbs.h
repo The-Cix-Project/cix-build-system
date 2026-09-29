@@ -725,9 +725,14 @@ int cbs_cixpkg_read_license(const char *package_path, char *license,
                             size_t license_size);
 /* List a verified CIXPKG manifest without extracting it. */
 int cbs_cixpkg_list(const char *package_path, FILE *stream, int json);
+int cbs_cixpkg_list_filtered(const char *package_path, FILE *stream, int json,
+                             const char *prefix, char type);
 /* Diff two verified CIXPKG manifests; different is set when they differ. */
 int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
                     int json, int *different);
+int cbs_cixpkg_diff_filtered(const char *left, const char *right, FILE *stream,
+                             int json, int *different, const char *prefix,
+                             char type);
 /* Verify and atomically extract a CIXPKG artifact into a new directory. */
 int cbs_cixpkg_extract(const char *package_path, const char *destination);
 /* Atomically rename a staged file after applying its final mode. */
