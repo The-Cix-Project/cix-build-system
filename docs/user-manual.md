@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.74 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.75 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -120,6 +120,18 @@ verb, stable diagnostic code/category, message, subject, and status; located
 CPDL diagnostics additionally contain the recipe path, line, and column. This
 is the preferred boundary for CI, editors, and cixd rather than parsing human
 text. The schema identifier is `cbs.diagnostic/v1`.
+
+Use `fingerprint` to compute the deterministic build-action key before
+execution:
+
+```sh
+./cbs fingerprint hello.cbs --arch x86_64
+```
+
+The key includes the normalized recipe digest, CBS/CPDL/CIXPKG policy
+versions, architecture, approved command/library paths, and declared input
+digests. Workspace paths and timestamps are excluded. The embedding API also
+accepts named caller inputs; cixd owns cache storage and trust decisions.
 
 Use `doctor` to preflight an image and recipe without executing it:
 

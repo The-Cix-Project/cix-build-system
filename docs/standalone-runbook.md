@@ -8,6 +8,7 @@ Build CBS with `make`, validate and inspect a recipe with `./cbs check` and
 make
 ./cbs check recipe.cbs
 ./cbs explain recipe.cbs
+./cbs fingerprint recipe.cbs --arch x86_64
 mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
 ./cbs build recipe.cbs \
     --arch x86_64 \
@@ -33,6 +34,11 @@ recipe commands, or mutates the workspace or source cache.
 `--report FILE` atomically writes a versioned `cbs.build-report/v1` JSON result
 for successful and failed pipeline builds, including event aggregates, package
 identity, artifact digest, and the final status.
+
+The fingerprint command computes the CBS-owned material-input key without
+executing the recipe. It excludes workspace paths and timestamps, so cixd can
+use it for lookup decisions while retaining storage, authorization, and
+eviction ownership outside CBS.
 
 To package a directory assembled by a caller (for example, a hostbuild), use
 the same CBS CIXPKG writer directly:

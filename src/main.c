@@ -221,6 +221,8 @@ static void usage(FILE *stream) {
         "      [--diagnostics=jsonl]            Emit versioned machine diagnostics\n"
         "  cbs doctor [RECIPE.cbs] [--arch ARCH] [--staged ROOT] [--cache DIR]\n"
         "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
+        "  cbs fingerprint RECIPE.cbs --arch ARCH [--command-path DIRS]\n"
+        "      [--library-path DIRS] Compute the build action fingerprint\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -964,6 +966,8 @@ static int build_file(const char *recipe, const char *architecture,
         report_state.report.recipe_path[
             sizeof(report_state.report.recipe_path) - 1] = '\0';
         report_state.report.status = result ? 0 : 1;
+        cbs_build_fingerprint(recipe, architecture, command_path, library_path,
+                              inputs, input_count, report_state.report.fingerprint);
         if (output != NULL) {
             strncpy(report_state.report.artifact_path, output,
                     sizeof(report_state.report.artifact_path) - 1);
@@ -1342,6 +1346,78 @@ cleanup:
     return pass ? 0 : 3;
 }
 
+typedef struct {
+    const char *recipe;
+    const char *architecture;
+    const char *command_path;
+    const char *library_path;
+} CbsFingerprintOptions;
+
+static int parse_fingerprint_options(int argc, char **argv,
+                                     CbsFingerprintOptions *options) {
+    int index;
+    memset(options, 0, sizeof(*options));
+    if (argc < 3 || strcmp(argv[1], "fingerprint") != 0) {
+        cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                   "missing recipe");
+        return 0;
+    }
+    options->recipe = argv[2];
+    for (index = 3; index < argc; ++index) {
+        const char *argument = argv[index];
+        const char *value = NULL;
+        if (is_diagnostic_option(argument))
+            continue;
+        if (strncmp(argument, "--arch=", 7) == 0)
+            value = argument + 7;
+        else if (strncmp(argument, "--command-path=", 15) == 0)
+            value = argument + 15;
+        else if (strncmp(argument, "--library-path=", 15) == 0)
+            value = argument + 15;
+        else if (strcmp(argument, "--arch") == 0 ||
+                 strcmp(argument, "--command-path") == 0 ||
+                 strcmp(argument, "--library-path") == 0) {
+            if (++index >= argc) {
+                cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                           "option `%s` requires a value", argument);
+                return 0;
+            }
+            value = argv[index];
+        } else {
+            cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                       "unknown option `%s`", argument);
+            return 0;
+        }
+        if (strcmp(argument, "--arch") == 0 ||
+            strncmp(argument, "--arch=", 7) == 0)
+            options->architecture = value;
+        else if (strcmp(argument, "--command-path") == 0 ||
+                 strncmp(argument, "--command-path=", 15) == 0)
+            options->command_path = value;
+        else
+            options->library_path = value;
+    }
+    if (options->architecture == NULL || options->architecture[0] == '\0') {
+        cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                   "--arch is required");
+        return 0;
+    }
+    return 1;
+}
+
+static int fingerprint_file(const CbsFingerprintOptions *options) {
+    char fingerprint[65];
+    if (!cbs_build_fingerprint(
+            options->recipe, options->architecture, options->command_path,
+            options->library_path, NULL, 0, fingerprint)) {
+        cli_errorf(options->recipe, "CBS-E1021", "fingerprint", 3,
+                   "cannot validate recipe or measure all build inputs");
+        return 3;
+    }
+    printf("fingerprint %s\n", fingerprint);
+    return 0;
+}
+
 /* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
@@ -1407,6 +1483,12 @@ int main(int argc, char **argv) {
         if (!parse_doctor_options(argc, argv, &options))
             return 2;
         return doctor_file(&options);
+    }
+    if (argc >= 2 && strcmp(argv[1], "fingerprint") == 0) {
+        CbsFingerprintOptions options;
+        if (!parse_fingerprint_options(argc, argv, &options))
+            return 2;
+        return fingerprint_file(&options);
     }
     if (argc >= 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);

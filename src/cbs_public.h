@@ -40,6 +40,7 @@ typedef struct {
     char package_name[256];
     char package_version[256];
     char architecture[128];
+    char fingerprint[65];
     const char *type;
     unsigned long long sequence;
     unsigned long long timestamp_ms;

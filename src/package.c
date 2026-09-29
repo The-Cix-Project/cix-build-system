@@ -36,6 +36,126 @@ static int valid_input_binding(const CbsInputBinding *inputs,
     return 1;
 }
 
+static int fingerprint_append(unsigned char **buffer, size_t *length,
+                              size_t *capacity, const char *name,
+                              const char *value) {
+    size_t name_length = strlen(name);
+    size_t value_length = strlen(value == NULL ? "" : value);
+    size_t needed = name_length + value_length + 2;
+    unsigned char *grown;
+    if (needed > SIZE_MAX - *length)
+        return 0;
+    needed += *length;
+    if (needed > *capacity) {
+        size_t next = *capacity == 0 ? 1024 : *capacity;
+        while (next < needed) {
+            if (next > SIZE_MAX / 2)
+                return 0;
+            next *= 2;
+        }
+        grown = realloc(*buffer, next);
+        if (grown == NULL)
+            return 0;
+        *buffer = grown;
+        *capacity = next;
+    }
+    memcpy(*buffer + *length, name, name_length);
+    *length += name_length;
+    (*buffer)[(*length)++] = '=';
+    memcpy(*buffer + *length, value == NULL ? "" : value, value_length);
+    *length += value_length;
+    (*buffer)[(*length)++] = '\n';
+    return 1;
+}
+
+int cbs_build_fingerprint(const char *recipe, const char *architecture,
+                          const char *command_path, const char *library_path,
+                          const CbsInputBinding *inputs, size_t input_count,
+                          char output[65]) {
+    FILE *file = NULL;
+    long size;
+    char *source = NULL;
+    size_t length, input, normalized;
+    CbsTokenList tokens = {0};
+    CbsNode *document = NULL;
+    unsigned char *fingerprint = NULL;
+    size_t fingerprint_length = 0, fingerprint_capacity = 0;
+    char digest[65];
+    int ok = 0;
+
+    if (recipe == NULL || architecture == NULL || output == NULL ||
+        !cbs_command_path_is_valid(command_path == NULL
+                                        ? CBS_DEFAULT_COMMAND_PATH
+                                        : command_path) ||
+        !cbs_library_path_is_valid(library_path == NULL
+                                       ? CBS_DEFAULT_LIBRARY_PATH
+                                       : library_path) ||
+        (input_count != 0 && inputs == NULL) ||
+        (inputs != NULL && !valid_input_binding(inputs, input_count)))
+        return 0;
+    file = fopen(recipe, "rb");
+    if (file == NULL || fseek(file, 0, SEEK_END) != 0 ||
+        (size = ftell(file)) < 0 || fseek(file, 0, SEEK_SET) != 0)
+        goto done;
+    source = malloc((size_t)size + 1);
+    if (source == NULL || fread(source, 1, (size_t)size, file) != (size_t)size)
+        goto done;
+    source[size] = '\0';
+    fclose(file);
+    file = NULL;
+    for (length = 0, normalized = 0; length < (size_t)size;) {
+        if (source[length] == '\r' && length + 1 < (size_t)size &&
+            source[length + 1] == '\n')
+            ++length;
+        source[normalized++] = source[length++];
+    }
+    source[normalized] = '\0';
+    if (!cbs_lex(recipe, source, normalized, &tokens))
+        goto done;
+    document = cbs_parse(recipe, source, normalized, &tokens);
+    if (document == NULL || !cbs_validate(document, recipe, source))
+        goto done;
+    if (!cbs_digest_text(source, normalized, digest) ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "recipe_sha256", digest) ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "cbs_version", CBS_VERSION) ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "cpdl_version", "0.1") ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "cixpkg_version", "2") ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "architecture", architecture) ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "command_path",
+                            command_path == NULL ? CBS_DEFAULT_COMMAND_PATH
+                                                 : command_path) ||
+        !fingerprint_append(&fingerprint, &fingerprint_length,
+                            &fingerprint_capacity, "library_path",
+                            library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH
+                                                 : library_path))
+        goto done;
+    for (input = 0; input < input_count; ++input) {
+        char input_digest[65];
+        char field[256];
+        if (!cbs_digest_file(inputs[input].path, input_digest) ||
+            snprintf(field, sizeof(field), "input.%s", inputs[input].name) >=
+                (int)sizeof(field) ||
+            !fingerprint_append(&fingerprint, &fingerprint_length,
+                                &fingerprint_capacity, field, input_digest))
+            goto done;
+    }
+    ok = cbs_digest_text((const char *)fingerprint, fingerprint_length, output);
+done:
+    if (file != NULL)
+        fclose(file);
+    free(source);
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(fingerprint);
+    return ok;
+}
+
 /* Select the compiler dependency that applies to the build pipeline. */
 static const char *declared_compiler(const CbsNode *document) {
     const CbsNode *package;
@@ -148,15 +268,21 @@ static int append_provenance(const char *manifest, const char *recipe,
                              const CbsExecutionContext *context) {
     FILE *file;
     char digest[65];
+    char fingerprint[65];
     size_t index;
 
     if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
+        return 0;
+    if (!cbs_build_fingerprint(recipe, context->arch, context->command_path,
+                               context->library_path, context->inputs,
+                               context->input_count, fingerprint))
         return 0;
     file = fopen(manifest, "ab");
     if (file == NULL)
         return 0;
     if (fprintf(file, "m recipe %s\n", recipe) < 0 ||
         fprintf(file, "m recipe_sha256 %s\n", digest) < 0 ||
+        fprintf(file, "m build_fingerprint %s\n", fingerprint) < 0 ||
         fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
         fprintf(file, "m architecture %s\n", context->arch) < 0 ||
         fprintf(file, "m toolchain %s\n", context->compiler == NULL

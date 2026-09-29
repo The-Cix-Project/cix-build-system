@@ -190,6 +190,8 @@ int cbs_build_report_write_json(const CbsBuildReport *report, FILE *stream) {
     json_string(stream, report->package_version);
     fputs(",\"architecture\":", stream);
     json_string(stream, report->architecture);
+    fputs(",\"fingerprint\":", stream);
+    json_string(stream, report->fingerprint);
     fprintf(stream,
             ",\"events\":%llu,\"phases\":%llu,\"commands\":%llu,\"cache_hits\":%llu,\"cache_misses\":%llu,\"sources_fetched\":%llu,\"source_bytes\":%llu,\"fetch_duration_ms\":%llu,\"tree_bytes\":%llu,\"tree_files\":%llu,\"artifact_bytes\":%llu,\"prune_files\":%llu,\"prune_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"duration_ms\":%llu,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"status\":%d,\"artifact\":",
             report->event_count, report->phase_count,

@@ -324,6 +324,7 @@ typedef struct {
     char package_name[256];
     char package_version[256];
     char architecture[128];
+    char fingerprint[65];
     unsigned long long event_count;
     unsigned long long phase_count;
     unsigned long long command_count;
@@ -763,6 +764,11 @@ int cbs_prepare_sources_with_events(
 int cbs_digest_file(const char *path, char output[65]);
 /* Compute a lowercase SHA-256 digest for a byte string. */
 int cbs_digest_text(const char *text, size_t length, char output[65]);
+/* Compute the deterministic material-input fingerprint for one build action. */
+int cbs_build_fingerprint(const char *recipe, const char *architecture,
+                          const char *command_path, const char *library_path,
+                          const CbsInputBinding *inputs, size_t input_count,
+                          char output[65]);
 /* Collect dependencies selected by one named phase. */
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);

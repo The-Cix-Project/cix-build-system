@@ -109,6 +109,11 @@ grep -q 'metadata value' "$temporary_dir/non-string.err"
 grep -Eq '^recipe-digest [0-9a-f]{64}$' "$temporary_dir/inspect.out"
 test "$(wc -l <"$temporary_dir/inspect.out")" -eq 2
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect.out"
+fingerprint_one=$("$cbs" fingerprint "$recipe" --arch x86_64)
+fingerprint_two=$("$cbs" fingerprint "$recipe" --arch x86_64)
+test "$fingerprint_one" = "$fingerprint_two"
+printf '%s\n' "$fingerprint_one" | grep -Eq \
+    '^fingerprint [0-9a-f]{64}$'
 
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
@@ -116,6 +121,7 @@ test "$(cat "$temporary_dir/build.out")" = "built $artifact"
 grep -q '"schema":"cbs.build-report/v1"' "$report"
 grep -q '"status":0' "$report"
 grep -q '"artifact_digest":"[0-9a-f]\{64\}"' "$report"
+grep -q '"fingerprint":"[0-9a-f]\{64\}"' "$report"
 "$cbs" inspect "$recipe" "$artifact" >"$temporary_dir/inspect-artifact.out"
 grep -Eq '^artifact-digest [0-9a-f]{64}$' "$temporary_dir/inspect-artifact.out"
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect-artifact.out"
