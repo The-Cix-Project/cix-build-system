@@ -577,11 +577,6 @@ int cbs_build_fingerprint(const char *recipe, const char *architecture,
                           const char *command_path, const char *library_path,
                           const CbsInputBinding *inputs, size_t input_count,
                           char output[65]);
-int cbs_build_fingerprint_with_context(
-    const char *recipe, const char *architecture, const char *command_path,
-    const char *library_path, const CbsInputBinding *inputs,
-    size_t input_count, const CbsFingerprintContext *context,
-    char output[65]);
 /* Collect dependencies selected by one named phase. */
 int cbs_dependencies_for_phase(const CbsNode *document, const char *phase,
                                CbsDependencySet *dependencies);

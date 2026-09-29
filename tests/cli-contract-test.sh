@@ -2,6 +2,7 @@
 set -eu
 
 cbs=${1:?usage: cli-contract-test.sh CBS}
+tests_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 version=$(sed -n '1p' VERSION)
 temporary_dir=${TMPDIR:-/tmp}/cbs-cli-contract-tests.$$
 trap 'rm -rf -- "$temporary_dir"' EXIT HUP INT TERM
@@ -148,6 +149,30 @@ identity_artifact_digest=$(sed -n \
     's/.*"key":"build_fingerprint","value":"\([^"]*\)".*/\1/p' \
     "$temporary_dir/identity-list.json")
 test "$identity_fingerprint" = "fingerprint $identity_artifact_digest"
+tool_recipe="$tests_dir/fixtures/tool-policy.cbs"
+tool_path="$temporary_dir/tools"
+mkdir "$tool_path"
+printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$@" >> args' >"$tool_path/tcc"
+chmod 755 "$tool_path/tcc"
+tool_command_path="$tool_path:/usr/bin:/bin"
+tool_fingerprint=$($cbs fingerprint "$tool_recipe" --arch x86_64 \
+    --command-path "$tool_command_path")
+tool_workspace="$temporary_dir/tool-workspace"
+tool_artifact="$temporary_dir/tool-policy.cixpkg"
+tool_report="$temporary_dir/tool-policy-report.json"
+mkdir "$tool_workspace"
+"$cbs" build "$tool_recipe" --arch x86_64 --staged "$tool_workspace" \
+    --output "$tool_artifact" --report "$tool_report" \
+    --command-path "$tool_command_path" \
+    >"$temporary_dir/tool-build.out"
+tool_report_digest=$(sed -n 's/.*"fingerprint":"\([^"]*\)".*/\1/p' \
+    "$tool_report")
+test "$tool_fingerprint" = "fingerprint $tool_report_digest"
+"$cbs" list "$tool_artifact" --json >"$temporary_dir/tool-list.json"
+tool_artifact_digest=$(sed -n \
+    's/.*"key":"build_fingerprint","value":"\([^"]*\)".*/\1/p' \
+    "$temporary_dir/tool-list.json")
+test "$tool_fingerprint" = "fingerprint $tool_artifact_digest"
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"

@@ -62,6 +62,11 @@ PATH for the whole build. The resolved target and effective alias policy are
 recorded in package provenance. A recipe `PATH` override is rejected; the
 composer supplies the command-path policy.
 
+The build fingerprint records the resolved target digest for each declared
+alias, not the workspace-specific wrapper directory. Consequently,
+`cbs fingerprint` can compute the same key before materialisation, and the
+report and packaged provenance remain identical to that precomputed key.
+
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,
 synchronous `build-begin`, source cache, `phase-begin`, `command-begin`,
