@@ -251,6 +251,8 @@ int cbs_cixpkg_write_tree_with_flags(const char *, const char *, const char *,
                                      const char *, unsigned);
 int cbs_cixpkg_compress(const char *, const char *);
 int cbs_cixpkg_decompress(const char *, const char *);
+int cbs_cixpkg_list(const char *, FILE *, int);
+int cbs_cixpkg_diff(const char *, const char *, FILE *, int, int *);
 int cbs_compare_files(const char *, const char *);
 int cbs_install_atomic(const char *, const char *, unsigned);
 

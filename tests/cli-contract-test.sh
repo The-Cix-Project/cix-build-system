@@ -114,7 +114,6 @@ fingerprint_two=$("$cbs" fingerprint "$recipe" --arch x86_64)
 test "$fingerprint_one" = "$fingerprint_two"
 printf '%s\n' "$fingerprint_one" | grep -Eq \
     '^fingerprint [0-9a-f]{64}$'
-
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"
@@ -122,6 +121,26 @@ grep -q '"schema":"cbs.build-report/v1"' "$report"
 grep -q '"status":0' "$report"
 grep -q '"artifact_digest":"[0-9a-f]\{64\}"' "$report"
 grep -q '"fingerprint":"[0-9a-f]\{64\}"' "$report"
+"$cbs" list "$artifact" --json >"$temporary_dir/list.json"
+grep -q '"schema":"cbs.cixpkg-list/v1"' "$temporary_dir/list.json"
+grep -q '"path":"hello"' "$temporary_dir/list.json"
+"$cbs" diff "$artifact" "$artifact" >"$temporary_dir/self-diff.out"
+test ! -s "$temporary_dir/self-diff.out"
+mkdir "$temporary_dir/different-stage"
+cp "$temporary_dir/workspace/dest/hello" \
+    "$temporary_dir/different-stage/hello"
+printf 'changed\n' >"$temporary_dir/different-stage/hello"
+different_artifact="$temporary_dir/different.cixpkg"
+"$cbs" package "$temporary_dir/different-stage" --name cli-contract \
+    --version 1 --release 1 --arch x86_64 --output "$different_artifact" \
+    >/dev/null
+set +e
+"$cbs" diff "$artifact" "$different_artifact" \
+    >"$temporary_dir/diff.out"
+status=$?
+set -e
+test "$status" -eq 1
+grep -q '^~ hello$' "$temporary_dir/diff.out"
 "$cbs" inspect "$recipe" "$artifact" >"$temporary_dir/inspect-artifact.out"
 grep -Eq '^artifact-digest [0-9a-f]{64}$' "$temporary_dir/inspect-artifact.out"
 grep -q '^license GPL-3.0-or-later$' "$temporary_dir/inspect-artifact.out"

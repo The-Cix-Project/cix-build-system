@@ -486,6 +486,253 @@ int cbs_cixpkg_read_license(const char *package_path, char *license,
     return 1;
 }
 
+typedef struct {
+    char type;
+    unsigned mode;
+    unsigned long long size;
+    char path[4096];
+    char digest[65];
+    char target[4096];
+} CbsListEntry;
+
+typedef struct {
+    CbsListEntry *entries;
+    size_t count;
+    size_t capacity;
+    char manifest_digest[65];
+    char identity[65];
+} CbsList;
+
+static void list_json_string(FILE *stream, const char *value) {
+    const unsigned char *cursor = (const unsigned char *)(value == NULL ? "" : value);
+    fputc('"', stream);
+    while (*cursor != '\0') {
+        if (*cursor == '"' || *cursor == '\\')
+            fputc('\\', stream);
+        if (*cursor == '\n')
+            fputs("\\n", stream);
+        else if (*cursor == '\r')
+            fputs("\\r", stream);
+        else if (*cursor == '\t')
+            fputs("\\t", stream);
+        else if (*cursor >= 0x20)
+            fputc(*cursor, stream);
+        ++cursor;
+    }
+    fputc('"', stream);
+}
+
+static void cbs_list_destroy(CbsList *list) {
+    free(list->entries);
+    memset(list, 0, sizeof(*list));
+}
+
+static int cbs_list_add(CbsList *list, const CbsListEntry *entry) {
+    if (list->count == list->capacity) {
+        size_t next = list->capacity == 0 ? 32 : list->capacity * 2;
+        CbsListEntry *grown = realloc(list->entries, next * sizeof(*grown));
+        if (grown == NULL)
+            return 0;
+        list->entries = grown;
+        list->capacity = next;
+    }
+    list->entries[list->count++] = *entry;
+    return 1;
+}
+
+static int cbs_list_load(const char *path, CbsList *list) {
+    unsigned char *data = NULL, *manifest = NULL;
+    size_t total, manifest_size, frame, written;
+    uint64_t payload_size;
+    char digest[65], line[8192], type, mode_text[32], entry_digest[65],
+        relative[4096];
+    FILE *file = NULL;
+    char target_hex[8192];
+    unsigned uid, gid;
+    unsigned long long entry_size;
+    if (list == NULL || !cbs_cixpkg_verify_tree(path, list->identity,
+                                                 sizeof(list->identity)) ||
+        !read_blob(path, &data, &total) || total < 352)
+        goto failure;
+    manifest_size = (size_t)get64(data + 16);
+    payload_size = get64(data + 24);
+    frame = ZSTD_findFrameCompressedSize(data + 352, total - 352);
+    if (ZSTD_isError(frame) || frame > total - 352 ||
+        manifest_size > 1024ULL * 1024ULL * 1024ULL ||
+        payload_size > 1024ULL * 1024ULL * 1024ULL)
+        goto failure;
+    manifest = malloc(manifest_size + 1);
+    if (manifest == NULL ||
+        ZSTD_isError(written = ZSTD_decompress(manifest, manifest_size,
+                                                data + 352, frame)) ||
+        written != manifest_size ||
+        !cbs_digest_text((char *)manifest, written, digest) ||
+        memcmp(data + 32, digest, 64) != 0)
+        goto failure;
+    memcpy(list->manifest_digest, digest, sizeof(list->manifest_digest));
+    file = fmemopen(manifest, manifest_size, "rb");
+    if (file == NULL)
+        goto failure;
+    while (fgets(line, sizeof(line), file) != NULL) {
+        CbsListEntry entry;
+        memset(&entry, 0, sizeof(entry));
+        if (sscanf(line, "%c", &type) != 1)
+            goto failure;
+        if (type == 'm')
+            continue;
+        if (type == 'f') {
+            if (sscanf(line, "f %31s %u %u %llu %64s %4095[^\n]",
+                       mode_text, &uid, &gid, &entry_size, entry_digest,
+                       relative) != 6 || !parse_mode(mode_text, &entry.mode) ||
+                uid != 0 || gid != 0)
+                goto failure;
+            entry.type = 'f';
+            entry.size = entry_size;
+            snprintf(entry.digest, sizeof(entry.digest), "%s", entry_digest);
+        } else if (type == 'd') {
+            if (sscanf(line, "d %31s %u %u %4095[^\n]", mode_text, &uid,
+                       &gid, relative) != 4 || !parse_mode(mode_text, &entry.mode) ||
+                uid != 0 || gid != 0)
+                goto failure;
+            entry.type = 'd';
+        } else if (type == 'l') {
+            if (sscanf(line, "l %31s %u %u %8191s %4095[^\n]", mode_text,
+                       &uid, &gid, target_hex, relative) != 5 ||
+                !parse_mode(mode_text, &entry.mode) || uid != 0 || gid != 0 ||
+                !decode_link_target(target_hex, entry.target,
+                                    sizeof(entry.target)))
+                goto failure;
+            entry.type = 'l';
+        } else
+            goto failure;
+        if (!cbs_validate_stage_path(relative, &(CbsStagePolicy){1, 1, 1}))
+            goto failure;
+        snprintf(entry.path, sizeof(entry.path), "%s", relative);
+        if (!cbs_list_add(list, &entry))
+            goto failure;
+    }
+    if (ferror(file))
+        goto failure;
+    fclose(file);
+    free(manifest);
+    free(data);
+    return 1;
+failure:
+    if (file != NULL)
+        fclose(file);
+    free(manifest);
+    free(data);
+    cbs_list_destroy(list);
+    return 0;
+}
+
+int cbs_cixpkg_list(const char *package_path, FILE *stream, int json) {
+    CbsList list = {0};
+    size_t index;
+    if (stream == NULL || !cbs_list_load(package_path, &list))
+        return 0;
+    if (json) {
+        fputs("{\"schema\":\"cbs.cixpkg-list/v1\",\"identity\":", stream);
+        list_json_string(stream, list.identity);
+        fputs(",\"manifest_digest\":", stream);
+        list_json_string(stream, list.manifest_digest);
+        fputs(",\"entries\":[", stream);
+        for (index = 0; index < list.count; ++index) {
+            CbsListEntry *entry = &list.entries[index];
+            if (index != 0)
+                fputc(',', stream);
+            fprintf(stream, "{\"type\":\"%c\",\"mode\":%u,\"size\":%llu,\"path\":",
+                    entry->type, entry->mode, entry->size);
+            list_json_string(stream, entry->path);
+            fputs(",\"digest\":", stream);
+            list_json_string(stream, entry->digest);
+            fputs(",\"target\":", stream);
+            list_json_string(stream, entry->target);
+            fputc('}', stream);
+        }
+        fputs("]}\n", stream);
+    } else {
+        fprintf(stream, "identity %s\nmanifest-digest %s\n", list.identity,
+                list.manifest_digest);
+        for (index = 0; index < list.count; ++index)
+            fprintf(stream, "%c %04o %llu %s %s%s%s\n", list.entries[index].type,
+                    list.entries[index].mode, list.entries[index].size,
+                    list.entries[index].digest, list.entries[index].path,
+                    list.entries[index].type == 'l' ? " -> " : "",
+                    list.entries[index].type == 'l' ? list.entries[index].target : "");
+    }
+    cbs_list_destroy(&list);
+    return fflush(stream) == 0;
+}
+
+int cbs_cixpkg_diff(const char *left, const char *right, FILE *stream,
+                    int json, int *different) {
+    CbsList a = {0}, b = {0};
+    size_t ai = 0, bi = 0;
+    int differs = 0;
+    int first = 1;
+    if (different != NULL)
+        *different = 0;
+    if (stream == NULL || !cbs_list_load(left, &a) || !cbs_list_load(right, &b))
+        goto failure;
+    if (json)
+        fputs("{\"schema\":\"cbs.cixpkg-diff/v1\",\"changes\":[", stream);
+    while (ai < a.count || bi < b.count) {
+        const CbsListEntry *entry = NULL;
+        char kind;
+        int same = 0;
+        if (bi == b.count ||
+            (ai < a.count && strcmp(a.entries[ai].path, b.entries[bi].path) < 0)) {
+            kind = '-';
+            entry = &a.entries[ai++];
+        } else if (ai == a.count ||
+                   strcmp(a.entries[ai].path, b.entries[bi].path) > 0) {
+            kind = '+';
+            entry = &b.entries[bi++];
+        } else {
+            entry = &a.entries[ai++];
+            same = entry->type == b.entries[bi].type &&
+                   entry->mode == b.entries[bi].mode && entry->size == b.entries[bi].size &&
+                   strcmp(entry->digest, b.entries[bi].digest) == 0 &&
+                   strcmp(entry->target, b.entries[bi].target) == 0;
+            ++bi;
+            if (same)
+                continue;
+            kind = '~';
+        }
+        differs = 1;
+        if (json) {
+            if (!first)
+                fputc(',', stream);
+            first = 0;
+            fprintf(stream, "{\"change\":\"%c\",\"path\":", kind);
+            list_json_string(stream, entry->path);
+            fputc('}', stream);
+        } else
+            fprintf(stream, "%c %s\n", kind, entry->path);
+    }
+    if (!differs && strcmp(a.manifest_digest, b.manifest_digest) != 0) {
+        differs = 1;
+        if (json) {
+            if (!first)
+                fputc(',', stream);
+            fputs("{\"change\":\"~\",\"path\":\"<metadata>\"}", stream);
+        } else
+            fputs("~ <metadata>\n", stream);
+    }
+    if (json)
+        fputs("]}\n", stream);
+    cbs_list_destroy(&a);
+    cbs_list_destroy(&b);
+    if (different != NULL)
+        *different = differs;
+    return fflush(stream) == 0;
+failure:
+    cbs_list_destroy(&a);
+    cbs_list_destroy(&b);
+    return 0;
+}
+
 /* Remove a temporary extraction tree recursively. */
 static int remove_tree(const char *path) {
     DIR *directory = opendir(path);

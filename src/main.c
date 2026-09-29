@@ -223,6 +223,8 @@ static void usage(FILE *stream) {
         "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
         "  cbs fingerprint RECIPE.cbs --arch ARCH [--command-path DIRS]\n"
         "      [--library-path DIRS] Compute the build action fingerprint\n"
+        "  cbs list ARTIFACT.cixpkg [--json]    List verified manifest entries\n"
+        "  cbs diff LEFT.cixpkg RIGHT.cixpkg [--json] Compare manifests\n"
         "  cbs verify ARTIFACT.cixpkg           Verify an artifact alone\n"
         "  cbs extract ARTIFACT.cixpkg --into DIR Extract a verified artifact\n"
         "  cbs --help                           Show this help\n"
@@ -1418,6 +1420,25 @@ static int fingerprint_file(const CbsFingerprintOptions *options) {
     return 0;
 }
 
+static int list_file(const char *path, int json) {
+    if (!cbs_cixpkg_list(path, stdout, json)) {
+        cli_errorf(path, "CIXPKG-E4001", "artifact", 4,
+                   "artifact verification or manifest listing failed");
+        return 4;
+    }
+    return 0;
+}
+
+static int diff_file(const char *left, const char *right, int json) {
+    int different = 0;
+    if (!cbs_cixpkg_diff(left, right, stdout, json, &different)) {
+        cli_errorf(left, "CIXPKG-E4001", "artifact", 4,
+                   "artifact verification or manifest diff failed");
+        return 4;
+    }
+    return different ? 1 : 0;
+}
+
 /* Print recipe identity, source, and optional artifact digest metadata. */
 static int inspect_file(const char *path, const char *artifact) {
     char *source;
@@ -1489,6 +1510,20 @@ int main(int argc, char **argv) {
         if (!parse_fingerprint_options(argc, argv, &options))
             return 2;
         return fingerprint_file(&options);
+    }
+    if (argc >= 3 && strcmp(argv[1], "list") == 0) {
+        int json = 0;
+        for (argument_index = 3; argument_index < argc; ++argument_index)
+            if (strcmp(argv[argument_index], "--json") == 0)
+                json = 1;
+        return list_file(argv[2], json);
+    }
+    if (argc >= 4 && strcmp(argv[1], "diff") == 0) {
+        int json = 0;
+        for (argument_index = 4; argument_index < argc; ++argument_index)
+            if (strcmp(argv[argument_index], "--json") == 0)
+                json = 1;
+        return diff_file(argv[2], argv[3], json);
     }
     if (argc >= 3 && strcmp(argv[1], "verify") == 0)
         return verify_file(argv[2]);

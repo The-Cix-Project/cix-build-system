@@ -18,6 +18,7 @@ mkdir -p /tmp/cbs-workspace /var/cache/cbs/sources
     --report package-report.json
 ./cbs verify package.cixpkg
 ./cbs extract package.cixpkg --into /tmp/cbs-extracted
+./cbs list package.cixpkg
 ```
 
 Before spending a build cycle on a composed image, run the non-executing
