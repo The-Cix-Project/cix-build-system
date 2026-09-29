@@ -3,7 +3,7 @@
 - Issue: `#1 Specify the CPDL v0.1 grammar and diagnostic contract`
 - Date: 2026-08-28
 - Result: Pass
-- Deliverable: [`docs/spec/cpdl-0.1.md`](../spec/cpdl-0.1.md)
+- Deliverable: [`docs/spec/cpdl-1.0.md`](../spec/cpdl-1.0.md)
 
 ## Inputs reviewed
 
@@ -115,4 +115,3 @@ is an explicit exclusion, not an accidental grammar gap.
 Issue #1 defines behavior; it does not implement a parser. Issue #2 is the next
 work item and must translate this grammar into a lexer, AST, parser, validator,
 and exhaustive positive/negative fixtures without adding syntax.
-

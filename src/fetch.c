@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef CBS_VERSION
+#define CBS_VERSION "unknown"
+#endif
+
+#define CBS_USER_AGENT "cbs/" CBS_VERSION
+
 typedef void Curl;
 typedef int CurlCode;
 typedef Curl *(*CurlEasyInit)(void);
@@ -107,7 +113,7 @@ static int curl_fetch(const char *url, const char *destination, void *opaque,
         api->easy_setopt(handle, CURLOPT_CAINFO, api->ca_file);
     api->easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
     api->easy_setopt(handle, CURLOPT_TIMEOUT_MS, 120000L);
-    api->easy_setopt(handle, CURLOPT_USERAGENT, "cbs/0.1");
+    api->easy_setopt(handle, CURLOPT_USERAGENT, CBS_USER_AGENT);
     api->easy_setopt(handle, CURLOPT_PROTOCOLS, 3L);
     api->easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS, 3L);
     result = api->easy_perform(handle);

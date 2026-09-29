@@ -71,7 +71,7 @@ particular:
 - assertions and expected outcomes are first-class operations.
 
 One recipe revision defines one exact package. Configurable feature matrices and
-general version constraints are outside CPDL v0.1.
+general version constraints are outside CPDL v1.0.
 
 ### No implicit shell
 
@@ -186,7 +186,7 @@ CPDL + verified sources
                           name-version-release-arch.cixpkg
 ```
 
-## CPDL v0.1 model
+## CPDL v1.0 model
 
 ### Package identity
 
@@ -275,8 +275,8 @@ example, development headers may be a legitimate runtime requirement of an
 installed compiler. CBS may compare declarations with observed ELF, interpreter,
 tool, symlink, and ownership relationships.
 
-CPDL v0.1 names exact repository packages without version expressions. The Cix
-repository selects its pinned package graph; v0.1 does not require a general
+CPDL v1.0 names exact repository packages without version expressions. The Cix
+repository selects its pinned package graph; v1.0 does not require a general
 dependency solver.
 
 ### Phases and execution
@@ -435,7 +435,7 @@ The following are intentionally not fixed by this ADR:
    cixd may provide the same fetch-service boundary when centralized transport
    policy is required.
 5. What sandboxing and dependency-observation guarantees are mandatory in v1?
-6. What is the exact CPDL v0.1 grammar and diagnostic contract?
+6. What is the exact CPDL v1.0 grammar and diagnostic contract?
 7. How are repository metadata, artifact signatures, upgrades, conflicts, and
    transactional installation represented?
 

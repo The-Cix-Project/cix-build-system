@@ -44,13 +44,13 @@ grep -q '^usage: cbs <command> \[options\]$' "$temporary_dir/help.out"
 "$cbs" -h >"$temporary_dir/short-help.out"
 cmp -s "$temporary_dir/help.out" "$temporary_dir/short-help.out"
 
-test "$("$cbs" check "$recipe")" = "$recipe: valid CPDL 0.1"
-test "$("$cbs" validate "$recipe")" = "$recipe: valid CPDL 0.1"
+test "$("$cbs" check "$recipe")" = "$recipe: valid CPDL 1.0"
+test "$("$cbs" validate "$recipe")" = "$recipe: valid CPDL 1.0"
 test "$("$cbs" validate "$recipe" --json)" = \
-    "$recipe: valid CPDL 0.1"
+    "$recipe: valid CPDL 1.0"
 
 "$cbs" explain "$recipe" >"$temporary_dir/explain.out"
-grep -q "^$recipe: CPDL 0.1 execution plan (1 phases)$" \
+grep -q "^$recipe: CPDL 1.0 execution plan (1 phases)$" \
     "$temporary_dir/explain.out"
 grep -q '^1 build operations=5$' "$temporary_dir/explain.out"
 "$cbs" explain "$recipe" --json >"$temporary_dir/explain.json"

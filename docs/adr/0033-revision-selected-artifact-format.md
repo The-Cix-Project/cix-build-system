@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded in part by CPDL 0.1's single supported artifact format. CBS now
+Superseded in part by CPDL 1.0's single supported artifact format. CBS now
 rejects `format "tar.gz"` during validation; existing tar archives remain
 source inputs, not CBS package outputs.
 
@@ -11,7 +11,7 @@ Accepted
 ## Decision
 
 An immutable recipe revision declares exactly one artifact format. The
-standalone CPDL 0.1 implementation supports only `cixpkg`, which produces a
+standalone CPDL 1.0 implementation supports only `cixpkg`, which produces a
 `.cixpkg` artifact. The installer does not probe for one format and fall back
 to another.
 

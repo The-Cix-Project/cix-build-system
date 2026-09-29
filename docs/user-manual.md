@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.97 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.98 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -10,8 +10,8 @@ CBS consumes `.cbs` files written in the Cix Package Definition Language (CPDL)
 and produces packages containing a deterministic manifest and compressed staged
 file payload.
 
-This is the practical, definitive guide to writing CPDL 0.1 recipes and using
-the standalone `cbs` command. The [CPDL specification](spec/cpdl-0.1.md) is
+This is the practical, definitive guide to writing CPDL 1.0 recipes and using
+the standalone `cbs` command. The [CPDL specification](spec/cpdl-1.0.md) is
 the normative grammar and diagnostic reference; this manual explains how to
 apply it.
 
@@ -343,7 +343,7 @@ is parsed, so `explain` counts every expanded operation.
 `replace`, `insert`, `write`, `copy`, `move`, `remove`, `symlink`, `extract`,
 `materialize`, `stage library`, `stage file`, `stage tree`,
 `require`, globbing, environment bindings, timeouts, expected exit status, and
-`on_fail` diagnostics are specified in the [CPDL specification](spec/cpdl-0.1.md).
+`on_fail` diagnostics are specified in the [CPDL specification](spec/cpdl-1.0.md).
 
 Build phases cannot access the network. Source acquisition happens before phase
 execution, and undeclared host paths are rejected.
@@ -474,7 +474,7 @@ so it can verify the staged artifact.
 interprets; both appear in `explain --json`.
 
 `upstream` names a release-discovery provider. It does not replace the pinned
-source URL or digest in CPDL 0.1. `kernel.org` is currently the registered
+source URL or digest in CPDL 1.0. `kernel.org` is currently the registered
 provider. `build_image` and `capability` describe what an orchestrator must
 provide; standalone CBS validates and reports them but cannot create an image
 or grant a Linux capability. A compiler other than TCC is rejected unless the
@@ -871,7 +871,7 @@ Never extract an artifact that does not verify.
 phase execution, such as an undeclared setuid/setgid mode or unsupported entry
 type. This is distinct from `CPDL-E4001`, which reports a process failure.
 
-For the complete grammar and diagnostic contract, see the [CPDL specification](spec/cpdl-0.1.md).
+For the complete grammar and diagnostic contract, see the [CPDL specification](spec/cpdl-1.0.md).
 
 ## 16. Security and deliberate language limits
 
@@ -918,7 +918,7 @@ Standalone CBS cannot grant `CAP_SYS_ADMIN`, create a named build image, or
 provide firmware and other image contents. Recipes may declare `build_image`
 and `capability` so an orchestrator can enforce them; `cbs check` validates and
 `cbs explain` reports them. Similarly, `upstream` identifies a registered
-discovery provider, but CPDL 0.1 still requires a pinned URL and SHA-256 for
+discovery provider, but CPDL 1.0 still requires a pinned URL and SHA-256 for
 the actual build.
 
 ## 17. Troubleshooting

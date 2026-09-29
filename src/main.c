@@ -131,7 +131,7 @@ static int validate_file(const char *path) {
     free(source);
     if (!valid)
         return 3;
-    printf("%s: valid CPDL 0.1\n", path);
+    printf("%s: valid CPDL 1.0\n", path);
     return 0;
 }
 
@@ -205,7 +205,7 @@ static int extract_file(const char *artifact, const char *destination) {
 static void usage(FILE *stream) {
     fputs(
         "usage: cbs <command> [options]\n"
-        "\ncbs - Cix Build System package engine (CPDL 0.1)\n\n"
+        "\ncbs - Cix Build System package engine (CPDL 1.0)\n\n"
         "commands:\n"
         "  cbs check RECIPE.cbs                 Validate without executing\n"
         "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
@@ -798,7 +798,7 @@ static int explain_file(const char *path, int json) {
                    count_plan_operations(plan.phases[index]));
         puts("]}");
     } else {
-        printf("%s: CPDL 0.1 execution plan (%zu phases)\n", path, plan.count);
+        printf("%s: CPDL 1.0 execution plan (%zu phases)\n", path, plan.count);
         printf("metadata build_image=%s upstream=%s toolchain=%s "
                "capabilities=%zu\n",
                metadata.build_image == NULL ? "none" : metadata.build_image,
@@ -1751,9 +1751,9 @@ static int parse_entry_filters(int argc, char **argv, int start,
 static void print_capabilities(void) {
     fputs("{\"schema\":\"cbs.capabilities/v1\",\"version\":", stdout);
     print_json_string(cbs_version());
-    printf(",\"api_version\":%u,\"abi_version\":%u,\"cpdl_version\":%u,\"cixpkg_version\":%u,\"execution_context_size\":%zu,\"integration\":[\"child-process\",\"static-library\"],\"commands\":[\"build\",\"doctor\",\"explain\",\"fingerprint\",\"list\",\"diff\",\"package\",\"verify\"]}\n",
+    printf(",\"api_version\":%u,\"abi_version\":%u,\"cpdl_version\":%u,\"cpdl_contract\":\"%s\",\"cixpkg_version\":%u,\"execution_context_size\":%zu,\"integration\":[\"child-process\",\"static-library\"],\"commands\":[\"build\",\"doctor\",\"explain\",\"fingerprint\",\"list\",\"diff\",\"package\",\"verify\"]}\n",
            cbs_api_version(), cbs_abi_version(), CBS_CPDL_VERSION,
-           CBS_CIXPKG_VERSION, cbs_execution_context_size());
+           CBS_CPDL_CONTRACT, CBS_CIXPKG_VERSION, cbs_execution_context_size());
 }
 
 /* Print recipe identity, source, and optional artifact digest metadata. */

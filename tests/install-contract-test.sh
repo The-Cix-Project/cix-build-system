@@ -24,6 +24,7 @@ grep -q '^#include "cbs_public.h"' src/cbs.h
 capabilities=$("$root/usr/bin/cbs" --capabilities)
 printf '%s\n' "$capabilities" | grep -q '"schema":"cbs.capabilities/v1"'
 printf '%s\n' "$capabilities" | grep -q '"api_version":1'
+printf '%s\n' "$capabilities" | grep -q '"cpdl_version":1,"cpdl_contract":"1.0"'
 
 pkg_config=$(PKG_CONFIG_PATH="$root/usr/lib/pkgconfig" \
     pkg-config --define-prefix --cflags --libs --static cbs)

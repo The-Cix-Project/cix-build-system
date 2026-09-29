@@ -1,18 +1,18 @@
 # Cix Build System
 
-Current release: **CBS v0.1.97**. The release version is the first line of
+Current release: **CBS v0.1.98**. The release version is the first line of
 `VERSION`; release tags use the matching `v<version>` spelling. `make` checks
 that relationship when building from a release tag.
 
 CBS is the command-line package build engine for Cix. It consumes package
 definitions written in CPDL and stored as `.cbs` files.
 
-The standalone CPDL 0.1 pipeline is implemented. The executable can lex, parse,
+The standalone CPDL 1.0 pipeline is implemented. The executable can lex, parse,
 validate, execute package phases, generate a deterministic manifest, package the
 staged file payload, and emit a verified CIXPKG artifact without requiring cixd.
 
 The production runtime implements direct `execve` execution for validated `run`
-AST nodes, the CPDL 0.1 filesystem vocabulary, and atomic source edits and
+AST nodes, the CPDL 1.0 filesystem vocabulary, and atomic source edits and
 assertions in C. A single block executor preserves primary failures while
 running subordinate `on_fail` diagnostics. Filesystem access is confined to
 CBS-supplied roots and does not invoke host utilities. cixd remains an optional
@@ -101,7 +101,7 @@ The prioritized implementation plan is tracked in the
 Successful validation prints one confirmation line and exits with status 0.
 Recipe I/O, lexical, parse, and validation failures use status 3 and emit the
 located diagnostic contract defined in
-[`docs/spec/cpdl-0.1.md`](docs/spec/cpdl-0.1.md).
+[`docs/spec/cpdl-1.0.md`](docs/spec/cpdl-1.0.md).
 
 Validation is non-executing: it does not fetch sources, inspect the host
 filesystem, resolve dependencies, or spawn phase commands.

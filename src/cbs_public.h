@@ -8,9 +8,11 @@
 
 #define CBS_API_VERSION 1U
 #define CBS_ABI_VERSION 3U
+/* Numeric language contract version.  The public language contract is CPDL
+ * 1.0; the string form below is authoritative for external consumers. */
 #define CBS_CPDL_VERSION 1U
 #define CBS_CIXPKG_VERSION 2U
-#define CBS_CPDL_CONTRACT "0.1"
+#define CBS_CPDL_CONTRACT "1.0"
 #define CBS_CIXPKG_CONTRACT "2"
 #define CBS_DEFAULT_COMMAND_PATH "/usr/bin:/bin"
 #define CBS_DEFAULT_LIBRARY_PATH "/usr/lib:/lib:/usr/lib64:/lib64"

@@ -1,7 +1,7 @@
-# CPDL 0.1 language specification
+# CPDL 1.0 language specification
 
 - Status: Normative
-- Version: 0.1
+- Version: 1.0
 - Date: 2026-08-28
 - File extension: `.cbs`
 
@@ -12,8 +12,11 @@ verified inputs into a staged package tree. CPDL is deliberately not a general
 programming language. CBS owns fetching, verification, sandbox policy,
 normalization, manifest generation, packaging, and installation.
 
-This document is normative for CPDL 0.1. The words **must**, **must not**,
+This document is normative for CPDL 1.0. The words **must**, **must not**,
 **should**, and **may** carry their usual requirements meanings.
+
+CBS implements CPDL 1.0. A future incompatible language revision would require
+a new specification and an explicit compatibility decision.
 
 A conforming implementation must:
 
@@ -68,7 +71,7 @@ octal-digit   = "0"…"7" ;
 hex-digit     = digit | "A"…"F" | "a"…"f" ;
 ```
 
-Comments have no semantic value. CPDL 0.1 has no block comments.
+Comments have no semantic value. CPDL 1.0 has no block comments.
 
 ### 2.4 Identifiers and keywords
 
@@ -81,7 +84,7 @@ identifier-continue = identifier-start | "0"…"9" | "-" ;
 Identifiers are ASCII and case-sensitive. All keywords are lowercase. A
 keyword cannot be used where the grammar requires an identifier.
 
-The complete CPDL 0.1 keyword set is:
+The complete CPDL 1.0 keyword set is:
 
 ```text
 allow_failure  after      any           architecture  as          bootstrap
@@ -262,7 +265,7 @@ orchestrator; standalone CBS records and validates them but cannot create an
 image or grant a capability. A non-TCC compiler requires a matching
 `toolchain` declaration with a non-empty reason. GCC is currently the only
 permitted exception to the TCC compiler policy.
-`upstream` identifies a registered release-discovery provider; CPDL 0.1
+`upstream` identifies a registered release-discovery provider; CPDL 1.0
 currently registers `kernel.org`, while the declared source URL and digest
 remain the immutable build input until a resolver selects a new release.
 
@@ -293,13 +296,13 @@ an `m license <expression>` line; it must be a non-empty single-line string.
 that CBS carries but never interprets: no key is reserved and no value affects
 validation, execution, or identity.
 
-The package name, version, release, and artifact format are required. CPDL 0.1
+The package name, version, release, and artifact format are required. CPDL 1.0
 supports only the `cixpkg` artifact format; other format names are validation
 errors because CBS has no corresponding build path. CBS supplies the build
-target architecture; a CPDL 0.1 recipe cannot select or override it. The
+target architecture; a CPDL 1.0 recipe cannot select or override it. The
 `architecture` and `any` keywords remain reserved for a future decision about
 architecture-independent packages, but an architecture declaration is invalid
-in CPDL 0.1.
+in CPDL 1.0.
 
 CBS constructs one canonical identity tuple `(name, version, release,
 architecture)`. Its canonical text is
@@ -383,7 +386,7 @@ The meanings are:
 - `test`: added only for `check`;
 - `bootstrap`: a compiler-lineage seed requirement.
 
-The only external compiler dependency permitted by CPDL 0.1 is
+The only external compiler dependency permitted by CPDL 1.0 is
 `compiler "tcc"`. A different compiler name in any dependency role is a
 validation error. A compiler produced inside a TCC-rooted build may be invoked
 by later phases without becoming an external dependency.
@@ -687,7 +690,7 @@ filesystem. Its default mode is `0644`. `chmod` changes permission bits without
 following a final symlink.
 
 Filesystem operations fail on zero glob matches unless their grammar includes
-an explicit cardinality assertion that permits zero. CPDL 0.1 provides no
+an explicit cardinality assertion that permits zero. CPDL 1.0 provides no
 force, ignore-missing, or overwrite switch; accepted overwrite behavior is
 defined explicitly above.
 
@@ -813,7 +816,7 @@ An empty anchor is invalid.
 
 Both operations read and replace a regular file atomically, preserve its mode,
 and fail without modifying it when validation, counting, reading, or writing
-fails. CPDL 0.1 source edits are byte operations; they do not implement regular
+fails. CPDL 1.0 source edits are byte operations; they do not implement regular
 expressions or locale-dependent text matching.
 
 `truncate` reads a regular file and, after its exact cardinality check, keeps
@@ -1012,7 +1015,7 @@ interpolation. This is checked again at operation time against filesystem links.
 The value `$dest` is available in all phases but writes outside phase-appropriate
 roots may be rejected by CBS policy. Package creation observes only `$dest`.
 
-CBS-supplied values are immutable. CPDL 0.1 has no user variables, arithmetic,
+CBS-supplied values are immutable. CPDL 1.0 has no user variables, arithmetic,
 conditionals, loops, functions, imports, or includes.
 
 ## 7. Failure model
@@ -1159,9 +1162,9 @@ are not reserved and must not be assumed.
 CBS returns the category status, not the raw child status. The raw exit status
 or signal remains present in the structured diagnostic and build record.
 
-## 10. Explicit exclusions from CPDL 0.1
+## 10. Explicit exclusions from CPDL 1.0
 
-CPDL 0.1 has no:
+CPDL 1.0 has no:
 
 - implicit or unsafe shell escape;
 - pipelines, redirections, command substitution, or shell operators;

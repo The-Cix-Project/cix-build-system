@@ -3,14 +3,14 @@
 - Status: Accepted
 - Date: 2026-08-28
 - Owners: Cix project maintainers
-- Scope: Exceptional package-specific native helpers outside CPDL 0.1
+- Scope: Exceptional package-specific native helpers outside CPDL 1.0
 
 ## Decision
 
 A package-specific native helper is permitted only when all of the following
 are true:
 
-1. CPDL 0.1 cannot express the operation without weakening a security or
+1. CPDL 1.0 cannot express the operation without weakening a security or
    reproducibility invariant;
 2. the operation is genuinely package-specific rather than a reusable file,
    process, source, archive, assertion, or metadata primitive;

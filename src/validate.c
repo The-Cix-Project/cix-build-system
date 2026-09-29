@@ -1103,7 +1103,7 @@ static void validate_package(Validator *validator) {
             break;
         case CBS_NODE_ARCHITECTURE:
             validation_error(validator, item, "CPDL-E3006",
-                             "architecture is supplied by CBS in CPDL 0.1");
+                             "architecture is supplied by CBS in CPDL 1.0");
             break;
         case CBS_NODE_SOURCES:
             validate_sources(validator, item);

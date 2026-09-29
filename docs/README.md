@@ -1,6 +1,6 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.97**. `VERSION`, the release tag,
+The current repository release is **CBS v0.1.98**. `VERSION`, the release tag,
 and the binary's `--version` output are kept in sync by the release gate.
 
 This directory contains the architecture and language documentation for:
@@ -21,7 +21,7 @@ in the repository brand directory.
 
 - New users: [CBS user manual](user-manual.md)
 - Operators and CI: [standalone runbook](standalone-runbook.md)
-- Recipe authors: [CPDL 0.1 specification](spec/cpdl-0.1.md) and the
+- Recipe authors: [CPDL 1.0 specification](spec/cpdl-1.0.md) and the
   [test coverage map](cpdl-test-coverage.md)
 - cixd developers: [integration contract](integration-contract.md) and the
   [library boundary guide](library.md)
@@ -47,7 +47,7 @@ hide a changed decision; a later ADR supersedes it.
 
 ## Specifications
 
-- [CPDL 0.1 language specification](spec/cpdl-0.1.md)
+- [CPDL 1.0 language specification](spec/cpdl-1.0.md)
 - [CPDL and CBS test coverage](cpdl-test-coverage.md)
 - [CBS user manual](user-manual.md)
 - [Standalone CBS runbook](standalone-runbook.md)
@@ -64,7 +64,7 @@ active backlog.
 
 ## Validation records
 
-- [Issue #1: CPDL 0.1 grammar and diagnostics](reviews/issue-0001-validation.md)
+- [Issue #1: CPDL grammar and diagnostics](reviews/issue-0001-validation.md)
 - [Issue #2: CPDL lexer, parser, AST, and validator](reviews/issue-0002-validation.md)
 - [Issue #3: Direct `run` execution](reviews/issue-0003-validation.md)
 - [Issue #4: CPDL filesystem vocabulary](reviews/issue-0004-validation.md)
@@ -206,7 +206,7 @@ active backlog.
 - [Issue #83: Cutover](reviews/issue-0083-validation.md)
 - [Issue #84: Shell retirement](reviews/issue-0084-validation.md)
 - [Issue #85: Operator handoff](reviews/issue-0085-validation.md)
-- [Standalone CBS 0.1 language specification](spec/standalone-cbs-0.1.md)
+- [Standalone CBS 1.0 language specification](spec/standalone-cbs-1.0.md)
 - [Issue #86: Standalone language scope](reviews/issue-0086-validation.md)
 - [Issue #87: Standalone build command](reviews/issue-0087-validation.md)
 - [Issue #88: Standalone workspace policy](reviews/issue-0088-validation.md)

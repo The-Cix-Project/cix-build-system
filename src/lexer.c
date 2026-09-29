@@ -457,7 +457,7 @@ static void lex_number(Lexer *lexer) {
     if (errno == ERANGE || *end != '\0' || value > INT_MAX) {
         free(text);
         lexical_error(lexer, start, "CPDL-E1002",
-                      "integer exceeds the CPDL 0.1 range");
+                      "integer exceeds the CPDL 1.0 range");
         return;
     }
     free(text);

@@ -1,4 +1,4 @@
-# Standalone CBS language scope 0.1
+# Standalone CBS language scope 1.0
 
 CBS is a standalone, declarative build language and package engine. A `.cbs`
 definition is parsed and validated before any phase executes. Its observable

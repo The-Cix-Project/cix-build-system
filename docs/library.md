@@ -33,10 +33,12 @@ cbs --capabilities
 ```
 
 The public header exposes `CBS_API_VERSION`, `CBS_ABI_VERSION`,
-`CBS_CPDL_VERSION`, and `CBS_CIXPKG_VERSION`; applications can compare those
-macros with `cbs_api_version()`, `cbs_abi_version()`, and
-`cbs_execution_context_size()` before embedding. Upgrade the header, archive,
-and executable together from the same CBS tag, then rerun the install
+`CBS_CPDL_VERSION`, `CBS_CPDL_CONTRACT`, and `CBS_CIXPKG_VERSION`. `CBS_CPDL_CONTRACT`
+is the language version (`"1.0"`), while `CBS_CPDL_VERSION` is its numeric
+equivalent. Applications
+can compare the API/ABI macros with `cbs_api_version()`, `cbs_abi_version()`,
+and `cbs_execution_context_size()` before embedding. Upgrade the header,
+archive, and executable together from the same CBS tag, then rerun the install
 contract test. The supported cixd integration remains the child-process
 contract; the static archive is an explicit embedding option.
 

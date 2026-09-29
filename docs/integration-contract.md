@@ -4,7 +4,7 @@ This contract applies to CBS v0.1.x releases. The executable, static library,
 and public header must be taken from the same release tag; callers should
 check `cbs --version` before relying on the CLI or public API surface.
 
-This is the initial integration boundary for CPDL 0.1. cixd is the parent and
+This is the initial integration boundary for CPDL 1.0. cixd is the parent and
 container owner; CBS is the build engine inside that container. CBS does not
 need an HTTP client or an outbound daemon connection.
 

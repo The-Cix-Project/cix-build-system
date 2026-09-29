@@ -1,4 +1,4 @@
-# CPDL 0.1 recipe-corpus coverage audit
+# CPDL 1.0 recipe-corpus coverage audit
 
 This is the audit required before converting the Cix shell corpus. The
 measured current corpus is 134 package revisions and 2,077 imperative shell
@@ -22,7 +22,7 @@ its measured frequency where available, and the CPDL disposition.
 | `rm -rf .../share/man` | 35 packages | platform finalization policy; omit from migrated recipes |
 | GCC source layout/private tool paths | present | open; source revision and compiler-path policy need correction |
 | Kernel firmware/configuration helpers | present | `${firmware}` with `--firmware-root` and `require config` cover firmware-root access and kconfig assertions; the remaining need is executor capability declaration |
-| `for X in <literal list>` with a compound body | 38 loops, 15 packages | `each` (CPDL 0.1 §4.8, ADR-0035); covered |
+| `for X in <literal list>` with a compound body | 38 loops, 15 packages | `each` (CPDL 1.0 §4.8, ADR-0035); covered |
 | `sed` stripping a flag and its argument | 7 occurrences, 6 packages | `replace ... until whitespace` or `until line` (§4.6); covered |
 | Multiarch shared-library search before `cp -a` | 4 packages | `stage library ... into` (§4.9, ADR-0036); covered |
 | Lowercase autoconf/libtool cache variables | 10 packages | `env` accepts portable names in either case; covered |

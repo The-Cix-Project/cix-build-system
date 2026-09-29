@@ -51,6 +51,10 @@ if (cbs_api_version() != CBS_API_VERSION ||
 }
 ```
 
+The current language contract is CPDL `1.0`. In capability JSON,
+`cpdl_contract` is the authoritative language version and `cpdl_version` is its
+numeric equivalent.
+
 Supply explicit fetch, finalization, prune, command-path, and library-path
 policy. Register `CbsBuildEventSink` for live progress and optionally consume
 those events with `CbsBuildReport`. Callback data is borrowed for the
