@@ -27,8 +27,7 @@ static int has_cbs_extension(const char *path) {
 
 static int is_diagnostic_option(const char *argument) {
     return argument != NULL &&
-           (strcmp(argument, "--diagnostics=jsonl") == 0 ||
-            strcmp(argument, "--diagnostics=json") == 0);
+           strcmp(argument, "--diagnostics=jsonl") == 0;
 }
 
 static void cli_errorf(const char *subject, const char *code,
@@ -1564,6 +1563,11 @@ int main(int argc, char **argv) {
         for (argument_index = 3; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 json = 1;
+            else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("list", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         return list_file(argv[2], json);
     }
     if (argc >= 4 && strcmp(argv[1], "diff") == 0) {
@@ -1571,15 +1575,32 @@ int main(int argc, char **argv) {
         for (argument_index = 4; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 json = 1;
+            else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("diff", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         return diff_file(argv[2], argv[3], json);
     }
-    if (argc >= 3 && strcmp(argv[1], "verify") == 0)
+    if (argc >= 3 && strcmp(argv[1], "verify") == 0) {
+        for (argument_index = 3; argument_index < argc; ++argument_index)
+            if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("verify", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         return verify_file(argv[2]);
+    }
     if (argc >= 3 && strcmp(argv[1], "explain") == 0) {
         int json = 0;
         for (argument_index = 3; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 json = 1;
+            else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("explain", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         return explain_file(argv[2], json);
     }
     if (argc >= 3 &&
@@ -1587,13 +1608,31 @@ int main(int argc, char **argv) {
         for (argument_index = 3; argument_index < argc; ++argument_index)
             if (strcmp(argv[argument_index], "--json") == 0)
                 cbs_diagnostic_set_json(1);
+            else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf(argv[1], "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         return validate_file(argv[2]);
     }
     if (argc >= 5 && strcmp(argv[1], "extract") == 0) {
+        int found_into = 0;
         for (argument_index = 3; argument_index + 1 < argc;
              ++argument_index)
-            if (strcmp(argv[argument_index], "--into") == 0)
+            if (strcmp(argv[argument_index], "--into") == 0) {
+                if (found_into || argument_index + 2 != argc &&
+                    !is_diagnostic_option(argv[argument_index + 2])) {
+                    cli_errorf("extract", "CBS-E1001", "cli", 2,
+                               "unknown or duplicate extract option");
+                    return 2;
+                }
+                found_into = 1;
                 return extract_file(argv[2], argv[argument_index + 1]);
+            } else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("extract", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argv[argument_index]);
+                return 2;
+            }
         cli_errorf("extract", "CBS-E1001", "cli", 2,
                    "--into requires a destination");
         return 2;
@@ -1622,10 +1661,17 @@ int main(int argc, char **argv) {
     if (argc >= 3 && strcmp(argv[1], "inspect") == 0) {
         const char *paths[2] = {NULL, NULL};
         size_t path_count = 0;
-        for (argument_index = 2; argument_index < argc; ++argument_index)
+        for (argument_index = 2; argument_index < argc; ++argument_index) {
             if (!is_diagnostic_option(argv[argument_index]) &&
                 path_count < 2)
                 paths[path_count++] = argv[argument_index];
+            else if (!is_diagnostic_option(argv[argument_index])) {
+                cli_errorf("inspect", "CBS-E1001", "cli", 2,
+                           "too many inspect paths or unknown option `%s`",
+                           argv[argument_index]);
+                return 2;
+            }
+        }
         if (path_count == 1)
             return inspect_file(paths[0], NULL);
         if (path_count == 2)

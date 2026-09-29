@@ -226,7 +226,7 @@ set +e
 status=$?
 set -e
 test "$status" -eq 4
-grep -q '"schema":"cbs.diagnostic/v1"' "$temporary_dir/bad-json.err"
+grep -q '"schema":"cbs.diagnostic/v2"' "$temporary_dir/bad-json.err"
 grep -q '"verb":"verify"' "$temporary_dir/bad-json.err"
 grep -q '"code":"CIXPKG-E4001"' "$temporary_dir/bad-json.err"
 
@@ -254,7 +254,7 @@ set +e
 status=$?
 set -e
 test "$status" -ne 0
-grep -q '"schema":"cbs.diagnostic/v1"' \
+grep -q '"schema":"cbs.diagnostic/v2"' \
     "$temporary_dir/empty-list-json.err"
 grep -q '"verb":"validate"' "$temporary_dir/empty-list-json.err"
 grep -q '"code":"CPDL-E3004"' "$temporary_dir/empty-list-json.err"
@@ -295,7 +295,7 @@ set +e
 status=$?
 set -e
 test "$status" -ne 0
-grep -q '"schema":"cbs.diagnostic/v1"' \
+grep -q '"schema":"cbs.diagnostic/v2"' \
     "$temporary_dir/failing-json.err"
 grep -q '"verb":"build"' "$temporary_dir/failing-json.err"
 

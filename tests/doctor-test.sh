@@ -26,7 +26,7 @@ set +e
 status=$?
 set -e
 test "$status" -eq 3
-grep -q '"schema":"cbs.diagnostic/v1"' "$temporary_dir/fail.err"
+grep -q '"schema":"cbs.diagnostic/v2"' "$temporary_dir/fail.err"
 grep -q '"verb":"doctor"' "$temporary_dir/fail.err"
 grep -q 'executable is absent' "$temporary_dir/fail.err"
 

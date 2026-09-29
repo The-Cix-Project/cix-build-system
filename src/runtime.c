@@ -293,8 +293,13 @@ static int execute_block_internal(const CbsNode *block,
             strcmp(block->name, "check") == 0) {
             ++case_count;
             if (!execute_captured(operation, &local, &diagnostic)) {
-                if (diagnostic != NULL)
-                    fputs(diagnostic, stderr);
+                if (diagnostic != NULL) {
+                    if (cbs_diagnostic_is_json())
+                        cbs_cli_diagnostic("error", "CBS-E4000", "runtime",
+                                           diagnostic, operation->value, 3);
+                    else
+                        fputs(diagnostic, stderr);
+                }
                 free(diagnostic);
                 result = 0;
             } else
@@ -302,8 +307,13 @@ static int execute_block_internal(const CbsNode *block,
             continue;
         }
         if (!execute_captured(operation, &local, &diagnostic)) {
-            if (diagnostic != NULL)
-                fputs(diagnostic, stderr);
+            if (diagnostic != NULL) {
+                if (cbs_diagnostic_is_json())
+                    cbs_cli_diagnostic("error", "CBS-E4000", "runtime",
+                                       diagnostic, operation->value, 3);
+                else
+                    fputs(diagnostic, stderr);
+            }
             free(diagnostic);
             result = 0;
             break;

@@ -34,7 +34,7 @@ cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output ARTIFACT --cache CA
 ```
 
 Every CLI verb that can fail accepts `--diagnostics=jsonl`. It emits one
-`cbs.diagnostic/v1` JSON object per diagnostic on standard error, preserving
+`cbs.diagnostic/v2` JSON object per diagnostic on standard error, preserving
 the stable CPDL/CIXPKG code, category, subject, status, and (when available)
 recipe location. This is the machine-readable failure boundary for cixd and
 CI; human output remains the default and exit statuses remain independent.

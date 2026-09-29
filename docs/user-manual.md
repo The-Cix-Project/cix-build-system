@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.81 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.82 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -119,7 +119,9 @@ the normal human-readable output or exit status. The envelope contains the
 verb, stable diagnostic code/category, message, subject, and status; located
 CPDL diagnostics additionally contain the recipe path, line, and column. This
 is the preferred boundary for CI, editors, and cixd rather than parsing human
-text. The schema identifier is `cbs.diagnostic/v1`.
+text. The schema identifier is `cbs.diagnostic/v2`; it includes a common
+subject/status envelope and explicit nullable phase, operation, and errno
+fields.
 
 Use `fingerprint` to compute the deterministic build-action key before
 execution:

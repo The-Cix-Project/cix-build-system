@@ -61,7 +61,7 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
     size_t prefix;
 
     if (json_diagnostics) {
-        fputs("{\"schema\":\"cbs.diagnostic/v1\",\"version\":1,"
+        fputs("{\"schema\":\"cbs.diagnostic/v2\",\"version\":2,"
               "\"verb\":\"", stderr);
         json_string(diagnostic_verb == NULL ? "unknown" : diagnostic_verb);
         fputs("\",\"path\":\"", stderr);
@@ -75,7 +75,10 @@ void cbs_diagnostic(const char *path, const char *source, CbsLocation location,
         json_string(category_name(category));
         fputs("\",\"message\":\"", stderr);
         json_string(message);
-        fputs("\"}\n", stderr);
+        fprintf(stderr, "\",\"subject\":\"");
+        json_string(path);
+        fprintf(stderr, "\",\"status\":%d,\"phase\":null,\"operation\":null,\"errno\":null}\n",
+                strcmp(severity, "error") == 0 ? 3 : 0);
         return;
     }
 
@@ -105,7 +108,7 @@ void cbs_cli_diagnostic(const char *severity, const char *code,
                         const char *category, const char *message,
                         const char *subject, int status) {
     if (json_diagnostics) {
-        fputs("{\"schema\":\"cbs.diagnostic/v1\",\"version\":1,"
+        fputs("{\"schema\":\"cbs.diagnostic/v2\",\"version\":2,"
               "\"verb\":\"", stderr);
         json_string(diagnostic_verb == NULL ? "unknown" : diagnostic_verb);
         fputs("\",\"severity\":\"", stderr);
@@ -118,7 +121,7 @@ void cbs_cli_diagnostic(const char *severity, const char *code,
         json_string(message == NULL ? "" : message);
         fputs("\",\"subject\":\"", stderr);
         json_string(subject == NULL ? "" : subject);
-        fprintf(stderr, "\",\"status\":%d}\n", status);
+        fprintf(stderr, "\",\"path\":null,\"line\":null,\"column\":null,\"status\":%d,\"phase\":null,\"operation\":null,\"errno\":null}\n", status);
         return;
     }
     if (subject != NULL && subject[0] != '\0')
