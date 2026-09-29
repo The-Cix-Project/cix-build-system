@@ -128,6 +128,21 @@ changed_input=$("$cbs" fingerprint "$recipe" --arch x86_64 \
     --input first="$temporary_dir/input-one" \
     --input second="$temporary_dir/input-two")
 test "$ordered_one" != "$changed_input"
+tool_identity='gcc@14.2=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+identity_fingerprint=$($cbs fingerprint "$recipe" --arch x86_64 \
+    --tool-identity "$tool_identity")
+printf '%s\n' "$identity_fingerprint" | grep -Eq \
+    '^fingerprint [0-9a-f]{64}$'
+identity_workspace="$temporary_dir/identity-workspace"
+identity_artifact="$temporary_dir/identity.cixpkg"
+identity_report="$temporary_dir/identity-report.json"
+mkdir "$identity_workspace"
+"$cbs" build "$recipe" --arch x86_64 --staged "$identity_workspace" \
+    --output "$identity_artifact" --report "$identity_report" \
+    --tool-identity "$tool_identity" >"$temporary_dir/identity-build.out"
+identity_digest=$(sed -n 's/.*"fingerprint":"\([^"]*\)".*/\1/p' \
+    "$identity_report")
+test "$identity_fingerprint" = "fingerprint $identity_digest"
 "$cbs" build "$recipe" --arch x86_64 --staged "$temporary_dir/workspace" \
     --output "$artifact" --report "$report" >"$temporary_dir/build.out"
 test "$(cat "$temporary_dir/build.out")" = "built $artifact"

@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 2U
+#define CBS_ABI_VERSION 3U
 #define CBS_CPDL_VERSION 1U
 #define CBS_CIXPKG_VERSION 2U
 #define CBS_CPDL_CONTRACT "0.1"
@@ -192,6 +192,8 @@ typedef struct {
     } limits;
     const CbsInputBinding *inputs;
     size_t input_count;
+    const CbsToolIdentity *tool_identities;
+    size_t tool_identity_count;
 } CbsExecutionContext;
 
 typedef int (*CbsFetchFunction)(const char *, const char *, void *, char *,
@@ -273,6 +275,12 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
     const char *, const CbsPrunePolicy *, const char *, const char *,
     const CbsInputBinding *, size_t, CbsBuildEventSink, void *);
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
+    CbsBuildEventSink, void *);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 

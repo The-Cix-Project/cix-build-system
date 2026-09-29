@@ -1055,7 +1055,7 @@ done:
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events_policy_path_inputs(
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     const char *recipe, const char *workspace, const char *package_path,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
@@ -1063,6 +1063,7 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     const char *command_path,
     const char *library_path,
     const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
     CbsBuildEventSink event_sink,
     void *event_sink_user) {
     FILE *f;
@@ -1088,7 +1089,8 @@ int cbs_build_standalone_with_events_policy_path_inputs(
         (command_path != NULL && !cbs_command_path_is_valid(command_path)) ||
         (library_path != NULL && !cbs_library_path_is_valid(library_path)) ||
         (input_count != 0 && inputs == NULL) ||
-        (inputs != NULL && !valid_input_binding(inputs, input_count)))
+        (inputs != NULL && !valid_input_binding(inputs, input_count)) ||
+        !valid_tool_identities(tool_identities, tool_identity_count))
         return 0;
     f = fopen(recipe, "rb");
     if (!f || fseek(f, 0, SEEK_END) || (n = ftell(f)) < 0 ||
@@ -1173,6 +1175,8 @@ int cbs_build_standalone_with_events_policy_path_inputs(
             context.firmware_root = firmware_root;
             context.inputs = inputs;
             context.input_count = input_count;
+            context.tool_identities = tool_identities;
+            context.tool_identity_count = tool_identity_count;
             context.jobs = 1;
             context.working_directory = build;
             context.command_path = command_path == NULL
@@ -1298,6 +1302,21 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events_policy_path_inputs(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    CbsBuildEventSink event_sink, void *event_sink_user) {
+    return cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+        recipe, workspace, package_path, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy,
+        command_path, library_path, inputs, input_count, NULL, 0, event_sink,
+        event_sink_user);
 }
 
 int cbs_build_standalone_with_events_policy_path(

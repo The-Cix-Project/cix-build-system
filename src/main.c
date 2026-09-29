@@ -218,13 +218,15 @@ static void usage(FILE *stream) {
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
         "      [--library-path DIRS]\n"
+        "      [--tool-identity NAME@VERSION=MANIFEST_SHA256 ...]\n"
         "  cbs package ROOT --name NAME --version VERSION --release N "
         "--arch ARCH --output FILE [--license SPDX]\n"
         "      [--diagnostics=jsonl]            Emit versioned machine diagnostics\n"
         "  cbs doctor [RECIPE.cbs] [--arch ARCH] [--staged ROOT] [--cache DIR]\n"
         "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
         "  cbs fingerprint RECIPE.cbs --arch ARCH [--command-path DIRS]\n"
-        "      [--library-path DIRS] Compute the build action fingerprint\n"
+        "      [--library-path DIRS] [--tool-identity NAME@VERSION=MANIFEST_SHA256 ...]\n"
+        "      Compute the build action fingerprint\n"
         "  cbs list ARTIFACT.cixpkg [--json]    List verified manifest entries\n"
         "  cbs diff LEFT.cixpkg RIGHT.cixpkg [--json] Compare manifests\n"
         "  cbs --capabilities                    Show integration capabilities\n"
@@ -251,6 +253,8 @@ typedef struct {
     const char *report_path;
     CbsInputBinding inputs[32];
     size_t input_count;
+    CbsToolIdentity tool_identities[32];
+    size_t tool_identity_count;
 } CbsBuildOptions;
 
 static int valid_input_name(const char *name) {
@@ -262,6 +266,68 @@ static int valid_input_name(const char *name) {
         if (!(isalnum((unsigned char)name[index]) || name[index] == '_'))
             return 0;
     return 1;
+}
+
+static int valid_manifest_digest(const char *digest) {
+    size_t index;
+    if (digest == NULL || strlen(digest) != 64)
+        return 0;
+    for (index = 0; index < 64; ++index)
+        if (!isxdigit((unsigned char)digest[index]))
+            return 0;
+    return 1;
+}
+
+static int add_tool_identity(CbsToolIdentity *items, size_t *count,
+                             const char *spec, const char *command) {
+    const char *equals = strchr(spec, '=');
+    const char *at = strchr(spec, '@');
+    char *name;
+    char *version;
+    char *digest;
+    size_t index;
+    if (*count == 32 || equals == NULL || at == NULL || at == spec ||
+        at > equals || equals[1] == '\0' ||
+        !valid_manifest_digest(equals + 1)) {
+        cli_errorf(command, "CBS-E1001", "cli", 2,
+                   "--tool-identity requires NAME@VERSION=64-hex-MANIFEST-SHA256");
+        return 0;
+    }
+    name = cbs_duplicate_range(spec, (size_t)(at - spec));
+    version = cbs_duplicate_range(at + 1, (size_t)(equals - at - 1));
+    digest = cbs_duplicate(equals + 1);
+    if (name[0] == '\0' || version[0] == '\0') {
+        free(name);
+        free(version);
+        free(digest);
+        cli_errorf(command, "CBS-E1001", "cli", 2,
+                   "--tool-identity requires NAME@VERSION=64-hex-MANIFEST-SHA256");
+        return 0;
+    }
+    for (index = 0; index < *count; ++index)
+        if (strcmp(items[index].name, name) == 0 &&
+            strcmp(items[index].version, version) == 0) {
+            cli_errorf(command, "CBS-E1002", "cli", 2,
+                       "duplicate --tool-identity `%s@%s`", name, version);
+            free(name);
+            free(version);
+            free(digest);
+            return 0;
+        }
+    items[*count].name = name;
+    items[*count].version = version;
+    items[*count].manifest_digest = digest;
+    ++*count;
+    return 1;
+}
+
+static void free_tool_identities(CbsToolIdentity *items, size_t count) {
+    size_t index;
+    for (index = 0; index < count; ++index) {
+        free((void *)items[index].name);
+        free((void *)items[index].version);
+        free((void *)items[index].manifest_digest);
+    }
 }
 
 static int add_input(CbsBuildOptions *options, const char *spec) {
@@ -328,6 +394,25 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                 if (index >= argc)
                     cli_errorf("build", "CBS-E1001", "cli", 2,
                                "option `--input` requires a value");
+                return 0;
+            }
+            continue;
+        }
+        if (strncmp(argument, "--tool-identity=", 16) == 0) {
+            if (!add_tool_identity(options->tool_identities,
+                                   &options->tool_identity_count,
+                                   argument + 16, "build"))
+                return 0;
+            continue;
+        }
+        if (strcmp(argument, "--tool-identity") == 0) {
+            if (++index >= argc ||
+                !add_tool_identity(options->tool_identities,
+                                   &options->tool_identity_count, argv[index],
+                                   "build")) {
+                if (index >= argc)
+                    cli_errorf("build", "CBS-E1001", "cli", 2,
+                               "option `--tool-identity` requires a value");
                 return 0;
             }
             continue;
@@ -846,7 +931,9 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *command_path,
                       const char *library_path,
                       const char *report_path,
-                      const CbsInputBinding *inputs, size_t input_count) {
+                      const CbsInputBinding *inputs, size_t input_count,
+                      const CbsToolIdentity *tool_identities,
+                      size_t tool_identity_count) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -956,14 +1043,14 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events_policy_path_inputs(
+    result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
             firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
-            library_path, inputs, input_count, effective_event_sink,
-            effective_event_user);
+            library_path, inputs, input_count, tool_identities,
+            tool_identity_count, effective_event_sink, effective_event_user);
     if (event_stream != stderr)
         fclose(event_stream);
     if (report_path != NULL) {
@@ -974,6 +1061,8 @@ static int build_file(const char *recipe, const char *architecture,
         report_state.report.status = result ? 0 : 1;
     fingerprint_context.firmware_root = firmware_root;
     fingerprint_context.finalize_path = finalize_policy.resolved;
+    fingerprint_context.tool_identities = tool_identities;
+    fingerprint_context.tool_identity_count = tool_identity_count;
     if (prune_policy_path != NULL) {
         fingerprint_context.prune_strip_debug = prune_policy.strip_debug;
         fingerprint_context.prune_drop_static_archives =
@@ -1450,6 +1539,8 @@ typedef struct {
     const char *library_path;
     CbsInputBinding inputs[32];
     size_t input_count;
+    CbsToolIdentity tool_identities[32];
+    size_t tool_identity_count;
 } CbsFingerprintOptions;
 
 static int add_fingerprint_input(CbsFingerprintOptions *options,
@@ -1514,6 +1605,25 @@ static int parse_fingerprint_options(int argc, char **argv,
                 return 0;
             continue;
         }
+        if (strncmp(argument, "--tool-identity=", 16) == 0) {
+            if (!add_tool_identity(options->tool_identities,
+                                   &options->tool_identity_count,
+                                   argument + 16, "fingerprint"))
+                return 0;
+            continue;
+        }
+        if (strcmp(argument, "--tool-identity") == 0) {
+            if (++index >= argc ||
+                !add_tool_identity(options->tool_identities,
+                                   &options->tool_identity_count, argv[index],
+                                   "fingerprint")) {
+                if (index >= argc)
+                    cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
+                               "option `--tool-identity` requires a value");
+                return 0;
+            }
+            continue;
+        }
         if (strncmp(argument, "--arch=", 7) == 0)
             value = argument + 7;
         else if (strncmp(argument, "--command-path=", 15) == 0)
@@ -1553,17 +1663,29 @@ static int parse_fingerprint_options(int argc, char **argv,
 
 static int fingerprint_file(CbsFingerprintOptions *options) {
     char fingerprint[65];
-    if (!cbs_build_fingerprint(
-            options->recipe, options->architecture, options->command_path,
-            options->library_path, options->inputs, options->input_count,
-            fingerprint)) {
+    CbsFingerprintContext context = {0};
+    context.tool_identities = options->tool_identities;
+    context.tool_identity_count = options->tool_identity_count;
+    if ((options->tool_identity_count == 0 && !cbs_build_fingerprint(
+             options->recipe, options->architecture, options->command_path,
+             options->library_path, options->inputs, options->input_count,
+             fingerprint)) ||
+        (options->tool_identity_count != 0 &&
+         !cbs_build_fingerprint_with_context(
+             options->recipe, options->architecture, options->command_path,
+             options->library_path, options->inputs, options->input_count,
+             &context, fingerprint))) {
         cli_errorf(options->recipe, "CBS-E1021", "fingerprint", 3,
                    "cannot validate recipe or measure all build inputs");
         free_fingerprint_inputs(options);
+        free_tool_identities(options->tool_identities,
+                             options->tool_identity_count);
         return 3;
     }
     printf("fingerprint %s\n", fingerprint);
     free_fingerprint_inputs((CbsFingerprintOptions *)options);
+    free_tool_identities(options->tool_identities,
+                         options->tool_identity_count);
     return 0;
 }
 
@@ -1813,8 +1935,11 @@ int main(int argc, char **argv) {
                           options.prune_policy, options.firmware_root,
                           options.command_path, options.library_path,
                           options.report_path,
-                          options.inputs, options.input_count);
+                          options.inputs, options.input_count,
+                          options.tool_identities, options.tool_identity_count);
         free_inputs(&options);
+        free_tool_identities(options.tool_identities,
+                             options.tool_identity_count);
         return result;
     }
     if (argc >= 3 && strcmp(argv[1], "package") == 0) {

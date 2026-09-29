@@ -402,6 +402,12 @@ int cbs_build_standalone_with_events_policy_path_inputs(
     const char *command_path, const char *library_path,
     const CbsInputBinding *inputs, size_t input_count,
     CbsBuildEventSink event_sink, void *event_sink_user);
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
+    CbsBuildEventSink, void *);
 #define CBS_MAX_PHASES 5
 typedef struct {
     /* AST nodes for phases in their declared execution order. */

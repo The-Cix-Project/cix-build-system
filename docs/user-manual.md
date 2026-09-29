@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.94 and the CPDL 0.1/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.95 and the CPDL 0.1/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -134,6 +134,14 @@ The key includes the normalized recipe digest, CBS/CPDL/CIXPKG policy
 versions, architecture, approved command/library paths, and declared input
 digests. Workspace paths and timestamps are excluded. The embedding API also
 accepts named caller inputs; cixd owns cache storage and trust decisions.
+
+For reproducible composed environments, `build` and `fingerprint` also accept
+repeatable `--tool-identity NAME@VERSION=MANIFEST_SHA256` options. When these
+verified identities are supplied, they replace hashing of the command and
+library search roots. The identities must cover every file the build can reach
+under those roots; files outside the supplied identities are not represented
+in the fingerprint. Use the same complete identity set for a precomputed
+fingerprint and its build.
 
 Use `doctor` to preflight an image and recipe without executing it:
 
