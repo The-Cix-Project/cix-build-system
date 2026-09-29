@@ -511,6 +511,44 @@ typedef struct {
     char identity[65];
 } CbsList;
 
+/* Return the already verified canonical manifest for inspection commands.
+ * Artifact framing, compression bounds, payload digest, and manifest entry
+ * validation remain owned by cbs_cixpkg_verify_tree(); list and diff only
+ * decode this shared result into their presentation model. */
+static int cbs_read_verified_manifest(const char *path, CbsList *list,
+                                      unsigned char **manifest_out,
+                                      size_t *manifest_size_out) {
+    unsigned char *data = NULL, *manifest = NULL;
+    size_t total, manifest_size, frame, written;
+    char digest[65];
+    if (path == NULL || list == NULL || manifest_out == NULL ||
+        manifest_size_out == NULL ||
+        !cbs_cixpkg_verify_tree(path, list->identity, sizeof(list->identity)) ||
+        !read_blob(path, &data, &total) || total < 352 ||
+        memcmp(data, CIXPKG_MAGIC, 8) != 0 || get64(data + 8) != 352 ||
+        (manifest_size = (size_t)get64(data + 16)) >
+            1024ULL * 1024ULL * 1024ULL)
+        goto failure;
+    frame = ZSTD_findFrameCompressedSize(data + 352, total - 352);
+    manifest = malloc(manifest_size + 1);
+    if (ZSTD_isError(frame) || frame > total - 352 || manifest == NULL ||
+        ZSTD_isError(written = ZSTD_decompress(manifest, manifest_size,
+                                                data + 352, frame)) ||
+        written != manifest_size ||
+        !cbs_digest_text((char *)manifest, written, digest) ||
+        memcmp(data + 32, digest, 64) != 0)
+        goto failure;
+    memcpy(list->manifest_digest, digest, sizeof(list->manifest_digest));
+    free(data);
+    *manifest_out = manifest;
+    *manifest_size_out = manifest_size;
+    return 1;
+failure:
+    free(data);
+    free(manifest);
+    return 0;
+}
+
 static void list_json_string(FILE *stream, const char *value) {
     const unsigned char *cursor = (const unsigned char *)(value == NULL ? "" : value);
     fputc('"', stream);
@@ -586,35 +624,16 @@ static int cbs_list_add(CbsList *list, const CbsListEntry *entry) {
 }
 
 static int cbs_list_load(const char *path, CbsList *list) {
-    unsigned char *data = NULL, *manifest = NULL;
-    size_t total, manifest_size, frame, written;
-    uint64_t payload_size;
-    char digest[65], line[8192], type, mode_text[32], entry_digest[65],
-        relative[4096];
+    unsigned char *manifest = NULL;
+    size_t manifest_size;
+    char line[8192], type, mode_text[32], entry_digest[65], relative[4096];
     FILE *file = NULL;
     char target_hex[8192];
     unsigned uid, gid;
     unsigned long long entry_size;
-    if (list == NULL || !cbs_cixpkg_verify_tree(path, list->identity,
-                                                 sizeof(list->identity)) ||
-        !read_blob(path, &data, &total) || total < 352)
+    if (list == NULL ||
+        !cbs_read_verified_manifest(path, list, &manifest, &manifest_size))
         goto failure;
-    manifest_size = (size_t)get64(data + 16);
-    payload_size = get64(data + 24);
-    frame = ZSTD_findFrameCompressedSize(data + 352, total - 352);
-    if (ZSTD_isError(frame) || frame > total - 352 ||
-        manifest_size > 1024ULL * 1024ULL * 1024ULL ||
-        payload_size > 1024ULL * 1024ULL * 1024ULL)
-        goto failure;
-    manifest = malloc(manifest_size + 1);
-    if (manifest == NULL ||
-        ZSTD_isError(written = ZSTD_decompress(manifest, manifest_size,
-                                                data + 352, frame)) ||
-        written != manifest_size ||
-        !cbs_digest_text((char *)manifest, written, digest) ||
-        memcmp(data + 32, digest, 64) != 0)
-        goto failure;
-    memcpy(list->manifest_digest, digest, sizeof(list->manifest_digest));
     file = fmemopen(manifest, manifest_size, "rb");
     if (file == NULL)
         goto failure;
@@ -664,13 +683,11 @@ static int cbs_list_load(const char *path, CbsList *list) {
         goto failure;
     fclose(file);
     free(manifest);
-    free(data);
     return 1;
 failure:
     if (file != NULL)
         fclose(file);
     free(manifest);
-    free(data);
     cbs_list_destroy(list);
     return 0;
 }
