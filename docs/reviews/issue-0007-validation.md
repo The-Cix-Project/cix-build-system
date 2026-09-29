@@ -25,11 +25,11 @@ Issue #7 and ADR-0001 require architecture to be supplied by CBS. The initial
 CPDL specification still described recipe-level exact and `any` declarations,
 which contradicted that requirement.
 
-The normative CPDL 0.1 grammar now excludes architecture declarations. The
+The normative CPDL 1.0 grammar now excludes architecture declarations. The
 lexer and parser continue to recognize the reserved keywords so an attempted
 declaration receives the precise validation error `CPDL-E3006` rather than an
 unknown-token accident. `architecture any` remains reserved for a future
-architecture-independent-package decision; it has no CPDL 0.1 semantics.
+architecture-independent-package decision; it has no CPDL 1.0 semantics.
 
 CBS target architecture values must match a deliberately narrow canonical
 form: a lowercase ASCII letter or digit followed by lowercase letters, digits,

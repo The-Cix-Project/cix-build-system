@@ -6,7 +6,7 @@
 
 `src/dependency.c` converts the validated `requires` AST into a role-aware,
 exact-name dependency set. It deliberately contains no version expressions or
-solver: CPDL 0.1 names repository packages exactly.
+solver: CPDL 1.0 names repository packages exactly.
 
 Role effects are explicit. `bootstrap` and `build` inputs apply through all
 construction and check phases; `test` inputs apply only to `check`; `runtime`

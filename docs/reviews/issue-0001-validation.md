@@ -1,6 +1,6 @@
-# Issue #1 validation: CPDL 0.1 grammar and diagnostics
+# Issue #1 validation: CPDL 1.0 grammar and diagnostics
 
-- Issue: `#1 Specify the CPDL v0.1 grammar and diagnostic contract`
+- Issue: `#1 Specify the CPDL v1.0 grammar and diagnostic contract`
 - Date: 2026-08-28
 - Result: Pass
 - Deliverable: [`docs/spec/cpdl-1.0.md`](../spec/cpdl-1.0.md)

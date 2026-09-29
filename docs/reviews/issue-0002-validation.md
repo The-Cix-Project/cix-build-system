@@ -64,14 +64,14 @@ The lexer implements:
 - quoted-string escapes with NUL and surrogate rejection;
 - indentation-normalized block strings;
 - CBS supplied-value tokens; and
-- punctuation used by CPDL 0.1.
+- punctuation used by CPDL 1.0.
 
 All numeric conversion is range-checked before values reach the AST. Leading
 zeroes in decimal values are rejected rather than silently normalized.
 
 ## Parser coverage
 
-The parser recognizes every CPDL 0.1 production:
+The parser recognizes every CPDL 1.0 production:
 
 - package identity and architecture;
 - main and extra named sources;

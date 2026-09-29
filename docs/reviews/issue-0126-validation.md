@@ -4,7 +4,7 @@
 
 Validated and closed in the standalone CBS implementation.
 
-CPDL 0.1 has five ordered, optional phases: `prepare`, `configure`, `build`,
+CPDL 1.0 has five ordered, optional phases: `prepare`, `configure`, `build`,
 `check`, and `install`. The public `CbsBuildPlan` uses the named
 `CBS_MAX_PHASES` constant, and the planner fails closed if a malformed AST
 contains more entries; it no longer carries a dead fixed list of phase kinds.

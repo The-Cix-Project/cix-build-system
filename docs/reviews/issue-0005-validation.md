@@ -7,7 +7,7 @@
 
 ## Delivered boundary
 
-The confined filesystem runtime now executes the CPDL 0.1 operations from
+The confined filesystem runtime now executes the CPDL 1.0 operations from
 specification sections 4.6 and 4.7:
 
 - `replace PATH { from VALUE to VALUE exactly N }`

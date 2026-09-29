@@ -7,7 +7,7 @@
 
 ## Delivered boundary
 
-`src/fs.c` is the single production implementation for the CPDL 0.1
+`src/fs.c` is the single production implementation for the CPDL 1.0
 filesystem operations defined in specification section 4.4:
 
 - `mkdir`
@@ -70,7 +70,7 @@ types, and applies its final mode. The test verifies an explicit `0700` mode.
 
 Regular-file copy preserves bytes and permission bits. A source symlink is
 copied as a symlink with its exact target bytes. Directory copy is rejected;
-there is no recursive copy in CPDL 0.1. An existing regular file is replaced,
+there is no recursive copy in CPDL 1.0. An existing regular file is replaced,
 while a destination symlink is never followed.
 
 Multiple matches require an existing directory destination. Matches are sorted
