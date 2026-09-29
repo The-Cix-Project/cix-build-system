@@ -4,6 +4,7 @@
 #include "temp.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static int flip_byte(const char *path, long offset) {
@@ -64,10 +65,25 @@ static int run_test(const char *root) {
      * key, while environment ordering remains canonical. */
     {
         char firmware[4256], finalizer[4256];
+        char command_root[4256], library_root[4256], command_path[4256];
+        char command[4256];
         char baseline[65], changed[65];
         CbsEnvironmentBinding environment[2] = {
             {"CBS_TEST_B", "two"}, {"CBS_TEST_A", "one"}};
         CbsFingerprintContext materials = {0};
+        snprintf(command_root, sizeof(command_root), "%s/context-commands", root);
+        snprintf(library_root, sizeof(library_root), "%s/context-libraries", root);
+        snprintf(command_path, sizeof(command_path), "%s", command_root);
+        snprintf(command, sizeof(command), "%s/true", command_root);
+        if (mkdir(command_root, 0700) != 0 || mkdir(library_root, 0700) != 0)
+            return 1;
+        file = fopen(command, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("tool", file);
+        fclose(file);
+        if (chmod(command, 0755) != 0)
+            return 1;
         snprintf(firmware, sizeof(firmware), "%s/firmware", root);
         snprintf(finalizer, sizeof(finalizer), "%s/finalizer", root);
         file = fopen(firmware, "wb");
@@ -80,16 +96,21 @@ static int run_test(const char *root) {
             return 1;
         fputs("finalizer", file);
         fclose(file);
-        if (!cbs_build_fingerprint("tests/fixtures/standalone-smoke.cbs",
-                                   "x86_64", NULL, NULL, NULL, 0, baseline) ||
-            !cbs_build_fingerprint_with_context(
+        {
+            int base_ok = cbs_build_fingerprint(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
-                NULL, 0, &materials, changed) ||
-            strcmp(baseline, changed) == 0)
-            return 1;
+                NULL, 0, baseline);
+            int context_ok = cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root, NULL, 0, &materials, changed);
+            if (!base_ok || !context_ok || strcmp(baseline, changed) == 0) {
+                return 1;
+            }
+        }
         materials.firmware_root = firmware;
         if (!cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root,
                 NULL, 0, &materials, changed) || strcmp(baseline, changed) == 0)
             return 1;
         materials.finalize_path = finalizer;
@@ -97,19 +118,90 @@ static int run_test(const char *root) {
         materials.environment_count = 2;
         materials.prune_strip_debug = 1;
         if (!cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root,
                 NULL, 0, &materials, changed) || strcmp(baseline, changed) == 0)
             return 1;
         environment[0].secret = 1;
         if (!cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root,
                 NULL, 0, &materials, baseline))
             return 1;
         environment[0].value = "changed-secret";
         if (!cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", NULL, NULL,
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root,
                 NULL, 0, &materials, changed) || strcmp(baseline, changed) != 0)
             return 1;
+    }
+    /* Search roots are complete, fail-closed material inputs.  Headers and
+     * static archives must perturb the key just like shared libraries. */
+    {
+        char command_root[4256], library_root[4256];
+        char header[4256], archive[4256], command[4256];
+        char baseline[65], changed[65];
+        char command_path[4256];
+        CbsFingerprintContext materials = {0};
+        snprintf(command_root, sizeof(command_root), "%s/commands", root);
+        snprintf(library_root, sizeof(library_root), "%s/libraries", root);
+        snprintf(header, sizeof(header), "%s/tool.h", command_root);
+        snprintf(archive, sizeof(archive), "%s/libtool.a", library_root);
+        snprintf(command_path, sizeof(command_path), "%s", command_root);
+        snprintf(command, sizeof(command), "%s/true", command_root);
+        if (mkdir(command_root, 0700) != 0 || mkdir(library_root, 0700) != 0)
+            return 1;
+        file = fopen(command, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("tool", file);
+        fclose(file);
+        if (chmod(command, 0755) != 0)
+            return 1;
+        file = fopen(header, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("#define TOOL 1\n", file);
+        fclose(file);
+        file = fopen(archive, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("archive-v1", file);
+        fclose(file);
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root, NULL, 0, &materials, baseline)) {
+            return 1;
+        }
+        file = fopen(header, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("#define TOOL 2\n", file);
+        fclose(file);
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root, NULL, 0, &materials, changed) ||
+            strcmp(baseline, changed) == 0) {
+            return 1;
+        }
+        file = fopen(archive, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("archive-v2", file);
+        fclose(file);
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root, NULL, 0, &materials, baseline) ||
+            !cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                library_root, NULL, 0, &materials, changed) ||
+            strcmp(baseline, changed) != 0 ||
+            cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64",
+                "/tmp/cbs-fingerprint-root-does-not-exist", library_root,
+                NULL, 0, &materials, changed)) {
+            return 1;
+        }
     }
     if (!flip_byte(build, 32) ||
         cbs_cixpkg_verify_tree(build, NULL, 0))

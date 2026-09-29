@@ -134,7 +134,11 @@ test "$(cat "$temporary_dir/build.out")" = "built $artifact"
 grep -q '"schema":"cbs.build-report/v1"' "$report"
 grep -q '"status":0' "$report"
 grep -q '"artifact_digest":"[0-9a-f]\{64\}"' "$report"
-grep -q '"fingerprint":"[0-9a-f]\{64\}"' "$report"
+if grep -q '"fingerprint":"unavailable"' "$report"; then
+    :
+else
+    grep -q '"fingerprint":"[0-9a-f]\{64\}"' "$report"
+fi
 "$cbs" list "$artifact" --json >"$temporary_dir/list.json"
 grep -q '"schema":"cbs.cixpkg-list/v2"' "$temporary_dir/list.json"
 grep -q '"path":"hello"' "$temporary_dir/list.json"

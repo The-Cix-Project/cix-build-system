@@ -22,6 +22,35 @@ typedef struct {
     size_t used;
 } Sha256;
 
+/* Fingerprints repeatedly inspect the same verified toolchain files while a
+ * process packages several outputs.  Reuse a digest only while the file's
+ * identity and metadata are unchanged; ctime is included so same-size files
+ * whose contents are replaced without an mtime change cannot stay cached. */
+typedef struct {
+    char *path;
+    dev_t device;
+    ino_t inode;
+    off_t size;
+    time_t mtime;
+    long mtime_nsec;
+    time_t ctime;
+    long ctime_nsec;
+    char digest[65];
+} DigestCacheEntry;
+
+#define CBS_DIGEST_CACHE_CAPACITY 4096
+static DigestCacheEntry digest_cache[CBS_DIGEST_CACHE_CAPACITY];
+static size_t digest_cache_count;
+
+static int digest_cache_stat_matches(const DigestCacheEntry *entry,
+                                     const struct stat *status) {
+    return entry->device == status->st_dev && entry->inode == status->st_ino &&
+           entry->size == status->st_size && entry->mtime == status->st_mtime &&
+           entry->mtime_nsec == status->st_mtim.tv_nsec &&
+           entry->ctime == status->st_ctime &&
+           entry->ctime_nsec == status->st_ctim.tv_nsec;
+}
+
 /* Rotate a SHA-256 working word to the right. */
 static uint32_t rotate_right(uint32_t value, unsigned count) {
     return (value >> count) | (value << (32U - count));
@@ -140,10 +169,22 @@ int cbs_digest_file(const char *path, char output[65]) {
     static const char hex[] = "0123456789abcdef";
     unsigned char buffer[32768], digest[32];
     Sha256 sha;
+    struct stat status;
+    size_t index;
     FILE *file = fopen(path, "rb");
     size_t length, i;
-    if (file == NULL)
+    if (file == NULL || fstat(fileno(file), &status) != 0) {
+        if (file != NULL)
+            fclose(file);
         return 0;
+    }
+    for (index = 0; index < digest_cache_count; ++index)
+        if (strcmp(digest_cache[index].path, path) == 0 &&
+            digest_cache_stat_matches(&digest_cache[index], &status)) {
+            memcpy(output, digest_cache[index].digest, sizeof(digest_cache[index].digest));
+            fclose(file);
+            return 1;
+        }
     initialize(&sha);
     while ((length = fread(buffer, 1, sizeof(buffer), file)) > 0)
         update(&sha, buffer, length);
@@ -155,6 +196,18 @@ int cbs_digest_file(const char *path, char output[65]) {
         output[i * 2 + 1] = hex[digest[i] & 15];
     }
     output[64] = '\0';
+    if (digest_cache_count < CBS_DIGEST_CACHE_CAPACITY) {
+        DigestCacheEntry *entry = &digest_cache[digest_cache_count++];
+        entry->path = cbs_duplicate(path);
+        entry->device = status.st_dev;
+        entry->inode = status.st_ino;
+        entry->size = status.st_size;
+        entry->mtime = status.st_mtime;
+        entry->mtime_nsec = status.st_mtim.tv_nsec;
+        entry->ctime = status.st_ctime;
+        entry->ctime_nsec = status.st_ctim.tv_nsec;
+        memcpy(entry->digest, output, sizeof(entry->digest));
+    }
     return 1;
 }
 

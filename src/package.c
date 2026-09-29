@@ -127,26 +127,19 @@ static int fingerprint_unavailable_reason(const CbsNode *node, char *reason,
 }
 
 /* Add a canonical digest of a directory tree.  The root path is deliberately
- * excluded so temporary workspace names do not poison reproducibility. */
+ * excluded so temporary workspace names do not poison reproducibility.  Search
+ * roots are complete material inputs: headers, archives, symlinks, and modes
+ * matter just as much as executable and shared-library files. */
 static int fingerprint_append_tree(unsigned char **buffer, size_t *length,
                                    size_t *capacity, const char *root,
-                                   const char *label, int executable_only,
-                                   int library_only) {
+                                   const char *label) {
     CbsManifestEntry *entries = NULL;
     size_t count = 0, index;
     if (root == NULL || !cbs_manifest_collect(root, &entries, &count))
         return 0;
     for (index = 0; index < count; ++index) {
         char field[4096], value[8192];
-        char absolute[8192];
         const CbsManifestEntry *entry = &entries[index];
-        if (entry->type != 'f' ||
-            (executable_only &&
-             (snprintf(absolute, sizeof(absolute), "%s/%s", root,
-                       entry->path) >= (int)sizeof(absolute) ||
-              access(absolute, X_OK) != 0)) ||
-            (library_only && strstr(entry->path, ".so") == NULL))
-            continue;
         if (snprintf(field, sizeof(field), "%s.%s", label, entry->path) >=
                 (int)sizeof(field) ||
             snprintf(value, sizeof(value), "%c|%u|%llu|%s|%s", entry->type,
@@ -165,8 +158,7 @@ static int fingerprint_append_tree(unsigned char **buffer, size_t *length,
 
 static int fingerprint_append_search_paths(unsigned char **buffer,
                                            size_t *length, size_t *capacity,
-                                           const char *paths, const char *label,
-                                           int executable_only, int library_only) {
+                                           const char *paths, const char *label) {
     const char *cursor = paths;
     while (cursor != NULL && *cursor != '\0') {
         const char *end = strchr(cursor, ':');
@@ -178,19 +170,11 @@ static int fingerprint_append_search_paths(unsigned char **buffer,
         root[size] = '\0';
         {
             struct stat status;
-            if (stat(root, &status) != 0 || !S_ISDIR(status.st_mode)) {
-                cursor = end == NULL ? NULL : end + 1;
-                continue;
-            }
-        }
-        if (!fingerprint_append_tree(buffer, length, capacity, root, label,
-                                     executable_only, library_only)) {
-            char field[128];
-            if (snprintf(field, sizeof(field), "%s.unavailable", label) >=
-                    (int)sizeof(field) ||
-                !fingerprint_append(buffer, length, capacity, field, root))
+            if (stat(root, &status) != 0 || !S_ISDIR(status.st_mode))
                 return 0;
         }
+        if (!fingerprint_append_tree(buffer, length, capacity, root, label))
+            return 0;
         cursor = end == NULL ? NULL : end + 1;
     }
     return 1;
@@ -286,7 +270,7 @@ int cbs_build_fingerprint_with_context(
             if (S_ISDIR(status.st_mode)) {
                 if (!fingerprint_append_tree(
                         &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                        paths[material], names[material], 0, 0))
+                        paths[material], names[material]))
                     goto done;
                 continue;
             }
@@ -308,11 +292,11 @@ int cbs_build_fingerprint_with_context(
         if (!fingerprint_append_search_paths(
                 &fingerprint, &fingerprint_length, &fingerprint_capacity,
                 command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
-                "command", 1, 0) ||
+                "command") ||
             !fingerprint_append_search_paths(
                 &fingerprint, &fingerprint_length, &fingerprint_capacity,
                 library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
-                "library", 0, 1))
+                "library"))
             goto done;
         if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                 &fingerprint_capacity, "prune.strip_debug",
