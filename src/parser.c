@@ -1301,6 +1301,35 @@ static CbsNode *parse_requires(CbsParser *parser) {
     return node;
 }
 
+/* Parse package file-takeover declarations. */
+static CbsNode *parse_replaces(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "replaces");
+    CbsNode *node = cbs_node_create(CBS_NODE_REPLACES, keyword->location);
+
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        CbsToken *name;
+        CbsNode *replacement;
+
+        if (!is_word(parser, "package")) {
+            expected(parser, "package or }");
+            break;
+        }
+        advance(parser);
+        name = consume_kind(parser, CBS_TOKEN_STRING, "package name");
+        replacement = cbs_node_create(CBS_NODE_DEPENDENCY,
+                                      name == NULL ? current(parser)->location
+                                                   : name->location);
+        replacement->name = cbs_duplicate("package");
+        if (name != NULL)
+            replacement->value = cbs_duplicate(name->text);
+        cbs_node_add(node, replacement);
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 /* Identify one of CPDL's five phase keywords. */
 static int phase_word(CbsParser *parser) {
     return is_word(parser, "prepare") || is_word(parser, "configure") ||
@@ -1460,6 +1489,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_sources(parser);
     if (is_word(parser, "requires"))
         return parse_requires(parser);
+    if (is_word(parser, "replaces"))
+        return parse_replaces(parser);
     if (is_word(parser, "build_image"))
         return parse_build_metadata(parser, CBS_NODE_BUILD_IMAGE);
     if (is_word(parser, "capability"))

@@ -856,24 +856,26 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
         return 4;
     case CBS_NODE_REQUIRES:
         return 6;
+    case CBS_NODE_REPLACES:
+        return 7;
     case CBS_NODE_BUILD_IMAGE:
     case CBS_NODE_CAPABILITY:
     case CBS_NODE_TOOLCHAIN:
     case CBS_NODE_METADATA:
     case CBS_NODE_TOOLS:
-        return 7;
-    case CBS_NODE_PRIVILEGED:
         return 8;
+    case CBS_NODE_PRIVILEGED:
+        return 9;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
-            return 9;
-        if (strcmp(name, "configure") == 0)
             return 10;
-        if (strcmp(name, "build") == 0)
+        if (strcmp(name, "configure") == 0)
             return 11;
-        if (strcmp(name, "check") == 0)
+        if (strcmp(name, "build") == 0)
             return 12;
-        return 13;
+        if (strcmp(name, "check") == 0)
+            return 13;
+        return 14;
     default:
         return 99;
     }
@@ -1110,6 +1112,27 @@ static void validate_package(Validator *validator) {
             break;
         case CBS_NODE_REQUIRES:
             validate_requires(validator, item);
+            break;
+        case CBS_NODE_REPLACES:
+            if (item->child_count == 0)
+                validation_error(validator, item, "CPDL-E3001",
+                                 "replaces block must not be empty");
+            for (prior = 0; prior < item->child_count; ++prior) {
+                const CbsNode *replacement = item->children[prior];
+                size_t earlier;
+                if (replacement->name == NULL ||
+                    strcmp(replacement->name, "package") != 0 ||
+                    !valid_package_name(replacement->value))
+                    validation_error(validator, replacement, "CPDL-E3004",
+                                     "invalid replacement package name");
+                for (earlier = 0; earlier < prior; ++earlier)
+                    if (item->children[earlier]->value != NULL &&
+                        replacement->value != NULL &&
+                        strcmp(item->children[earlier]->value,
+                               replacement->value) == 0)
+                        validation_error(validator, replacement, "CPDL-E3002",
+                                         "duplicate replacement package");
+            }
             break;
         case CBS_NODE_BUILD_IMAGE:
             if (item->value == NULL || item->value[0] == '\0')

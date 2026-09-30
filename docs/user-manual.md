@@ -443,6 +443,7 @@ package "name" {
 
     sources { ... }                         # optional, one main source
     requires { ... }                        # optional dependency declarations
+    replaces { package "old-name" }        # optional file-takeover authorization
     build_image "image-name"                # optional executor metadata
     capability "CAP_EXAMPLE"                # repeatable executor metadata
     toolchain "gcc" {                       # explicit compiler exception

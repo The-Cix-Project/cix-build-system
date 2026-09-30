@@ -21,6 +21,9 @@ package "cli-contract" {
     requires {
         runtime { package "zstd" }
     }
+    replaces {
+        package "old-cli-contract"
+    }
     metadata {
         "artifact_sha256" "deadbeef"
         "changelog" "contract metadata"
@@ -61,6 +64,7 @@ grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata
 grep -q '"license":"GPL-3.0-or-later"' "$temporary_dir/explain.json"
 grep -q '"format":"cixpkg"' "$temporary_dir/explain.json"
 grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
+grep -q '"replaces":\["old-cli-contract"\]' "$temporary_dir/explain.json"
 
 sed 's/format "cixpkg"/format "tar.gz"/' "$recipe" \
     >"$temporary_dir/tar-format.cbs"

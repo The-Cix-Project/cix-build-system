@@ -27,6 +27,11 @@ translate or reject an unknown kind as long as the dependency name is valid.
 The `package` kind is the explicit spelling for a package identity reference,
 while `library` remains a soname/library assertion.
 
+The optional `replaces` declaration is reported by `cbs explain --json` as a
+`replaces` array of package names. It authorizes cixd to permit file ownership
+takeovers from exactly those packages; CBS does not perform dependency solving
+or installation ownership checks itself.
+
 ## Build invocation
 
 ```text

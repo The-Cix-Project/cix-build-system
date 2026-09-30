@@ -719,7 +719,24 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("},\"license\":", stdout);
+        fputs("},\"replaces\":[", stdout);
+        {
+            int first_replacement = 1;
+            for (item_index = 0; item_index < package->child_count;
+                 ++item_index) {
+                const CbsNode *replaces = package->children[item_index];
+                if (replaces->kind != CBS_NODE_REPLACES)
+                    continue;
+                for (child_index = 0; child_index < replaces->child_count;
+                     ++child_index) {
+                    if (!first_replacement)
+                        putchar(',');
+                    first_replacement = 0;
+                    print_json_string(replaces->children[child_index]->value);
+                }
+            }
+        }
+        fputs("],\"license\":", stdout);
         print_json_string(metadata.license);
         fputs(",\"build_image\":", stdout);
         print_json_string(metadata.build_image);

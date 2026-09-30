@@ -232,6 +232,7 @@ package-item = version-declaration
              | license-declaration
              | sources-declaration
              | requires-declaration
+             | replaces-declaration
              | build-image-declaration
              | capability-declaration
              | toolchain-declaration
@@ -313,7 +314,7 @@ canonical text rather than independently reconstructing identity fields.
 Each package-level declaration may appear at most once, except that
 `capability` and `privileged-declaration` may be repeated. Package items must
 appear in the canonical order shown by `package-item`: identity, upstream,
-sources, requirements, execution metadata (including privileged-file
+sources, requirements, replacements, execution metadata (including privileged-file
 allowances), then the five phases. An omitted optional item does not affect the
 order of later items. A `privileged-declaration` therefore belongs directly in
 the package body before the first phase, not inside a phase block.
@@ -366,6 +367,9 @@ verified. A mismatch names the source and both expected and computed digests.
 ```ebnf
 requires-declaration = "requires", "{", { dependency-group }, "}" ;
 
+replaces-declaration = "replaces", "{", { replacement }, "}" ;
+replacement          = "package", string ;
+
 dependency-group = dependency-role, "{", { dependency }, "}" ;
 dependency-role  = "build" | "runtime" | "test" | "bootstrap" ;
 
@@ -378,6 +382,13 @@ above. A dependency tuple of role, kind, and name must be unique. Dependency
 names follow the package-name pattern, except that a `tool` may append one
 non-empty provider version as `name@version` (for example,
 `tool "tcc@0.9.27-7"`). Other dependency kinds do not accept a version pin.
+
+`replaces` authorizes the package to take over files owned by the named
+packages. It contains one or more `package` entries, each named with the
+package-name grammar; entries must be unique. The declaration is authorization
+metadata only: CBS does not resolve packages or decide whether a takeover is
+needed. An embedder such as cixd reads the names from `cbs explain --json` and
+applies the policy when composing or installing packages.
 
 The meanings are:
 
