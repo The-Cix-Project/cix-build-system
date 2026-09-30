@@ -1153,7 +1153,9 @@ static void validate_package(Validator *validator) {
                     "gcc toolchain use requires an explicit reason");
             break;
         case CBS_NODE_UPSTREAM:
-            if (item->value == NULL || strcmp(item->value, "kernel.org") != 0)
+            if (item->value == NULL ||
+                (strcmp(item->value, "kernel.org") != 0 &&
+                 strcmp(item->value, "gitea-releases") != 0))
                 validation_error(validator, item, "CPDL-E3006",
                                  "unsupported upstream discovery provider");
             break;

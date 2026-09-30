@@ -475,8 +475,8 @@ so it can verify the staged artifact.
 interprets; both appear in `explain --json`.
 
 `upstream` names a release-discovery provider. It does not replace the pinned
-source URL or digest in CPDL 1.0. `kernel.org` is currently the registered
-provider. `build_image` and `capability` describe what an orchestrator must
+source URL or digest in CPDL 1.0. `kernel.org` and `gitea-releases` are the
+currently registered providers. `build_image` and `capability` describe what an orchestrator must
 provide; standalone CBS validates and reports them but cannot create an image
 or grant a Linux capability. A compiler other than TCC is rejected unless the
 recipe declares the matching `toolchain` exception with a non-empty reason.

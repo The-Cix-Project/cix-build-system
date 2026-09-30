@@ -267,7 +267,7 @@ image or grant a capability. A non-TCC compiler requires a matching
 `toolchain` declaration with a non-empty reason. GCC is currently the only
 permitted exception to the TCC compiler policy.
 `upstream` identifies a registered release-discovery provider; CPDL 1.0
-currently registers `kernel.org`, while the declared source URL and digest
+currently registers `kernel.org` and `gitea-releases`, while the declared source URL and digest
 remain the immutable build input until a resolver selects a new release.
 
 A document contains exactly one package declaration and no trailing tokens.

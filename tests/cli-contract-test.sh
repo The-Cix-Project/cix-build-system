@@ -18,6 +18,7 @@ package "cli-contract" {
     release 1
     format "cixpkg"
     license "GPL-3.0-or-later"
+    upstream "gitea-releases"
     requires {
         runtime { package "zstd" }
     }
@@ -62,6 +63,7 @@ grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
 grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata"}' \
     "$temporary_dir/explain.json"
 grep -q '"license":"GPL-3.0-or-later"' "$temporary_dir/explain.json"
+grep -q '"upstream":"gitea-releases"' "$temporary_dir/explain.json"
 grep -q '"format":"cixpkg"' "$temporary_dir/explain.json"
 grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
 grep -q '"replaces":\["old-cli-contract"\]' "$temporary_dir/explain.json"
