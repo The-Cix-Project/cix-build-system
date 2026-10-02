@@ -326,6 +326,7 @@ static int revise_apply(const char *path, const char *raw, size_t raw_length,
             size_t value_start, value_end;
             int quoted;
             int match = 0;
+            int metadata_match = 0;
             if (before == 1 && strcmp(request->target, "version") == 0 &&
                 text_starts(trimmed, trimmed_length, "version"))
                 match = 1;
@@ -350,6 +351,7 @@ static int revise_apply(const char *path, const char *raw, size_t raw_length,
                 snprintf(key, sizeof(key), "%.*s", (int)(key_end - key_start),
                          trimmed + key_start);
                 match = strcmp(request->target + 9, key) == 0;
+                metadata_match = match;
                 if (match && request->unset) {
                     matched[request_index] = 1;
                     if (!revise_add_change(changes, &change_count, line_start,
@@ -368,8 +370,15 @@ static int revise_apply(const char *path, const char *raw, size_t raw_length,
                            "--unset is supported only for metadata targets");
                 return 0;
             }
-            quoted = quoted_value_span(trimmed, 0, trimmed_length, &value_start,
-                                       &value_end);
+            if (metadata_match) {
+                size_t key_end = value_end;
+                quoted = quoted_value_span(trimmed, key_end + 1,
+                                           trimmed_length, &value_start,
+                                           &value_end);
+            } else {
+                quoted = quoted_value_span(trimmed, 0, trimmed_length,
+                                           &value_start, &value_end);
+            }
             if (!quoted) {
                 size_t number_start = 0;
                 while (number_start < trimmed_length &&

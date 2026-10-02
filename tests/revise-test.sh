@@ -28,6 +28,11 @@ grep -q "sha256 \"$sha_a\"" "$tmp/sources.cbs"
 grep -q '^metadata {$' "$tmp/metadata.cbs"
 grep -q '^    "test" "quoted \\"value\\""$' "$tmp/metadata.cbs"
 "$cbs" check "$tmp/metadata.cbs" >/dev/null
+"$cbs" revise "$tmp/metadata.cbs" --set 'metadata.test=replaced "value"' \
+    --output "$tmp/metadata-replaced.cbs"
+grep -q '^    "test" "replaced \\"value\\""$' "$tmp/metadata-replaced.cbs"
+! grep -q '^    "replaced' "$tmp/metadata-replaced.cbs"
+"$cbs" check "$tmp/metadata-replaced.cbs" >/dev/null
 "$cbs" revise "$tmp/metadata.cbs" --unset metadata.test >"$tmp/unset.cbs"
 ! grep -q '"test"' "$tmp/unset.cbs"
 "$cbs" check "$tmp/unset.cbs" >/dev/null
