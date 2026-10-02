@@ -86,6 +86,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/cli-finalize-test.sh ./$(TARGET) ./tests/finalize-helper
 	rm -f tests/finalize-helper
 	./tests/cli-contract-test.sh ./$(TARGET)
+	./tests/revise-test.sh ./$(TARGET)
 	./tests/command-path-test.sh ./$(TARGET)
 	./tests/tool-policy-test.sh ./$(TARGET)
 	./tests/library-path-test.sh ./$(TARGET)

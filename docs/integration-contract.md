@@ -21,6 +21,12 @@ the package identity, source URLs and SHA-256 digests, dependency groups, and
 ordered phase operation counts. cixd uses those facts to select the build
 image, compose tools, resolve identity, and populate its cache.
 
+For controlled recipe maintenance, cixd or another operator-facing tool may
+invoke `cbs revise`. It is a pure, validated byte-preserving transform for
+version/release, source coordinates and checksums, and opaque metadata. CBS
+does not fetch or trust the new source during revision; the resulting recipe
+must still pass the normal `check` and `explain` gates before a build.
+
 `requires` item keywords are an open, embedder-defined vocabulary. CBS carries
 each keyword through verbatim as the dependency `kind`; it does not silently
 translate or reject an unknown kind as long as the dependency name is valid.

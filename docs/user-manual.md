@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.100 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.101 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -115,6 +115,30 @@ before allowing a build. Add `--json` for a machine-readable object containing
 the package identity fields, `architecture: null`, all source URLs and SHA-256
 digests, dependency groups by kind, and the ordered phase names and operation
 counts. Architecture is selected by `build --arch`, not declared in CPDL.
+
+### Revising recipes without rewriting them
+
+Use `revise` for controlled metadata or source updates while preserving every
+untargeted byte of the recipe, including comments, whitespace, ordering, and
+line endings:
+
+```sh
+./cbs revise recipe.cbs \
+  --set version=1.2.4 \
+  --set release=2 \
+  --set source.main.url=https://example.invalid/source.tar \
+  --set source.main.sha256=... \
+  --output updated.cbs
+```
+
+Targets are `version`, `release`, `source.main.url`,
+`source.main.sha256`, `source.extra.NAME.url`,
+`source.extra.NAME.sha256`, and `metadata.KEY`. Metadata keys can also be
+removed with `--unset metadata.KEY`. A target must identify exactly one
+declaration; target names contain no `/`. Values are escaped as CPDL strings,
+and a revised recipe is validated before it is written. `revise` does not
+fetch sources, verify digests, or make build decisions. With no `--output`, the
+revised bytes are written to standard output.
 
 All commands that can fail also accept `--diagnostics=jsonl`. This writes one
 versioned diagnostic envelope per failure to standard error, without changing

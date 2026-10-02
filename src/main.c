@@ -43,8 +43,8 @@ static void cli_errorf(const char *subject, const char *code,
     cbs_cli_diagnostic("error", code, category, message, subject, status);
 }
 
-/* Read and normalize one recipe file for the lexer. */
-static char *read_file(const char *path, size_t *length) {
+/* Read one recipe file without changing its bytes. */
+static char *read_raw_file(const char *path, size_t *length) {
     FILE *file;
     long size;
     char *source;
@@ -79,22 +79,576 @@ static char *read_file(const char *path, size_t *length) {
         return NULL;
     }
     source[read_length] = '\0';
-    {
-        size_t input = 0;
-        size_t output = 0;
-        while (input < read_length) {
-            if (source[input] == '\r' && input + 1 < read_length &&
-                source[input + 1] == '\n') {
-                source[output++] = '\n';
-                input += 2;
-            } else {
-                source[output++] = source[input++];
+    *length = read_length;
+    return source;
+}
+
+/* Read and normalize one recipe file for the lexer. */
+static char *read_file(const char *path, size_t *length) {
+    char *raw;
+    char *normalized;
+    size_t raw_length;
+    size_t input = 0;
+    size_t output = 0;
+
+    raw = read_raw_file(path, &raw_length);
+    if (raw == NULL)
+        return NULL;
+    normalized = cbs_allocate(raw_length + 1);
+    while (input < raw_length) {
+        if (raw[input] == '\r' && input + 1 < raw_length &&
+            raw[input + 1] == '\n')
+            ++input;
+        normalized[output++] = raw[input++];
+    }
+    normalized[output] = '\0';
+    free(raw);
+    *length = output;
+    return normalized;
+}
+
+typedef struct {
+    const char *target;
+    const char *value;
+    int unset;
+} ReviseRequest;
+
+typedef struct {
+    size_t start;
+    size_t end;
+    char *replacement;
+} ReviseChange;
+
+static int line_trimmed(const char *source, size_t start, size_t end,
+                        const char **text, size_t *length) {
+    while (start < end && (source[start] == ' ' || source[start] == '\t'))
+        ++start;
+    while (end > start && (source[end - 1] == '\r' ||
+                           source[end - 1] == ' ' || source[end - 1] == '\t'))
+        --end;
+    *text = source + start;
+    *length = end - start;
+    return *length != 0;
+}
+
+static int line_brace_delta(const char *source, size_t start, size_t end) {
+    size_t index;
+    int quoted = 0;
+    int escaped = 0;
+    int delta = 0;
+    for (index = start; index < end; ++index) {
+        unsigned char character = (unsigned char)source[index];
+        if (quoted) {
+            if (escaped)
+                escaped = 0;
+            else if (character == '\\')
+                escaped = 1;
+            else if (character == '"')
+                quoted = 0;
+        } else if (character == '"') {
+            quoted = 1;
+        } else if (character == '#') {
+            break;
+        } else if (character == '{') {
+            ++delta;
+        } else if (character == '}') {
+            --delta;
+        }
+    }
+    return delta;
+}
+
+static int text_starts(const char *text, size_t length, const char *word) {
+    size_t word_length = strlen(word);
+    return length >= word_length && memcmp(text, word, word_length) == 0 &&
+           (length == word_length || text[word_length] == ' ' ||
+            text[word_length] == '\t');
+}
+
+static int quoted_value_span(const char *source, size_t start, size_t end,
+                             size_t *value_start, size_t *value_end) {
+    size_t index = start;
+    while (index < end && source[index] != '"')
+        ++index;
+    if (index == end)
+        return 0;
+    *value_start = ++index;
+    while (index < end) {
+        if (source[index] == '\\') {
+            index += index + 1 < end ? 2 : 1;
+        } else if (source[index] == '"') {
+            *value_end = index;
+            return 1;
+        } else {
+            ++index;
+        }
+    }
+    return 0;
+}
+
+static char *revise_escape(const char *value) {
+    size_t index;
+    size_t length = strlen(value);
+    char *escaped = cbs_allocate(length * 2 + 1);
+    size_t output = 0;
+    for (index = 0; index < length; ++index) {
+        if (value[index] == '\r' || value[index] == '\n') {
+            free(escaped);
+            return NULL;
+        }
+        if (value[index] == '"' || value[index] == '\\')
+            escaped[output++] = '\\';
+        escaped[output++] = value[index];
+    }
+    escaped[output] = '\0';
+    return escaped;
+}
+
+static int revise_add_change(ReviseChange *changes, size_t *count,
+                             size_t start, size_t end, const char *value) {
+    if (*count >= 64)
+        return 0;
+    changes[*count].start = start;
+    changes[*count].end = end;
+    changes[*count].replacement = cbs_duplicate(value);
+    ++*count;
+    return 1;
+}
+
+static int revise_target_matches(const char *target, const char *kind,
+                                 const char *role, const char *name,
+                                 const char *field) {
+    char expected[512];
+    if (strcmp(kind, "source") == 0) {
+        if (strcmp(role, "main") == 0)
+            snprintf(expected, sizeof(expected), "source.main.%s", field);
+        else
+            snprintf(expected, sizeof(expected), "source.%s.%s.%s", role,
+                     name, field);
+    } else {
+        snprintf(expected, sizeof(expected), "%s.%s", kind, field);
+    }
+    return strcmp(target, expected) == 0;
+}
+
+static int revise_apply(const char *path, const char *raw, size_t raw_length,
+                        const ReviseRequest *requests, size_t request_count,
+                        char **result, size_t *result_length) {
+    ReviseChange changes[64] = {0};
+    size_t change_count = 0;
+    size_t request_index;
+    size_t line_start = 0;
+    size_t depth = 0;
+    size_t metadata_level = 0;
+    size_t metadata_close = raw_length;
+    size_t metadata_insert = raw_length;
+    int metadata_present = 0;
+    int matched[32] = {0};
+    size_t sources_level = 0;
+    size_t source_level = 0;
+    char source_role[32] = {0};
+    char source_name[256] = {0};
+    char newline[3] = "\n";
+    char *output;
+    size_t output_length = 0;
+    size_t output_capacity = raw_length + 1;
+
+    for (request_index = 0; request_index < request_count; ++request_index)
+        output_capacity += strlen(requests[request_index].value == NULL
+                                      ? ""
+                                      : requests[request_index].value) * 2 + 1024;
+
+    for (request_index = 1; request_index < raw_length; ++request_index) {
+        if (raw[request_index - 1] == '\r' && raw[request_index] == '\n') {
+            newline[0] = '\r', newline[1] = '\n', newline[2] = '\0';
+            break;
+        }
+    }
+    while (line_start < raw_length || (raw_length == 0 && line_start == 0)) {
+        size_t line_end = line_start;
+        size_t content_end;
+        const char *trimmed;
+        size_t trimmed_length;
+        size_t before = depth;
+        size_t delta;
+        while (line_end < raw_length && raw[line_end] != '\n')
+            ++line_end;
+        content_end = line_end;
+        if (content_end > line_start && raw[content_end - 1] == '\r')
+            --content_end;
+        line_trimmed(raw, line_start, content_end, &trimmed, &trimmed_length);
+
+        if (metadata_level != 0 && before < metadata_level) {
+            metadata_level = 0;
+        }
+        if (sources_level != 0 && before < sources_level) {
+            sources_level = 0;
+            source_level = 0;
+            source_role[0] = '\0';
+            source_name[0] = '\0';
+        }
+        if (before == 1 && text_starts(trimmed, trimmed_length, "metadata") &&
+            memchr(trimmed, '{', trimmed_length) != NULL) {
+            metadata_level = before + 1;
+            metadata_present = 1;
+        }
+        if (!metadata_present && metadata_insert == raw_length && before == 1 &&
+            (text_starts(trimmed, trimmed_length, "prepare") ||
+             text_starts(trimmed, trimmed_length, "configure") ||
+             text_starts(trimmed, trimmed_length, "build") ||
+             text_starts(trimmed, trimmed_length, "check") ||
+             text_starts(trimmed, trimmed_length, "install") ||
+             (trimmed_length != 0 && trimmed[0] == '}')))
+            metadata_insert = line_start;
+        if (before == 1 && text_starts(trimmed, trimmed_length, "sources") &&
+            memchr(trimmed, '{', trimmed_length) != NULL)
+            sources_level = before + 1;
+        if (sources_level != 0 && before == sources_level &&
+            (text_starts(trimmed, trimmed_length, "main") ||
+             text_starts(trimmed, trimmed_length, "extra"))) {
+            size_t value_start, value_end;
+            const char *role = text_starts(trimmed, trimmed_length, "main")
+                                   ? "main"
+                                   : "extra";
+            if (quoted_value_span(trimmed, 0, trimmed_length, &value_start,
+                                  &value_end)) {
+                snprintf(source_role, sizeof(source_role), "%s", role);
+                snprintf(source_name, sizeof(source_name), "%.*s",
+                         (int)(value_end - value_start),
+                         trimmed + value_start);
+                source_level = before + 1;
             }
         }
-        source[output] = '\0';
-        *length = output;
+
+        for (request_index = 0; request_index < request_count;
+             ++request_index) {
+            const ReviseRequest *request = &requests[request_index];
+            size_t value_start, value_end;
+            int quoted;
+            int match = 0;
+            if (before == 1 && strcmp(request->target, "version") == 0 &&
+                text_starts(trimmed, trimmed_length, "version"))
+                match = 1;
+            else if (before == 1 && strcmp(request->target, "release") == 0 &&
+                     text_starts(trimmed, trimmed_length, "release"))
+                match = 1;
+            else if (source_level != 0 && before == source_level &&
+                     ((text_starts(trimmed, trimmed_length, "url") &&
+                       revise_target_matches(request->target, "source",
+                                             source_role, source_name, "url")) ||
+                      (text_starts(trimmed, trimmed_length, "sha256") &&
+                       revise_target_matches(request->target, "source",
+                                             source_role, source_name, "sha256"))))
+                match = 1;
+            else if (metadata_level != 0 && before == metadata_level &&
+                     strncmp(request->target, "metadata.", 9) == 0 &&
+                     quoted_value_span(trimmed, 0, trimmed_length, &value_start,
+                                       &value_end)) {
+                size_t key_start = value_start;
+                size_t key_end = value_end;
+                char key[256];
+                snprintf(key, sizeof(key), "%.*s", (int)(key_end - key_start),
+                         trimmed + key_start);
+                match = strcmp(request->target + 9, key) == 0;
+                if (match && request->unset) {
+                    matched[request_index] = 1;
+                    if (!revise_add_change(changes, &change_count, line_start,
+                                           line_end < raw_length ? line_end + 1
+                                                                  : line_end,
+                                           ""))
+                        return 0;
+                    continue;
+                }
+            }
+            if (!match)
+                continue;
+            matched[request_index] = 1;
+            if (request->unset) {
+                cli_errorf(request->target, "CBS-E1001", "cli", 2,
+                           "--unset is supported only for metadata targets");
+                return 0;
+            }
+            quoted = quoted_value_span(trimmed, 0, trimmed_length, &value_start,
+                                       &value_end);
+            if (!quoted) {
+                size_t number_start = 0;
+                while (number_start < trimmed_length &&
+                       trimmed[number_start] != ' ' &&
+                       trimmed[number_start] != '\t')
+                    ++number_start;
+                while (number_start < trimmed_length &&
+                       (trimmed[number_start] == ' ' ||
+                        trimmed[number_start] == '\t'))
+                    ++number_start;
+                value_start = number_start;
+                value_end = trimmed_length;
+            } else {
+                value_start += (size_t)(trimmed - raw);
+                value_end += (size_t)(trimmed - raw);
+            }
+            if (quoted) {
+                char *escaped = revise_escape(request->value);
+                if (escaped == NULL || !revise_add_change(
+                                           changes, &change_count, value_start,
+                                           value_end, escaped)) {
+                    free(escaped);
+                    cli_errorf(request->target, "CBS-E1001", "cli", 2,
+                               "revision value contains a newline or is too long");
+                    return 0;
+                }
+                free(escaped);
+            } else {
+                if (!revise_add_change(changes, &change_count,
+                                       (size_t)(trimmed - raw) + value_start,
+                                       (size_t)(trimmed - raw) + value_end,
+                                       request->value))
+                    return 0;
+            }
+        }
+        delta = line_brace_delta(raw, line_start, content_end);
+        if (metadata_level != 0 && before == metadata_level && delta == 0 &&
+            memchr(trimmed, '}', trimmed_length) != NULL)
+            metadata_close = line_start;
+        if (delta >= 0)
+            depth += (size_t)delta;
+        else if ((size_t)(-delta) <= depth)
+            depth -= (size_t)(-delta);
+        else
+            depth = 0;
+        line_start = line_end < raw_length ? line_end + 1 : raw_length;
+        if (line_end == raw_length)
+            break;
     }
-    return source;
+
+    for (request_index = 0; request_index < request_count; ++request_index) {
+        const ReviseRequest *request = &requests[request_index];
+        if (request->unset || strncmp(request->target, "metadata.", 9) != 0)
+            continue;
+        {
+            if (!matched[request_index]) {
+                char *escaped = revise_escape(request->value);
+                char insertion[1024];
+                if (escaped == NULL ||
+                    snprintf(insertion, sizeof(insertion),
+                             "    \"%s\" \"%s\"%s", request->target + 9,
+                             escaped, newline) >= (int)sizeof(insertion)) {
+                    free(escaped);
+                    cli_errorf(request->target, "CBS-E1001", "cli", 2,
+                               "metadata key or value is too long");
+                    return 0;
+                }
+                if (metadata_close != raw_length) {
+                    matched[request_index] = 1;
+                    if (!revise_add_change(changes, &change_count,
+                                           metadata_close, metadata_close,
+                                           insertion)) {
+                        free(escaped);
+                        return 0;
+                    }
+                } else if (metadata_insert != raw_length) {
+                    char block[1200];
+                    matched[request_index] = 1;
+                    if (snprintf(block, sizeof(block), "metadata {%s    \"%s\" \"%s\"%s}%s",
+                                 newline, request->target + 9,
+                                 escaped == NULL ? "" : escaped, newline,
+                                 newline) >= (int)sizeof(block)) {
+                        cli_errorf(request->target, "CBS-E1001", "cli", 2,
+                                   "metadata key or value is too long");
+                        free(escaped);
+                        return 0;
+                    }
+                    if (!revise_add_change(changes, &change_count,
+                                           metadata_insert, metadata_insert,
+                                           block)) {
+                        free(escaped);
+                        return 0;
+                    }
+                } else {
+                    cli_errorf(request->target, "CPDL-E3004", "validation", 3,
+                               "metadata target is absent and no metadata block exists");
+                    return 0;
+                }
+                free(escaped);
+            }
+        }
+    }
+    for (request_index = 0; request_index < request_count; ++request_index) {
+        const ReviseRequest *request = &requests[request_index];
+        if (!matched[request_index] && !request->unset) {
+            cli_errorf(request->target, "CPDL-E3004", "validation", 3,
+                       "revision target is absent or ambiguous");
+            return 0;
+        }
+        if (!matched[request_index] && request->unset) {
+            cli_errorf(request->target, "CPDL-E3004", "validation", 3,
+                       "revision target is absent or ambiguous");
+            return 0;
+        }
+    }
+    output = cbs_allocate(output_capacity);
+    {
+        size_t cursor = 0;
+        size_t index;
+        for (index = 0; index < change_count; ++index) {
+            size_t next;
+            for (next = index + 1; next < change_count; ++next)
+                if (changes[next].start < changes[index].start) {
+                    ReviseChange temporary = changes[index];
+                    changes[index] = changes[next];
+                    changes[next] = temporary;
+                }
+            if (changes[index].start < cursor) {
+                cli_errorf(path, "CBS-E1001", "cli", 2,
+                           "revision targets overlap");
+                free(output);
+                return 0;
+            }
+            memcpy(output + output_length, raw + cursor,
+                   changes[index].start - cursor);
+            output_length += changes[index].start - cursor;
+            strcpy(output + output_length, changes[index].replacement);
+            output_length += strlen(changes[index].replacement);
+            cursor = changes[index].end;
+        }
+        memcpy(output + output_length, raw + cursor, raw_length - cursor);
+        output_length += raw_length - cursor;
+    }
+    output[output_length] = '\0';
+    for (request_index = 0; request_index < change_count; ++request_index)
+        free(changes[request_index].replacement);
+    *result = output;
+    *result_length = output_length;
+    return 1;
+}
+
+static int validate_recipe_bytes(const char *path, const char *raw,
+                                 size_t raw_length) {
+    char *source = cbs_allocate(raw_length + 1);
+    size_t input = 0;
+    size_t output = 0;
+    CbsTokenList tokens = {0};
+    CbsNode *document;
+    int valid;
+
+    while (input < raw_length) {
+        if (raw[input] == '\r' && input + 1 < raw_length &&
+            raw[input + 1] == '\n')
+            ++input;
+        source[output++] = raw[input++];
+    }
+    source[output] = '\0';
+    if (!cbs_lex(path, source, output, &tokens)) {
+        cbs_token_list_destroy(&tokens);
+        free(source);
+        return 0;
+    }
+    document = cbs_parse(path, source, output, &tokens);
+    valid = document != NULL && cbs_validate(document, path, source);
+    cbs_node_destroy(document);
+    cbs_token_list_destroy(&tokens);
+    free(source);
+    return valid;
+}
+
+static int write_revised_recipe(const char *path, const char *data,
+                                size_t length) {
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        cli_errorf(path, "CBS-E1001", "cli", 2,
+                   "cannot write revised recipe; errno=%d", errno);
+        return 0;
+    }
+    if (fwrite(data, 1, length, file) != length) {
+        fclose(file);
+        cli_errorf(path, "CBS-E1001", "cli", 2,
+                   "cannot write revised recipe; errno=%d", errno);
+        return 0;
+    }
+    if (fclose(file) != 0) {
+        cli_errorf(path, "CBS-E1001", "cli", 2,
+                   "cannot write revised recipe; errno=%d", errno);
+        return 0;
+    }
+    return 1;
+}
+
+static int parse_revise_request(const char *spec, int unset,
+                                ReviseRequest *request) {
+    const char *equals = unset ? NULL : strchr(spec, '=');
+    size_t target_length = equals == NULL ? strlen(spec)
+                                          : (size_t)(equals - spec);
+    if (target_length == 0 || target_length >= 256 ||
+        (!unset && (equals[1] == '\0' || strlen(equals + 1) >= 768)))
+        return 0;
+    request->target = cbs_duplicate_range(spec, target_length);
+    request->value = unset ? NULL : cbs_duplicate(equals + 1);
+    request->unset = unset;
+    if ((strncmp(request->target, "metadata.", 9) != 0 && unset) ||
+        strchr(request->target, '=') != NULL ||
+        strchr(request->target, '/') != NULL) {
+        free((void *)request->target);
+        free((void *)request->value);
+        return 0;
+    }
+    return 1;
+}
+
+static void free_revise_requests(ReviseRequest *requests, size_t count) {
+    size_t index;
+    for (index = 0; index < count; ++index) {
+        free((void *)requests[index].target);
+        free((void *)requests[index].value);
+    }
+}
+
+static int revise_file(const char *path, ReviseRequest *requests,
+                       size_t request_count, const char *output_path) {
+    char *raw;
+    char *revised;
+    size_t raw_length;
+    size_t revised_length;
+    if (!has_cbs_extension(path)) {
+        cli_errorf(path, "CPDL-E3004", "validation", 3,
+                   "recipe must use the .cbs extension");
+        return 3;
+    }
+    raw = read_raw_file(path, &raw_length);
+    if (raw == NULL)
+        return 3;
+    if (!validate_recipe_bytes(path, raw, raw_length)) {
+        free(raw);
+        return 3;
+    }
+    if (!revise_apply(path, raw, raw_length, requests, request_count,
+                      &revised, &revised_length)) {
+        free(raw);
+        return 3;
+    }
+    if (!validate_recipe_bytes(path, revised, revised_length)) {
+        cli_errorf(path, "CPDL-E3004", "validation", 3,
+                   "revision would produce an invalid recipe");
+        free(raw);
+        free(revised);
+        return 3;
+    }
+    if (output_path != NULL) {
+        if (!write_revised_recipe(output_path, revised, revised_length)) {
+            free(raw);
+            free(revised);
+            return 2;
+        }
+    } else {
+        if (fwrite(revised, 1, revised_length, stdout) != revised_length) {
+            cli_errorf(path, "CBS-E1001", "cli", 2,
+                       "cannot write revised recipe to stdout");
+            free(raw);
+            free(revised);
+            return 2;
+        }
+    }
+    free(raw);
+    free(revised);
+    return 0;
 }
 
 /* Implement the validate/check command without executing a recipe. */
@@ -210,6 +764,8 @@ static void usage(FILE *stream) {
         "  cbs check RECIPE.cbs                 Validate without executing\n"
         "  cbs validate RECIPE.cbs [--json]     Alias for check\n"
         "  cbs explain RECIPE.cbs [--json]       Show the execution plan\n"
+        "  cbs revise RECIPE.cbs [--set TARGET=VALUE] [--unset TARGET]\n"
+        "      [--output FILE]                    Revise without normalizing bytes\n"
         "  cbs inspect RECIPE.cbs [ARTIFACT]    Show digest metadata\n"
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
@@ -1773,7 +2329,7 @@ static int parse_entry_filters(int argc, char **argv, int start,
 static void print_capabilities(void) {
     fputs("{\"schema\":\"cbs.capabilities/v1\",\"version\":", stdout);
     print_json_string(cbs_version());
-    printf(",\"api_version\":%u,\"abi_version\":%u,\"cpdl_version\":%u,\"cpdl_contract\":\"%s\",\"cixpkg_version\":%u,\"execution_context_size\":%zu,\"integration\":[\"child-process\",\"static-library\"],\"commands\":[\"build\",\"doctor\",\"explain\",\"fingerprint\",\"list\",\"diff\",\"package\",\"verify\"]}\n",
+    printf(",\"api_version\":%u,\"abi_version\":%u,\"cpdl_version\":%u,\"cpdl_contract\":\"%s\",\"cixpkg_version\":%u,\"execution_context_size\":%zu,\"integration\":[\"child-process\",\"static-library\"],\"commands\":[\"build\",\"doctor\",\"explain\",\"fingerprint\",\"list\",\"diff\",\"package\",\"revise\",\"verify\"]}\n",
            cbs_api_version(), cbs_abi_version(), CBS_CPDL_VERSION,
            CBS_CPDL_CONTRACT, CBS_CIXPKG_VERSION, cbs_execution_context_size());
 }
@@ -1896,6 +2452,74 @@ int main(int argc, char **argv) {
                 return 2;
             }
         return explain_file(argv[2], json);
+    }
+    if (argc >= 3 && strcmp(argv[1], "revise") == 0) {
+        ReviseRequest requests[32] = {0};
+        size_t request_count = 0;
+        const char *output = NULL;
+        int valid = 1;
+        for (argument_index = 3; argument_index < argc; ++argument_index) {
+            const char *argument = argv[argument_index];
+            const char *spec = NULL;
+            int unset = 0;
+            if (is_diagnostic_option(argument))
+                continue;
+            if (strncmp(argument, "--set=", 6) == 0) {
+                spec = argument + 6;
+            } else if (strcmp(argument, "--set") == 0) {
+                if (++argument_index >= argc) {
+                    cli_errorf("revise", "CBS-E1001", "cli", 2,
+                               "option `--set` requires a value");
+                    valid = 0;
+                    break;
+                }
+                spec = argv[argument_index];
+            } else if (strncmp(argument, "--unset=", 8) == 0) {
+                spec = argument + 8;
+                unset = 1;
+            } else if (strcmp(argument, "--unset") == 0) {
+                if (++argument_index >= argc) {
+                    cli_errorf("revise", "CBS-E1001", "cli", 2,
+                               "option `--unset` requires a target");
+                    valid = 0;
+                    break;
+                }
+                spec = argv[argument_index];
+                unset = 1;
+            } else if (strncmp(argument, "--output=", 9) == 0) {
+                output = argument + 9;
+                continue;
+            } else if (strcmp(argument, "--output") == 0) {
+                if (++argument_index >= argc || argv[argument_index][0] == '\0') {
+                    cli_errorf("revise", "CBS-E1001", "cli", 2,
+                               "option `--output` requires a value");
+                    valid = 0;
+                    break;
+                }
+                output = argv[argument_index];
+                continue;
+            } else {
+                cli_errorf("revise", "CBS-E1001", "cli", 2,
+                           "unknown option `%s`", argument);
+                valid = 0;
+                break;
+            }
+            if (request_count == 32 ||
+                !parse_revise_request(spec, unset, &requests[request_count])) {
+                cli_errorf("revise", "CBS-E1001", "cli", 2,
+                           "invalid revision target `%s`", spec);
+                valid = 0;
+                break;
+            }
+            ++request_count;
+        }
+        if (!valid) {
+            free_revise_requests(requests, request_count);
+            return 2;
+        }
+        valid = revise_file(argv[2], requests, request_count, output);
+        free_revise_requests(requests, request_count);
+        return valid;
     }
     if (argc >= 3 &&
         (strcmp(argv[1], "check") == 0 || strcmp(argv[1], "validate") == 0)) {
