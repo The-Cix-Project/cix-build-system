@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.101 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.102 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -463,7 +463,11 @@ package has this shape:
 package "name" {
     version "upstream-version"
     release 1
-    upstream "kernel.org"                  # optional registered provider
+    upstream "kernel.org" {                # optional discovery parameters
+        tag "v{version}"
+        source "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{version}.tar.xz"
+        verify origin
+    }
 
     sources { ... }                         # optional, one main source
     requires { ... }                        # optional dependency declarations
@@ -505,9 +509,13 @@ build. The value must use a positive binary unit (`KiB`, `MiB`, or `GiB`), and
 execution metadata; cixd decides whether the operator's memory ceiling can
 accommodate it.
 
-`upstream` names a release-discovery provider. It does not replace the pinned
-source URL or digest in CPDL 1.0. `kernel.org` and `gitea-releases` are the
-currently registered providers. `build_image` and `capability` describe what an orchestrator must
+`upstream` names a release-discovery provider and may carry `tag`, `source`,
+and exactly one `verify` policy. The bare form remains valid. Templates use
+`{version}` and may use `{major}` where the provider supports it. It does not
+replace the pinned source URL or digest in CPDL 1.0. CBS validates and reports
+the declaration but never performs discovery or network verification.
+`kernel.org`, `gitea-releases`, `gitea-tags`, `github-tags`, `github-releases`,
+and `gnu` are the registered provider names. `build_image` and `capability` describe what an orchestrator must
 provide; standalone CBS validates and reports them but cannot create an image
 or grant a Linux capability. A compiler other than TCC is rejected unless the
 recipe declares the matching `toolchain` exception with a non-empty reason.

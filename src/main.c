@@ -1103,6 +1103,62 @@ static void print_json_string(const char *value) {
     putchar('"');
 }
 
+static const CbsNode *upstream_property(const CbsNode *upstream,
+                                        const char *name) {
+    size_t index;
+    for (index = 0; index < upstream->child_count; ++index)
+        if (strcmp(upstream->children[index]->name, name) == 0)
+            return upstream->children[index];
+    return NULL;
+}
+
+static const CbsNode *upstream_verify_field(const CbsNode *verify,
+                                            const char *name) {
+    size_t index;
+    for (index = 0; index < verify->child_count; ++index)
+        if (strcmp(verify->children[index]->name, name) == 0)
+            return verify->children[index];
+    return NULL;
+}
+
+static void print_upstream_json(const CbsNode *upstream) {
+    const CbsNode *tag = upstream_property(upstream, "tag");
+    const CbsNode *source = upstream_property(upstream, "source");
+    const CbsNode *verify = upstream_property(upstream, "verify");
+    fputs("{\"provider\":", stdout);
+    print_json_string(upstream->value);
+    fputs(",\"tag\":", stdout);
+    print_json_string(tag == NULL ? NULL : tag->value);
+    fputs(",\"source\":", stdout);
+    print_json_string(source == NULL ? NULL : source->value);
+    fputs(",\"verify\":", stdout);
+    if (verify == NULL) {
+        fputs("null", stdout);
+    } else {
+        const CbsNode *url = upstream_verify_field(verify, "url");
+        const CbsNode *key = upstream_verify_field(verify, "key");
+        fputs("{\"method\":", stdout);
+        print_json_string(verify->value);
+        if (verify->second_value != NULL) {
+            fputs(",\"format\":", stdout);
+            print_json_string(verify->second_value);
+        }
+        if (url != NULL) {
+            fputs(",\"url\":", stdout);
+            print_json_string(url->value);
+        }
+        if (key != NULL) {
+            fputs(",\"key\":", stdout);
+            print_json_string(key->value);
+        } else if (strcmp(verify->value, "signed-tag") == 0) {
+            fputs(",\"key\":", stdout);
+            print_json_string(verify->second_value);
+        }
+        fputc('}', stdout);
+    }
+    fputc('}', stdout);
+}
+
 /* Count expanded operations: a list (a `for` or `each` expansion) counts
  * what it contains, recursively. */
 static size_t count_plan_operations(const CbsNode *block) {
@@ -1302,7 +1358,24 @@ static int explain_file(const char *path, int json) {
         fputs(",\"build_image\":", stdout);
         print_json_string(metadata.build_image);
         fputs(",\"upstream\":", stdout);
-        print_json_string(metadata.upstream);
+        {
+            const CbsNode *upstream = NULL;
+            size_t package_index;
+            for (package_index = 0;
+                 package_index < document->children[0]->child_count;
+                 ++package_index) {
+                const CbsNode *item = document->children[0]->children[package_index];
+                if (item->kind == CBS_NODE_UPSTREAM) {
+                    upstream = item;
+                    break;
+                }
+            }
+            if (upstream == NULL) {
+                fputs("null", stdout);
+            } else {
+                print_upstream_json(upstream);
+            }
+        }
         fputs(",\"toolchain\":", stdout);
         print_json_string(metadata.toolchain);
         fputs(",\"toolchain_reason\":", stdout);

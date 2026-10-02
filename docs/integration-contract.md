@@ -21,6 +21,11 @@ the package identity, source URLs and SHA-256 digests, dependency groups, and
 ordered phase operation counts. cixd uses those facts to select the build
 image, compose tools, resolve identity, and populate its cache.
 
+The `upstream` field is always an object when declared:
+`{"provider":"gitea-tags","tag":"v{version}","source":"...",`
+`"verify":{"method":"origin"}}`. Bare declarations are represented with
+null `tag`, `source`, and `verify` fields, so cixd has one stable shape.
+
 For controlled recipe maintenance, cixd or another operator-facing tool may
 invoke `cbs revise`. It is a pure, validated byte-preserving transform for
 version/release, source coordinates and checksums, and opaque metadata. CBS

@@ -260,7 +260,13 @@ resources-declaration    = "resources", "{", { resource-item }, "}" ;
 resource-item            = "memory", string ;
 privileged-declaration   = "privileged", "file", path-value,
                            "mode", mode ;
-upstream-declaration     = "upstream", string ;
+upstream-declaration     = "upstream", string, [ "{", { upstream-item }, "}" ] ;
+upstream-item            = "tag", string
+                         | "source", string
+                         | "verify", ( "origin"
+                         | "signature", string, "{", "url", string, "key", string, "}"
+                         | "checksums", string, "{", "url", string, "key", string, "}"
+                         | "signed-tag", "{", "key", string, "}" ) ;
 metadata-declaration     = "metadata", "{", { string, string }, "}" ;
 ```
 
@@ -270,8 +276,14 @@ image or grant a capability. A non-TCC compiler requires a matching
 `toolchain` declaration with a non-empty reason. GCC is currently the only
 permitted exception to the TCC compiler policy.
 `upstream` identifies a registered release-discovery provider; CPDL 1.0
-currently registers `kernel.org` and `gitea-releases`, while the declared source URL and digest
-remain the immutable build input until a resolver selects a new release.
+currently registers `kernel.org`, `gitea-releases`, `gitea-tags`,
+`github-tags`, `github-releases`, and `gnu`. The bare form remains valid for
+providers using their defaults. The optional block supplies a tag pattern, a
+source URL template, and exactly one verification policy. Templates must use
+`{version}`; `{major}` is also accepted for providers such as `kernel.org`.
+CBS validates this metadata and reports it, but never discovers, fetches, or
+verifies a release. The declared source URL and digest remain the immutable
+build input until an orchestrator selects a new release.
 
 `resources` is execution metadata. Its `memory` value is a positive integer
 with a binary `KiB`, `MiB`, or `GiB` suffix. CBS reports the normalized byte

@@ -1337,7 +1337,7 @@ static int phase_word(CbsParser *parser) {
            is_word(parser, "install");
 }
 
-/* Parse build-image, capability, toolchain, or upstream metadata. */
+/* Parse build-image, capability, or toolchain metadata. */
 static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
@@ -1360,6 +1360,88 @@ static CbsNode *parse_build_metadata(CbsParser *parser, CbsNodeKind kind) {
         }
         consume_kind(parser, CBS_TOKEN_RBRACE, "}");
     }
+    return node;
+}
+
+/* Parse the optional release-discovery parameters carried by upstream. */
+static CbsNode *parse_upstream(CbsParser *parser) {
+    CbsToken *keyword = current(parser);
+    CbsToken *provider;
+    CbsNode *node;
+    advance(parser);
+    provider = consume_kind(parser, CBS_TOKEN_STRING, "upstream provider");
+    node = cbs_node_create(CBS_NODE_UPSTREAM, keyword->location);
+    if (provider != NULL)
+        node->value = cbs_duplicate(provider->text);
+    if (current(parser)->kind != CBS_TOKEN_LBRACE)
+        return node;
+    advance(parser);
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        CbsToken *value;
+        CbsNode *property;
+        if (is_word(parser, "tag") || is_word(parser, "source")) {
+            const char *name = current(parser)->text;
+            CbsToken *name_token = advance(parser);
+            value = consume_kind(parser, CBS_TOKEN_STRING,
+                                 "upstream template");
+            property = cbs_node_create(CBS_NODE_PROPERTY, name_token->location);
+            property->name = cbs_duplicate(name);
+            if (value != NULL)
+                property->value = cbs_duplicate(value->text);
+            cbs_node_add(node, property);
+        } else if (is_word(parser, "verify")) {
+            CbsToken *verify_token = advance(parser);
+            property = cbs_node_create(CBS_NODE_PROPERTY,
+                                        verify_token->location);
+            property->name = cbs_duplicate("verify");
+            if (is_word(parser, "origin")) {
+                property->value = cbs_duplicate("origin");
+                advance(parser);
+            } else if (is_word(parser, "signature") ||
+                       is_word(parser, "checksums")) {
+                const char *method = current(parser)->text;
+                advance(parser);
+                value = consume_kind(parser, CBS_TOKEN_STRING,
+                                     "verification method");
+                property->value = cbs_duplicate(method);
+                if (value != NULL)
+                    property->second_value = cbs_duplicate(value->text);
+                consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+                while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+                       current(parser)->kind != CBS_TOKEN_EOF) {
+                    const char *field = current(parser)->text;
+                    CbsToken *field_token = advance(parser);
+                    value = consume_kind(parser, CBS_TOKEN_STRING,
+                                         "verification template or key");
+                    CbsNode *field_node = cbs_node_create(
+                        CBS_NODE_PROPERTY, field_token->location);
+                    field_node->name = cbs_duplicate(field);
+                    if (value != NULL)
+                        field_node->value = cbs_duplicate(value->text);
+                    cbs_node_add(property, field_node);
+                }
+                consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+            } else if (is_word(parser, "signed-tag")) {
+                property->value = cbs_duplicate("signed-tag");
+                advance(parser);
+                consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+                consume_word(parser, "key");
+                value = consume_kind(parser, CBS_TOKEN_STRING,
+                                     "verification key");
+                if (value != NULL)
+                    property->second_value = cbs_duplicate(value->text);
+                consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+            } else {
+                expected(parser, "origin, signature, checksums, or signed-tag");
+            }
+            cbs_node_add(node, property);
+        } else {
+            expected(parser, "upstream parameter");
+            break;
+        }
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
     return node;
 }
 
@@ -1526,7 +1608,7 @@ static CbsNode *parse_package_item(CbsParser *parser) {
     if (is_word(parser, "toolchain"))
         return parse_build_metadata(parser, CBS_NODE_TOOLCHAIN);
     if (is_word(parser, "upstream"))
-        return parse_build_metadata(parser, CBS_NODE_UPSTREAM);
+        return parse_upstream(parser);
     if (is_word(parser, "metadata"))
         return parse_opaque_metadata(parser);
     if (is_word(parser, "resources"))

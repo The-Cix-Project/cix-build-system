@@ -976,6 +976,173 @@ static void validate_sources(Validator *validator, const CbsNode *sources) {
                          "sources block must contain exactly one main source");
 }
 
+/* Validate the placeholders used by an upstream discovery template. */
+static int valid_upstream_template(const char *template) {
+    const char *cursor = template;
+    int version = 0;
+    while (*cursor != '\0') {
+        const char *open = strchr(cursor, '{');
+        const char *close;
+        if (open == NULL)
+            break;
+        close = strchr(open + 1, '}');
+        if (close == NULL || close == open + 1)
+            return 0;
+        if ((size_t)(close - open - 1) == 7 &&
+            strncmp(open + 1, "version", 7) == 0)
+            version = 1;
+        else if ((size_t)(close - open - 1) != 5 ||
+                 strncmp(open + 1, "major", 5) != 0)
+            return 0;
+        cursor = close + 1;
+    }
+    return version;
+}
+
+/* Validate one structured upstream declaration and its provider contract. */
+static void validate_upstream(Validator *validator, const CbsNode *item) {
+    size_t index;
+    size_t tag_count = 0;
+    size_t source_count = 0;
+    size_t verify_count = 0;
+    const CbsNode *source = NULL;
+    const char *version = NULL;
+
+    if (item->value == NULL || item->value[0] == '\0')
+        validation_error(validator, item, "CPDL-E3004",
+                         "upstream provider must not be empty");
+    else if (strcmp(item->value, "kernel.org") != 0 &&
+             strcmp(item->value, "gitea-releases") != 0 &&
+             strcmp(item->value, "gitea-tags") != 0 &&
+             strcmp(item->value, "github-tags") != 0 &&
+             strcmp(item->value, "github-releases") != 0 &&
+             strcmp(item->value, "gnu") != 0)
+        validation_error(validator, item, "CBS-E3006",
+                         "unsupported upstream discovery provider");
+    for (index = 0; index < validator->package->child_count; ++index) {
+        const CbsNode *package_item = validator->package->children[index];
+        if (package_item->kind == CBS_NODE_VERSION)
+            version = package_item->value;
+        else if (package_item->kind == CBS_NODE_SOURCES) {
+            size_t source_index;
+            for (source_index = 0; source_index < package_item->child_count;
+                 ++source_index)
+                if (strcmp(package_item->children[source_index]->name, "main") == 0)
+                    source = package_item->children[source_index];
+        }
+    }
+    for (index = 0; index < item->child_count; ++index) {
+        const CbsNode *property = item->children[index];
+        if (property->name == NULL ||
+            (strcmp(property->name, "tag") != 0 &&
+             strcmp(property->name, "source") != 0 &&
+             strcmp(property->name, "verify") != 0)) {
+            validation_error(validator, property, "CBS-E3006",
+                             "unknown upstream parameter");
+            continue;
+        }
+        if (strcmp(property->name, "tag") == 0) {
+            ++tag_count;
+            if (property->value == NULL ||
+                !valid_upstream_template(property->value))
+                validation_error(validator, property, "CBS-E3004",
+                                 "upstream tag template must contain {version} and only known placeholders");
+        } else if (strcmp(property->name, "source") == 0) {
+            ++source_count;
+            if (property->value == NULL ||
+                !valid_upstream_template(property->value))
+                validation_error(validator, property, "CBS-E3004",
+                                 "upstream source template must contain {version} and only known placeholders");
+        } else {
+            size_t field_count = 0;
+            size_t field_index;
+            ++verify_count;
+            if (property->value == NULL ||
+                (strcmp(property->value, "origin") != 0 &&
+                 strcmp(property->value, "signature") != 0 &&
+                 strcmp(property->value, "checksums") != 0 &&
+                 strcmp(property->value, "signed-tag") != 0))
+                validation_error(validator, property, "CBS-E3006",
+                                 "unsupported upstream verification method");
+            if (property->value == NULL)
+                continue;
+            if (strcmp(property->value, "origin") == 0) {
+                if (property->child_count != 0 || property->second_value != NULL)
+                    validation_error(validator, property, "CBS-E3004",
+                                     "origin verification takes no parameters");
+            } else if (strcmp(property->value, "signed-tag") == 0) {
+                if (property->child_count != 0 || property->second_value == NULL ||
+                    property->second_value[0] == '\0')
+                    validation_error(validator, property, "CBS-E3004",
+                                     "signed-tag verification requires a key");
+            } else {
+                for (field_index = 0; field_index < property->child_count;
+                     ++field_index) {
+                    const CbsNode *field = property->children[field_index];
+                    if (strcmp(field->name, "url") != 0 &&
+                        strcmp(field->name, "key") != 0)
+                        validation_error(validator, field, "CBS-E3006",
+                                         "unknown upstream verification parameter");
+                    if (strcmp(field->name, "url") == 0) {
+                        ++field_count;
+                        if (field->value == NULL ||
+                            !valid_upstream_template(field->value))
+                            validation_error(validator, field, "CBS-E3004",
+                                             "verification URL must contain {version} and only known placeholders");
+                    } else if (field->value == NULL || field->value[0] == '\0') {
+                        validation_error(validator, field, "CBS-E3004",
+                                         "verification key must not be empty");
+                    }
+                }
+                if (field_count != 1 || property->child_count != 2)
+                    validation_error(validator, property, "CBS-E3004",
+                                     "verification requires exactly one url and one key");
+            }
+        }
+    }
+    if (tag_count > 1 || source_count > 1 || verify_count != 1)
+        validation_error(validator, item, "CBS-E3002",
+                         "upstream parameters must contain at most one tag and source and exactly one verify");
+    if (source_count == 1 && source != NULL && version != NULL) {
+        const CbsNode *source_template = NULL;
+        size_t source_index;
+        for (source_index = 0; source_index < item->child_count; ++source_index)
+            if (strcmp(item->children[source_index]->name, "source") == 0)
+                source_template = item->children[source_index];
+        if (source_template != NULL) {
+            char expanded[4096];
+            const char *cursor = source_template->value;
+            size_t output = 0;
+            while (*cursor != '\0' && output + 1 < sizeof(expanded)) {
+                if (strncmp(cursor, "{version}", 9) == 0) {
+                    size_t length = strlen(version);
+                    if (output + length >= sizeof(expanded))
+                        break;
+                    memcpy(expanded + output, version, length);
+                    output += length;
+                    cursor += 9;
+                } else if (strncmp(cursor, "{major}", 7) == 0) {
+                    const char *dot = strchr(version, '.');
+                    size_t length = dot == NULL ? strlen(version)
+                                                : (size_t)(dot - version);
+                    if (output + length >= sizeof(expanded))
+                        break;
+                    memcpy(expanded + output, version, length);
+                    output += length;
+                    cursor += 7;
+                } else {
+                    expanded[output++] = *cursor++;
+                }
+            }
+            expanded[output] = '\0';
+            if (source->child_count == 0 ||
+                strcmp(source->children[0]->value, expanded) != 0)
+                validation_error(validator, source_template, "CBS-E3004",
+                                 "upstream source template does not match the main source URL at the current version");
+        }
+    }
+}
+
 /* Return the canonical ordering rank for a dependency role. */
 static int dependency_role_rank(const char *role) {
     if (strcmp(role, "build") == 0)
@@ -1214,6 +1381,10 @@ static void validate_package(Validator *validator) {
                     "gcc toolchain use requires an explicit reason");
             break;
         case CBS_NODE_UPSTREAM:
+            if (item->child_count != 0) {
+                validate_upstream(validator, item);
+                break;
+            }
             if (item->value == NULL ||
                 (strcmp(item->value, "kernel.org") != 0 &&
                  strcmp(item->value, "gitea-releases") != 0))
