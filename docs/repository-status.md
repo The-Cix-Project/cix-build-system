@@ -1,6 +1,6 @@
 # CBS repository status
 
-Current release: **v0.1.103**. The branch and tag are clean, and the full
+Current release: **v0.1.104**. The branch and tag are clean, and the full
 `make -j1 test` gate passes for this release.
 
 This file reconciles the repository with the historical issue tracker. CBS is
@@ -23,6 +23,6 @@ state and must not be represented as completed CBS functionality.
 
 Historical validation records describe the state when their issues were
 closed. The issue tracker is the authority for future work, including the
-post-v0.1.103 improvement queue. This status file prevents old acceptance
+post-v0.1.104 improvement queue. This status file prevents old acceptance
 language from being mistaken for a claim that standalone CBS owns the whole
 platform.

@@ -981,20 +981,27 @@ static int valid_upstream_template(const char *template) {
     const char *cursor = template;
     int version = 0;
     while (*cursor != '\0') {
-        const char *open = strchr(cursor, '{');
-        const char *close;
-        if (open == NULL)
-            break;
-        close = strchr(open + 1, '}');
-        if (close == NULL || close == open + 1)
+        if (cursor[0] == '{' && cursor[1] == '{') {
+            const char *close = strstr(cursor + 2, "}}");
+            if (close == NULL)
+                return 0;
+            cursor = close + 2;
+        } else if (cursor[0] == '}') {
             return 0;
-        if ((size_t)(close - open - 1) == 7 &&
-            strncmp(open + 1, "version", 7) == 0)
-            version = 1;
-        else if ((size_t)(close - open - 1) != 5 ||
-                 strncmp(open + 1, "major", 5) != 0)
-            return 0;
-        cursor = close + 1;
+        } else if (cursor[0] == '{') {
+            const char *close = strchr(cursor + 1, '}');
+            if (close == NULL || close == cursor + 1)
+                return 0;
+            if ((size_t)(close - cursor - 1) == 7 &&
+                strncmp(cursor + 1, "version", 7) == 0)
+                version = 1;
+            else if ((size_t)(close - cursor - 1) != 5 ||
+                     strncmp(cursor + 1, "major", 5) != 0)
+                return 0;
+            cursor = close + 1;
+        } else {
+            ++cursor;
+        }
     }
     return version;
 }
@@ -1114,7 +1121,18 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
             const char *cursor = source_template->value;
             size_t output = 0;
             while (*cursor != '\0' && output + 1 < sizeof(expanded)) {
-                if (strncmp(cursor, "{version}", 9) == 0) {
+                if (cursor[0] == '{' && cursor[1] == '{') {
+                    const char *close = strstr(cursor + 2, "}}");
+                    size_t length;
+                    if (close == NULL)
+                        break;
+                    length = (size_t)(close + 2 - cursor);
+                    if (output + length >= sizeof(expanded))
+                        break;
+                    memcpy(expanded + output, cursor, length);
+                    output += length;
+                    cursor = close + 2;
+                } else if (strncmp(cursor, "{version}", 9) == 0) {
                     size_t length = strlen(version);
                     if (output + length >= sizeof(expanded))
                         break;
