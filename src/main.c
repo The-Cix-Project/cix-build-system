@@ -736,7 +736,12 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("],\"license\":", stdout);
+        fputs("],\"resources\":", stdout);
+        if (metadata.memory_declared)
+            printf("{\"memory\":%llu}", metadata.memory_bytes);
+        else
+            fputs("null", stdout);
+        fputs(",\"license\":", stdout);
         print_json_string(metadata.license);
         fputs(",\"build_image\":", stdout);
         print_json_string(metadata.build_image);

@@ -25,6 +25,9 @@ package "cli-contract" {
     replaces {
         package "old-cli-contract"
     }
+    resources {
+        memory "4GiB"
+    }
     metadata {
         "artifact_sha256" "deadbeef"
         "changelog" "contract metadata"
@@ -64,6 +67,7 @@ grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata
     "$temporary_dir/explain.json"
 grep -q '"license":"GPL-3.0-or-later"' "$temporary_dir/explain.json"
 grep -q '"upstream":"gitea-releases"' "$temporary_dir/explain.json"
+grep -q '"resources":{"memory":4294967296}' "$temporary_dir/explain.json"
 grep -q '"format":"cixpkg"' "$temporary_dir/explain.json"
 grep -q '"runtime":{"package":\["zstd"\]}' "$temporary_dir/explain.json"
 grep -q '"replaces":\["old-cli-contract"\]' "$temporary_dir/explain.json"

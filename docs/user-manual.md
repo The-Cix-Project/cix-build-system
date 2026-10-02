@@ -444,6 +444,7 @@ package "name" {
     sources { ... }                         # optional, one main source
     requires { ... }                        # optional dependency declarations
     replaces { package "old-name" }        # optional file-takeover authorization
+    resources { memory "4GiB" }            # optional aggregate build need
     build_image "image-name"                # optional executor metadata
     capability "CAP_EXAMPLE"                # repeatable executor metadata
     toolchain "gcc" {                       # explicit compiler exception
@@ -473,6 +474,12 @@ so it can verify the staged artifact.
 `license` is an optional SPDX expression recorded in the artifact manifest.
 `metadata { "key" "value" }` carries opaque string pairs that CBS never
 interprets; both appear in `explain --json`.
+
+`resources { memory "4GiB" }` declares the aggregate memory need of the whole
+build. The value must use a positive binary unit (`KiB`, `MiB`, or `GiB`), and
+`cbs explain --json` reports it as bytes. CBS records and validates this
+execution metadata; cixd decides whether the operator's memory ceiling can
+accommodate it.
 
 `upstream` names a release-discovery provider. It does not replace the pinned
 source URL or digest in CPDL 1.0. `kernel.org` and `gitea-releases` are the
@@ -927,7 +934,8 @@ the actual build.
 ### Recipe validation
 
 `package declaration appears out of order` means package items are not in the
-required order: identity, upstream, sources, requirements, metadata, phases.
+required order: identity, upstream, sources, requirements, replacements,
+resources, metadata, phases.
 Move the named item rather than duplicating it.
 
 `compiler requires TCC or an explicit toolchain exception` means a dependency

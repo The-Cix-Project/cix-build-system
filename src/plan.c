@@ -1,6 +1,7 @@
 /* Build-plan construction, metadata extraction, and phase event dispatch. */
 #include "cbs.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -12,6 +13,19 @@ static long plan_elapsed_ms(const struct timespec *start,
 
 static int is_check_phase(const CbsNode *phase) {
     return phase->name != NULL && strcmp(phase->name, "check") == 0;
+}
+
+static unsigned long long memory_bytes(const char *text) {
+    size_t length = strlen(text);
+    unsigned long long multiplier = 1024ULL;
+    unsigned long long value;
+
+    if (length >= 3 && text[length - 3] == 'M')
+        multiplier = 1024ULL * 1024ULL;
+    else if (length >= 3 && text[length - 3] == 'G')
+        multiplier = 1024ULL * 1024ULL * 1024ULL;
+    value = strtoull(text, NULL, 10);
+    return value * multiplier;
 }
 
 #include <string.h>
@@ -51,6 +65,17 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
             ++metadata->capability_count;
         else if (item->kind == CBS_NODE_LICENSE)
             metadata->license = item->value;
+        else if (item->kind == CBS_NODE_RESOURCES) {
+            size_t resource_index;
+            for (resource_index = 0; resource_index < item->child_count;
+                 ++resource_index) {
+                const CbsNode *resource = item->children[resource_index];
+                if (strcmp(resource->name, "memory") == 0) {
+                    metadata->memory_declared = 1;
+                    metadata->memory_bytes = memory_bytes(resource->value);
+                }
+            }
+        }
         else if (item->kind == CBS_NODE_TOOLCHAIN) {
             metadata->toolchain = item->value;
             if (item->child_count > 0)

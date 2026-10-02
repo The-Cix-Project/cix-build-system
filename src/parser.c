@@ -1387,6 +1387,34 @@ static CbsNode *parse_opaque_metadata(CbsParser *parser) {
     return node;
 }
 
+/* Parse package execution resources. */
+static CbsNode *parse_resources(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "resources");
+    CbsNode *node = cbs_node_create(CBS_NODE_RESOURCES, keyword->location);
+
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        CbsToken *item = current(parser);
+        CbsToken *value;
+        CbsNode *property;
+
+        if (!is_word(parser, "memory")) {
+            expected(parser, "memory or }");
+            break;
+        }
+        advance(parser);
+        value = consume_kind(parser, CBS_TOKEN_STRING, "memory size");
+        property = cbs_node_create(CBS_NODE_PROPERTY, item->location);
+        property->name = cbs_duplicate("memory");
+        if (value != NULL)
+            property->value = cbs_duplicate(value->text);
+        cbs_node_add(node, property);
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 /* Parse CBS-owned compiler alias declarations. */
 static CbsNode *parse_tools(CbsParser *parser) {
     CbsToken *keyword = consume_word(parser, "tools");
@@ -1501,6 +1529,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_build_metadata(parser, CBS_NODE_UPSTREAM);
     if (is_word(parser, "metadata"))
         return parse_opaque_metadata(parser);
+    if (is_word(parser, "resources"))
+        return parse_resources(parser);
     if (is_word(parser, "tools"))
         return parse_tools(parser);
     if (is_word(parser, "privileged"))

@@ -115,6 +115,7 @@ typedef enum {
     CBS_NODE_TOOLCHAIN,
     CBS_NODE_UPSTREAM,
     CBS_NODE_METADATA,
+    CBS_NODE_RESOURCES,
     /* CBS-owned compiler/tool adaptation declarations. */
     CBS_NODE_TOOLS,
     CBS_NODE_TOOL,
@@ -437,6 +438,9 @@ typedef struct {
     size_t capability_count;
     /* SPDX-style package license declaration, when present. */
     const char *license;
+    /* Aggregate build memory need in bytes, when declared. */
+    unsigned long long memory_bytes;
+    int memory_declared;
 } CbsBuildMetadata;
 int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          const char *phase, const char *command,

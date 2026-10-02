@@ -2,6 +2,7 @@
 #include "cbs.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -246,6 +247,45 @@ static int valid_mode(const char *mode) {
         if (mode[index] < '0' || mode[index] > '7')
             return 0;
     }
+    return 1;
+}
+
+static int parse_memory_bytes(const char *text, unsigned long long *bytes) {
+    const char *suffix;
+    unsigned long long multiplier;
+    unsigned long long value = 0;
+    size_t index;
+    size_t digits;
+
+    if (text == NULL)
+        return 0;
+    suffix = strrchr(text, 'K');
+    if (suffix == NULL)
+        suffix = strrchr(text, 'M');
+    if (suffix == NULL)
+        suffix = strrchr(text, 'G');
+    if (suffix == NULL || strcmp(suffix + 1, "iB") != 0 ||
+        suffix == text)
+        return 0;
+    if (*suffix == 'K')
+        multiplier = 1024ULL;
+    else if (*suffix == 'M')
+        multiplier = 1024ULL * 1024ULL;
+    else
+        multiplier = 1024ULL * 1024ULL * 1024ULL;
+    digits = (size_t)(suffix - text);
+    for (index = 0; index < digits; ++index) {
+        unsigned digit;
+        if (text[index] < '0' || text[index] > '9')
+            return 0;
+        digit = (unsigned)(text[index] - '0');
+        if (value > (ULLONG_MAX - digit) / 10ULL)
+            return 0;
+        value = value * 10ULL + digit;
+    }
+    if (value == 0 || value > ULLONG_MAX / multiplier)
+        return 0;
+    *bytes = value * multiplier;
     return 1;
 }
 
@@ -863,6 +903,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_TOOLCHAIN:
     case CBS_NODE_METADATA:
     case CBS_NODE_TOOLS:
+    case CBS_NODE_RESOURCES:
         return 8;
     case CBS_NODE_PRIVILEGED:
         return 9;
@@ -1132,6 +1173,26 @@ static void validate_package(Validator *validator) {
                                replacement->value) == 0)
                         validation_error(validator, replacement, "CPDL-E3002",
                                          "duplicate replacement package");
+            }
+            break;
+        case CBS_NODE_RESOURCES:
+            if (item->child_count == 0)
+                validation_error(validator, item, "CPDL-E3001",
+                                 "resources block must not be empty");
+            for (prior = 0; prior < item->child_count; ++prior) {
+                const CbsNode *resource = item->children[prior];
+                unsigned long long bytes;
+                size_t earlier;
+                if (resource->name == NULL ||
+                    strcmp(resource->name, "memory") != 0 ||
+                    !parse_memory_bytes(resource->value, &bytes))
+                    validation_error(validator, resource, "CPDL-E3004",
+                                     "memory must be a positive integer with KiB, MiB, or GiB suffix");
+                for (earlier = 0; earlier < prior; ++earlier)
+                    if (strcmp(item->children[earlier]->name,
+                               resource->name) == 0)
+                        validation_error(validator, resource, "CPDL-E3002",
+                                         "duplicate resource declaration");
             }
             break;
         case CBS_NODE_BUILD_IMAGE:

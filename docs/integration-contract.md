@@ -32,6 +32,11 @@ The optional `replaces` declaration is reported by `cbs explain --json` as a
 takeovers from exactly those packages; CBS does not perform dependency solving
 or installation ownership checks itself.
 
+The optional `resources { memory "SIZE" }` declaration is reported as
+`resources.memory` in bytes. The value is the aggregate need of the complete
+build, not a per-process limit. CBS validates and reports it; cixd applies its
+operator-configured ceiling and decides whether to admit the build.
+
 ## Build invocation
 
 ```text

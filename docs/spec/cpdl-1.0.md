@@ -233,6 +233,7 @@ package-item = version-declaration
              | sources-declaration
              | requires-declaration
              | replaces-declaration
+             | resources-declaration
              | build-image-declaration
              | capability-declaration
              | toolchain-declaration
@@ -255,6 +256,8 @@ capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
 tools-declaration        = "tools", "{", { tool-policy }, "}" ;
 tool-policy              = "compiler", "alias", string ;
+resources-declaration    = "resources", "{", { resource-item }, "}" ;
+resource-item            = "memory", string ;
 privileged-declaration   = "privileged", "file", path-value,
                            "mode", mode ;
 upstream-declaration     = "upstream", string ;
@@ -269,6 +272,12 @@ permitted exception to the TCC compiler policy.
 `upstream` identifies a registered release-discovery provider; CPDL 1.0
 currently registers `kernel.org` and `gitea-releases`, while the declared source URL and digest
 remain the immutable build input until a resolver selects a new release.
+
+`resources` is execution metadata. Its `memory` value is a positive integer
+with a binary `KiB`, `MiB`, or `GiB` suffix. CBS reports the normalized byte
+count to the orchestrator but does not enforce or grant memory. The value is
+the aggregate need of the complete build across all phases, not a per-process
+limit, and does not enter the artifact identity.
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.
