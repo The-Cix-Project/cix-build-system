@@ -37,4 +37,23 @@ if "$cbs" check "$tmp/bad.cbs" >/dev/null 2>&1; then
     exit 1
 fi
 
+cat >"$tmp/checksums.cbs" <<'EOF'
+package "checksum-upstream" {
+    version "7.2.8"
+    release 1
+    format "cixpkg"
+    upstream "kernel.org" {
+        source "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{version}.tar.xz"
+        verify checksums "openpgp-clearsigned" {
+            url "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/sha256sums.asc"
+            key "B8868C80BA62A1FFFAF5FDA9632D3A06589DA6B1"
+        }
+    }
+    build {
+        mkdir "${dest}"
+    }
+}
+EOF
+"$cbs" check "$tmp/checksums.cbs" >/dev/null
+
 echo "upstream contract tests: PASS"

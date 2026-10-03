@@ -281,6 +281,8 @@ currently registers `kernel.org`, `gitea-releases`, `gitea-tags`,
 providers using their defaults. The optional block supplies a tag pattern, a
 source URL template, and exactly one verification policy. Templates must use
 `{version}`; `{major}` is also accepted for providers such as `kernel.org`.
+The URL inside `verify checksums` may omit `{version}` when it names a
+per-directory checksum list, but `verify signature` URLs must include it.
 CBS validates this metadata and reports it, but never discovers, fetches, or
 verifies a release. The declared source URL and digest remain the immutable
 build input until an orchestrator selects a new release.

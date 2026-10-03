@@ -977,7 +977,7 @@ static void validate_sources(Validator *validator, const CbsNode *sources) {
 }
 
 /* Validate the placeholders used by an upstream discovery template. */
-static int valid_upstream_template(const char *template) {
+static int valid_upstream_template(const char *template, int require_version) {
     const char *cursor = template;
     int version = 0;
     while (*cursor != '\0') {
@@ -1003,7 +1003,7 @@ static int valid_upstream_template(const char *template) {
             ++cursor;
         }
     }
-    return version;
+    return !require_version || version;
 }
 
 /* Validate one structured upstream declaration and its provider contract. */
@@ -1051,13 +1051,13 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
         if (strcmp(property->name, "tag") == 0) {
             ++tag_count;
             if (property->value == NULL ||
-                !valid_upstream_template(property->value))
+                !valid_upstream_template(property->value, 1))
                 validation_error(validator, property, "CBS-E3004",
                                  "upstream tag template must contain {version} and only known placeholders");
         } else if (strcmp(property->name, "source") == 0) {
             ++source_count;
             if (property->value == NULL ||
-                !valid_upstream_template(property->value))
+                !valid_upstream_template(property->value, 1))
                 validation_error(validator, property, "CBS-E3004",
                                  "upstream source template must contain {version} and only known placeholders");
         } else {
@@ -1093,9 +1093,13 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
                     if (strcmp(field->name, "url") == 0) {
                         ++field_count;
                         if (field->value == NULL ||
-                            !valid_upstream_template(field->value))
-                            validation_error(validator, field, "CBS-E3004",
-                                             "verification URL must contain {version} and only known placeholders");
+                            !valid_upstream_template(
+                                field->value,
+                                strcmp(property->value, "checksums") != 0))
+                        validation_error(validator, field, "CBS-E3004",
+                                         strcmp(property->value, "checksums") == 0
+                                             ? "verification URL contains an unknown placeholder"
+                                             : "verification URL must contain {version} and only known placeholders");
                     } else if (field->value == NULL || field->value[0] == '\0') {
                         validation_error(validator, field, "CBS-E3004",
                                          "verification key must not be empty");

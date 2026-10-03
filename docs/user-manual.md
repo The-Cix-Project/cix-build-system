@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.104 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.105 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -511,7 +511,9 @@ accommodate it.
 
 `upstream` names a release-discovery provider and may carry `tag`, `source`,
 and exactly one `verify` policy. The bare form remains valid. Templates use
-`{version}` and may use `{major}` where the provider supports it. It does not
+`{version}` and may use `{major}` where the provider supports it. A checksum
+list URL may omit `{version}` when it covers a release directory; a signature
+URL must include it. It does not
 replace the pinned source URL or digest in CPDL 1.0. CBS validates and reports
 the declaration but never performs discovery or network verification.
 `kernel.org`, `gitea-releases`, `gitea-tags`, `github-tags`, `github-releases`,
