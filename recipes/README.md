@@ -1,9 +1,13 @@
 # CBS qualification recipe
 
-This directory contains the repository's build-tested CPDL fixture. The
-historical migration drafts were deliberately retired after they identified
-language and executor gaps; their findings remain in issue #144 and the
-related backlog tickets.
+This directory contains the repository's build-tested CPDL fixture. It is
+deliberately one recipe, not a corpus: the authoritative Cix recipe corpus is
+converted to CPDL and maintained in the recipe repository, and `zstd` exists
+here only to prove the engine against a real upstream.
+
+The migration drafts that preceded that conversion were retired after they
+identified language and executor gaps; their findings remain in issue #144 and
+the related backlog tickets.
 
 ## Execution status
 

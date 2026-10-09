@@ -17,9 +17,13 @@ the repository/orchestrator.
 
 Still outside this repository are cixd integration, production sandbox and
 cgroup enforcement, image transaction/rollback ownership, package graph
-resolution, repository key lifecycle, and migration of the authoritative shell
-recipe corpus. Those require the cixd repository or operator-owned build-image
-state and must not be represented as completed CBS functionality.
+resolution, and repository key lifecycle. Those require the cixd repository or
+operator-owned build-image state and must not be represented as completed CBS
+functionality.
+
+The recipe corpus is also outside this repository, but it is no longer
+outstanding work: it was converted to CPDL by 2026-10-09 and is maintained in
+the recipe repository. CBS ships one qualification recipe, not a corpus.
 
 Historical validation records describe the state when their issues were
 closed. The issue tracker is the authority for future work, including the

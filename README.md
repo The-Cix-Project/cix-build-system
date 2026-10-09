@@ -1,30 +1,35 @@
 # Cix Build System
 
-Current release: **CBS v0.1.112**. The release version is the first line of
-`VERSION`; release tags use the matching `v<version>` spelling. `make` checks
-that relationship when building from a release tag.
+CBS is the command-line package build engine for Cix. It reads a package
+definition written in CPDL — one `.cbs` file — and produces a verified CIXPKG
+artifact, with no daemon and no shell involved at any point.
 
-CBS is the command-line package build engine for Cix. It consumes package
-definitions written in CPDL and stored as `.cbs` files.
+A build is a fixed pipeline: validate the definition, fetch and verify every
+declared source against its checksum, execute the declared phases through
+direct `execve`, generate a deterministic manifest from the staged tree, and
+emit an artifact that `cbs verify` can check on its own. Filesystem effects are
+confined to CBS-supplied roots. `cixd` is an optional integration point for
+stronger sandboxing and image transactions; nothing here requires it.
 
-The standalone CPDL 1.0 pipeline is implemented. The executable can lex, parse,
-validate, execute package phases, generate a deterministic manifest, package the
-staged file payload, and emit a verified CIXPKG artifact without requiring cixd.
+CPDL is deliberately not a general programming language. It has no shell
+escape, no pipelines, no variables, and no runtime control flow, because a
+recipe that can reach the host cannot be reasoned about or reproduced.
 
-The production runtime implements direct `execve` execution for validated `run`
-AST nodes, the CPDL 1.0 filesystem vocabulary, and atomic source edits and
-assertions in C. A single block executor preserves primary failures while
-running subordinate `on_fail` diagnostics. Filesystem access is confined to
-CBS-supplied roots and does not invoke host utilities. cixd remains an optional
-integration point for stronger sandboxing and image transactions.
+Current release: **CBS v0.1.112** — the first line of `VERSION`, with the
+matching `v<version>` tag. `make` refuses a mismatch when building from a tag.
 
-Package identity has one canonical representation built from recipe name,
-upstream version, Cix release, and the CBS-supplied target architecture. Runtime
-values, artifact filenames, and digest metadata derive from that representation.
+## Where to go
 
-Named sources pair one checksum with one or more ordered mirror URLs. CBS uses
-its internal SHA-256 implementation and exposes source paths to CPDL only after
-every declared source has verified successfully.
+| If you want to | Read |
+| --- | --- |
+| Write your first recipe | [user manual](docs/user-manual.md) |
+| Operate or script CBS | [standalone runbook](docs/standalone-runbook.md) |
+| Know exactly what CPDL accepts | [CPDL 1.0 specification](docs/spec/cpdl-1.0.md) |
+| Embed CBS or drive it from a parent | [cixd embedding guide](docs/guides/cixd-embedding.md) |
+| Know what this repository does and does not own | [repository status](docs/repository-status.md) |
+| Cut a release | [CI and release guide](docs/guides/ci-and-release.md) |
+
+The complete documentation index is [docs/README.md](docs/README.md).
 
 ## Build
 
@@ -46,92 +51,81 @@ is compiled from C as part of `make test`.
 make test
 ```
 
-The regression suite validates accepted and rejected definitions, diagnostic
-shape and locations, UTF-8 handling, CRLF normalization, the `.cbs` extension,
-and the guarantee that validation does not execute phases.
-
-For TCC bounds instrumentation:
+The suite runs entirely offline. It covers accepted and rejected definitions,
+diagnostic shape and location, execution, archive safety, CIXPKG round trips,
+byte-identical rebuilds, and the CLI contracts; `docs/cpdl-test-coverage.md`
+maps each surface to the test that asserts it. The one step that does not run
+by default is the real-package qualification, which needs a digest-keyed source
+cache:
 
 ```text
-tcc -b -Isrc -std=c11 -Wall -Wextra -Werror -pedantic \
-    src/ast.c src/diag.c src/exec.c src/fs.c src/lexer.c src/main.c \
-    src/parser.c src/validate.c \
-    -o /tmp/cbs-bounds
-./tests/parser-validation.sh /tmp/cbs-bounds
+make upstream-test CBS_UPSTREAM_CACHE=/path/to/source-cache
 ```
+
+Maintainer-level checks, including TCC bounds instrumentation, are in
+[the CI and release guide](docs/guides/ci-and-release.md).
 
 ## Command-line use
 
-Run `./cbs --help` for the complete command list. `check` is the intuitive
-alias for `validate`; `build` executes a recipe and emits a CIXPKG; `inspect`
-reports recipe/source/artifact digests; and `verify` validates a CIXPKG without
-requiring its recipe.
+`./cbs --help` is the authoritative command list. In outline:
 
-Use `explain` to print the validated execution plan without executing it:
+| Command | Does |
+| --- | --- |
+| `check` / `validate` | validate a recipe without executing anything; the two spellings are equivalent and both accept `--json` |
+| `explain` | print the validated execution plan; `--json` for machines |
+| `doctor` | preflight a recipe and an image without executing or mutating |
+| `fingerprint` | compute the deterministic build key before building |
+| `build` | execute the recipe and emit a CIXPKG |
+| `verify` | check an artifact on its own, without its recipe |
+| `list` / `diff` | read and compare verified manifests |
+| `extract` | unpack a verified artifact |
+| `revise` | change a recipe's version or source coordinates byte-preservingly |
+| `package` | package a tree a caller assembled itself |
+| `inspect` | report recipe, source, and artifact digests |
 
-```text
-./cbs explain path/to/package.cbs
-# Add --json for scriptable plan inspection.
-./cbs explain path/to/package.cbs --json
-```
+Every command that can fail accepts `--diagnostics=jsonl`.
 
-The complete first-time-user workflow is documented in the
-[CBS user manual](docs/user-manual.md).
-
-To install the executable, static library, and public embedding header after a
-successful build:
-
-```text
-make install PREFIX=/usr/local
-```
-
-This installs `cbs`, `libcbs.a`, and `cbs/cbs.h`. The library boundary is a
-static-library API; the cixd first-slice integration remains the documented
-child-process contract in [the integration contract](docs/integration-contract.md).
-
-The prioritized implementation plan is tracked in the
-[CBS delivery roadmap](docs/roadmap.md).
-
-## Validate a package definition
-
-```text
-./cbs validate path/to/package.cbs
-```
-
-Successful validation prints one confirmation line and exits with status 0.
-Recipe I/O, lexical, parse, and validation failures use status 3 and emit the
-located diagnostic contract defined in
-[`docs/spec/cpdl-1.0.md`](docs/spec/cpdl-1.0.md).
-
-Validation is non-executing: it does not fetch sources, inspect the host
-filesystem, resolve dependencies, or spawn phase commands.
-
-## Build a package
-
-The `--staged` argument names a CBS workspace root. It must already exist;
-CBS creates its `src`, `build`, `dest`, `cache`, and `tmp` subdirectories.
+A first build looks like this; the
+[user manual](docs/user-manual.md) explains each step and the
+[standalone runbook](docs/standalone-runbook.md) is the operator's version:
 
 ```text
 mkdir -p /tmp/cbs-workspace
-./cbs build path/to/package.cbs \
-    --arch x86_64 \
-    --staged /tmp/cbs-workspace \
-    --output package.cixpkg
-./cbs verify package.cixpkg
-./cbs extract package.cixpkg --into /tmp/cbs-extracted
-```
-
-To use a shared, pre-populated source cache, add `--cache CACHE_DIR`:
-
-```text
+./cbs check path/to/package.cbs
 ./cbs build path/to/package.cbs \
     --arch x86_64 \
     --staged /tmp/cbs-workspace \
     --output package.cixpkg \
     --cache /var/cache/cbs/sources
+./cbs verify package.cixpkg
 ```
 
-CBS verifies every cache entry against the recipe’s SHA-256 before use. On a
-cache miss, the standalone CLI fetches HTTP/HTTPS sources with libcurl, then
-verifies them before caching. cixd can still provide a centralized fetch
-service instead.
+`--staged` names a workspace root that must already exist; CBS creates `src`,
+`build`, `dest`, `cache`, and `tmp` inside it. `--cache` is optional: CBS
+verifies every cache entry against the recipe's SHA-256 before use, and on a
+miss the standalone CLI fetches HTTP/HTTPS sources with libcurl and verifies
+them before caching.
+
+Exit statuses are `0` success, `2` CLI usage, `3` recipe, source or build
+failure, and `4` artifact verification or extraction failure — fixed by
+ADR-0008 and specified in
+[the CPDL specification](docs/spec/cpdl-1.0.md) §9.
+
+## Install
+
+```text
+make install PREFIX=/usr/local
+```
+
+This installs `cbs`, `libcbs.a`, `cbs/cbs.h`, and a pkg-config file. The
+library boundary is a static archive, not a shared object or plugin loader; see
+[the library guide](docs/library.md) and
+[the integration contract](docs/integration-contract.md).
+
+## Status and scope
+
+What this repository owns, and what belongs to `cixd`, is stated in
+[repository status](docs/repository-status.md). Remaining integration inputs are
+in [the blocker register](docs/integration-blockers.md), and the workstream view
+is in [the roadmap](docs/roadmap.md). Open work is tracked in the issue tracker,
+not in these documents.

@@ -1,251 +1,83 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.112**. `VERSION`, the release tag,
-and the binary's `--version` output are kept in sync by the release gate.
+CBS is the Cix Build System, **CPDL** is the Cix Package Definition Language it
+reads, and **CIXPKG** is the artifact format it produces and verifies. This
+directory holds the language and artifact specifications, the practical guides,
+and the project's decision and validation history.
 
-This directory contains the architecture and language documentation for:
-
-The installable static library and its embedding boundary are documented in
-[the library guide](library.md).
-
-The CPDL corpus coverage table is documented in [the corpus audit](cpdl-corpus-audit.md).
-
-The canonical [Cix Build System logo](../brand/cix-cbs-logo.svg) is maintained
-in the repository brand directory.
-
-- **CBS** — the Cix Build System;
-- **CPDL** — the Cix Package Definition Language; and
-- **CIXPKG** — the distributable package format produced and consumed by CBS.
+Current release: **CBS v0.1.112**. `VERSION`, the release tag, and
+`cbs --version` are kept in sync by the release gate.
 
 ## Start here
 
-- New users: [CBS user manual](user-manual.md)
-- Operators and CI: [standalone runbook](standalone-runbook.md)
-- Recipe authors: [CPDL 1.0 specification](spec/cpdl-1.0.md) and the
-  [test coverage map](cpdl-test-coverage.md)
-- cixd developers: [integration contract](integration-contract.md) and the
-  [library boundary guide](library.md)
-- Maintainers: [CI and release guide](guides/ci-and-release.md)
-- cixd embedders: [cixd embedding guide](guides/cixd-embedding.md)
-- Release and qualification work: [repository status](repository-status.md),
-  [roadmap](roadmap.md), and the [integration blockers](integration-blockers.md)
+| If you want to | Read |
+| --- | --- |
+| Decide whether CBS fits at all | [scope and determinism contract](standalone-scope.md) |
+| Write your first recipe | [user manual](user-manual.md) |
+| Operate or script CBS | [standalone runbook](standalone-runbook.md) |
+| Know exactly what CPDL accepts | [CPDL 1.0 specification](spec/cpdl-1.0.md) |
+| Drive CBS from a parent process | [cixd embedding guide](guides/cixd-embedding.md) |
+| Link `libcbs.a` into a program | [library boundary guide](library.md) |
+| Know what CBS owns and what cixd owns | [repository status](repository-status.md) |
+| Cut a release | [CI and release guide](guides/ci-and-release.md) |
 
-The practical guides are deliberately separate from the normative
-specifications: guides explain a workflow, while specifications define the
-accepted language, artifact format, and machine-readable contracts.
-
-## Architecture decisions
-
-- [ADR-0001: Establish CBS and CPDL](adr/0001-cbs-and-cpdl.md)
-- [ADR-0002: Bootstrap CBS and permit linked base libraries](adr/0002-cbs-bootstrap-and-libraries.md)
-- [ADR-0003: Use `.cbs` for package definition files](adr/0003-cbs-file-extension.md)
-- [ADR-0032: Use detached signatures for CIXPKG artifacts](adr/0032-cixpkg-detached-signatures.md)
-
-ADRs record decisions, their rationale, their consequences, and any questions
-that remain deliberately undecided. Once accepted, an ADR is not rewritten to
-hide a changed decision; a later ADR supersedes it.
+Guides and specifications are deliberately separate: a guide explains a
+workflow and may change freely, while a specification defines the accepted
+language, the artifact format, and the machine-readable contracts, and changes
+only by decision.
 
 ## Specifications
 
-- [CPDL 1.0 language specification](spec/cpdl-1.0.md)
-- [CPDL and CBS test coverage](cpdl-test-coverage.md)
-- [CBS user manual](user-manual.md)
-- [Standalone CBS runbook](standalone-runbook.md)
-- [CBS integration blocker register](integration-blockers.md)
-- [CBS and cixd integration contract](integration-contract.md)
-- [CIXPKG v2 binary specification](spec/cixpkg-1.0.md)
-- [CBS delivery roadmap](roadmap.md)
-- [Repository status and scope](repository-status.md)
+Normative. These define what a conforming implementation must accept, produce,
+and refuse.
 
-The current open-ticket queue is maintained in the issue tracker. The
-repository was clean at v0.1.75; historical validation records below describe
-the implementation state at the time each issue was closed and are not an
-active backlog.
+- [CPDL 1.0 language specification](spec/cpdl-1.0.md) — lexical grammar,
+  document grammar, phases and operations, the validation contract, the
+  diagnostic contract, and process exit statuses
+- [CIXPKG v2 binary specification](spec/cixpkg-1.0.md) — header layout,
+  manifest grammar, and the reader/writer rules
 
-## Validation records
+## Guides
 
-- [Issue #1: CPDL grammar and diagnostics](reviews/issue-0001-validation.md)
-- [Issue #2: CPDL lexer, parser, AST, and validator](reviews/issue-0002-validation.md)
-- [Issue #3: Direct `run` execution](reviews/issue-0003-validation.md)
-- [Issue #4: CPDL filesystem vocabulary](reviews/issue-0004-validation.md)
-- [Issue #5: Source edits and assertions](reviews/issue-0005-validation.md)
-- [Issue #6: Failure orchestration](reviews/issue-0006-validation.md)
-- [Issue #7: Canonical package identity](reviews/issue-0007-validation.md)
-- [Issue #8: Named sources and checksum verification](reviews/issue-0008-validation.md)
-- [Issue #9: Dependency roles and kinds](reviews/issue-0009-validation.md)
-- [ADR-0004: Native helper governance](adr/0004-native-helper-governance.md)
-- [Native helper registry](native-helpers.md)
-- [Issue #10: Native helper governance](reviews/issue-0010-validation.md)
-- [ADR-0005: Source networking boundary](adr/0005-source-networking-boundary.md)
-- [Issue #11: Source networking boundary](reviews/issue-0011-validation.md)
-- [ADR-0006: CBS v1 archive extraction formats](adr/0006-archive-extraction-formats.md)
-- [Issue #12: Verified source fetching](reviews/issue-0012-validation.md)
-- [Issue #13: Archive format decision](reviews/issue-0013-validation.md)
-- [Issue #14: Confined archive extraction](reviews/issue-0014-validation.md)
-- [Issue #15: Digest kinds](reviews/issue-0015-validation.md)
-- [ADR-0007: Build sandbox and dependency observation](adr/0007-build-sandbox-and-dependency-observation.md)
-- [Issue #16: Sandbox and dependency decision](reviews/issue-0016-validation.md)
-- [Issue #17: Jobs ceiling](reviews/issue-0017-validation.md)
-- [Issue #18: Staged-tree policy](reviews/issue-0018-validation.md)
-- [Issue #19: Manifest ordering](reviews/issue-0019-validation.md)
-- [ADR-0008: CBS command surface](adr/0008-cbs-command-surface.md)
-- [Issue #20: Command contracts](reviews/issue-0020-validation.md)
-- [Issue #21: TCC-only compiler enforcement](reviews/issue-0021-validation.md)
-- [ADR-0009: Third-party source policy](adr/0009-third-party-source-policy.md)
-- [Issue #22: Third-party source policy](reviews/issue-0022-validation.md)
-- [CIXPKG v2 binary specification](spec/cixpkg-1.0.md)
-- [Issue #23: CIXPKG v1 layout](reviews/issue-0023-validation.md)
-- [Issue #122: ELF runtime dependency observation](reviews/issue-0122-validation.md)
-- [Issue #121: hostile-input corpus](reviews/issue-0121-validation.md)
-- [Issue #120: transaction boundary](reviews/issue-0120-validation.md)
-- [Issue #119: CIXPKG authenticity boundary](reviews/issue-0119-validation.md)
-- [Issue #118: embedding seams](reviews/issue-0118-validation.md)
-- [Issue #117: repository scope reconciliation](reviews/issue-0117-validation.md)
-- [Issue #116: staged payload sections](reviews/issue-0116-validation.md)
-- [Issue #125: canonical CBS source](reviews/issue-0125-validation.md)
-- [Issue #124: CBS host libraries](reviews/issue-0124-validation.md)
-- [Issue #126: build-plan phase capacity](reviews/issue-0126-validation.md)
-- [Issue #127: parallel CIXPKG implementations](reviews/issue-0127-validation.md)
-- [Issue #128: typed CIXPKG entries and the exact round-trip gate](reviews/issue-0128-validation.md)
-- [Issue #129: embedder-supplied finalization policy](reviews/issue-0129-validation.md)
-- [Issue #130: complete non-executing recipe explanation](reviews/issue-0130-validation.md)
-- [Issue #131: phase progress and failure attribution](reviews/issue-0131-validation.md)
-- [Issue #132: CBS/cixd integration contract](reviews/issue-0132-validation.md)
-- [Issue #135: determinism measured: byte-identical rebuild gate](reviews/issue-0135-validation.md)
-- [Issue #174: directory-less archives and named extraction failures](reviews/issue-0174-validation.md)
-- [Issue #175: assertion failures name what they found; require symlink](reviews/issue-0175-validation.md)
-- [ADR-0033: Revision-selected artifact format](adr/0033-revision-selected-artifact-format.md)
-- [ADR-0034: Bounded CPDL command stdout](adr/0034-bounded-run-stdout.md)
-- [ADR-0035: Parse-time list iteration](adr/0035-parse-time-iteration.md)
-- [Issue #176: each — apply one body to every item of a list](reviews/issue-0176-validation.md)
-- [Issue #177: replace … until whitespace | line](reviews/issue-0177-validation.md)
-- [ADR-0036: Staging shared libraries from the build sandbox](adr/0036-stage-sandbox-libraries.md)
-- [Issue #178: stage library — ship a sandbox library without naming its directory](reviews/issue-0178-validation.md)
-- [Issue #179: lowercase environment names](reviews/issue-0179-validation.md)
-- [Issue #283: one escaping symlink rejects the whole source archive](reviews/issue-0283-validation.md)
-- [Issue #282: an independent destination for the build event stream](reviews/issue-0282-validation.md)
-- [Issue #284: a relative --staged workspace and confined paths](reviews/issue-0284-validation.md)
-- [Issue #285: filesystem failures propagate; allow_failure has its own field](reviews/issue-0285-validation.md)
-- [Issue #287: a confinement refusal and a path collision are distinguishable](reviews/issue-0287-validation.md)
-- [Issue #286: allow_failure is granted to copy and remove only](reviews/issue-0286-validation.md)
-- [Issue #288: the complete CPDL 1.0 keyword set](reviews/issue-0288-validation.md)
-- [Issue #289: the CIXPKG manifest metadata line](reviews/issue-0289-validation.md)
-- [Issue #290: the require-operation grammar, for lists, and require config](reviews/issue-0290-validation.md)
-- [Issue #291: require tool names its own rule for a rejected for list](reviews/issue-0291-validation.md)
-- [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
-- [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
-- [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
-- [ADR-0010: Repository and installation policy](adr/0010-repository-and-installation-policy.md)
-- [Issue #27: Repository and transaction policy](reviews/issue-0027-validation.md)
-- [ADR-0011: Stage-0 library admissions](adr/0011-stage0-library-admissions.md)
-- [Issue #28: Stage-0 library admissions](reviews/issue-0028-validation.md)
-- [ADR-0012: Stage-zero entry point](adr/0012-stage-zero-entry-point.md)
-- [Issue #29: Stage-zero entry point](reviews/issue-0029-validation.md)
-- [Issue #30: Canonical cbs.cbs](reviews/issue-0030-validation.md)
-- [Issue #31: Stage reproducibility](reviews/issue-0031-validation.md)
-- [ADR-0013: Seed provenance](adr/0013-seed-provenance.md)
-- [Issue #32: Seed provenance](reviews/issue-0032-validation.md)
-- [ADR-0014: Seed transition](adr/0014-seed-transition.md)
-- [Issue #33: Seed transition](reviews/issue-0033-validation.md)
-- [Issue #34: Dependency-cycle gate](reviews/issue-0034-validation.md)
-- [ADR-0015: CBS and cixd boundary](adr/0015-cixd-boundary.md)
-- [Issue #35: CBS and cixd boundary](reviews/issue-0035-validation.md)
-- [ADR-0016: Sandbox ownership](adr/0016-sandbox-owner.md)
-- [Issue #36: Sandbox ownership](reviews/issue-0036-validation.md)
-- [ADR-0017: Image model](adr/0017-image-model.md)
-- [Issue #37: Image model](reviews/issue-0037-validation.md)
-- [Issue #38: Manifest-derived images](reviews/issue-0038-validation.md)
-- [ADR-0018: Container recipes and CPDL](adr/0018-container-recipes.md)
-- [Issue #39: Container recipe relationship](reviews/issue-0039-validation.md)
-- [ADR-0019: Image recipes and CPDL](adr/0019-image-recipes.md)
-- [Issue #40: Image recipe relationship](reviews/issue-0040-validation.md)
-- [ADR-0020: Immutable install](adr/0020-immutable-install.md)
-- [Issue #41: Immutable image install](reviews/issue-0041-validation.md)
-- [ADR-0021: Unified artifact repository](adr/0021-artifact-repository.md)
-- [Issue #42: Artifact repository model](reviews/issue-0042-validation.md)
-- [ADR-0022: Build observability](adr/0022-build-observability.md)
-- [Issue #43: Build observability](reviews/issue-0043-validation.md)
-- [ADR-0023: Host builds](adr/0023-host-builds.md)
-- [Issue #44: Host build policy](reviews/issue-0044-validation.md)
-- [ADR-0024: Build provenance mandate](adr/0024-build-provenance.md)
-- [Issue #45: Build provenance](reviews/issue-0045-validation.md)
-- [ADR-0025: User namespace ownership](adr/0025-userns-ownership.md)
-- [Issue #46: User namespace mapping](reviews/issue-0046-validation.md)
-- [Issue #47: Shell recipe inventory](reviews/issue-0047-validation.md)
-- [ADR-0026: Structural build dependencies](adr/0026-structural-build-dependencies.md)
-- [Issue #48: Structural build dependencies](reviews/issue-0048-validation.md)
-- [Issue #49: Recipe migration](reviews/issue-0049-validation.md)
-- [ADR-0027: Shell build retirement](adr/0027-shell-retirement.md)
-- [Issue #50: Shell build retirement](reviews/issue-0050-validation.md)
-- [ADR-0028: Legacy shell artifacts](adr/0028-legacy-artifacts.md)
-- [Issue #51: Legacy artifact policy](reviews/issue-0051-validation.md)
-- [ADR-0029: ADR supersession](adr/0029-adr-supersession.md)
-- [Issue #52: ADR supersession](reviews/issue-0052-validation.md)
-- [ADR-0030: Release default](adr/0030-release-default.md)
-- [Issue #53: Release default](reviews/issue-0053-validation.md)
-- [Issue #54: CIXPKG writer and reader](reviews/issue-0054-validation.md)
-- [Issue #55: Deterministic staged-tree manifests](reviews/issue-0055-validation.md)
-- [Issue #56: End-to-end build pipeline](reviews/issue-0056-validation.md)
-- [Issue #57: cixd API adapter](reviews/issue-0057-validation.md)
-- [Issue #58: Production sandbox backend](reviews/issue-0058-validation.md)
-- [Issue #59: Service lifecycle and health](reviews/issue-0059-validation.md)
-- [Issue #60: ELF dependency observation](reviews/issue-0060-validation.md)
-- [Issue #61: Signed repository metadata](reviews/issue-0061-validation.md)
-- [Issue #62: Transactional image installation](reviews/issue-0062-validation.md)
-- [Issue #63: Recipe corpus migration](reviews/issue-0063-validation.md)
-- [Issue #64: Security corpus](reviews/issue-0064-validation.md)
-- [Issue #65: Release CI gates](reviews/issue-0065-validation.md)
-- [Issue #66: Operations runbook](reviews/issue-0066-validation.md)
-- [ADR-0031: Replacement contract](adr/0031-replacement-contract.md)
-- [Issue #67: Replacement scope](reviews/issue-0067-validation.md)
-- [Issue #68: Real cixd integration](reviews/issue-0068-validation.md)
-- [Issue #69: Production CIXPKG metadata](reviews/issue-0069-validation.md)
-- [Issue #70: Sandbox enforcement](reviews/issue-0070-validation.md)
-- [Issue #71: ELF observation](reviews/issue-0071-validation.md)
-- [Issue #72: Trust lifecycle](reviews/issue-0072-validation.md)
-- [Issue #73: Transactional installation](reviews/issue-0073-validation.md)
-- [Issue #74: Recipe import](reviews/issue-0074-validation.md)
-- [Issue #75: CPDL migration](reviews/issue-0075-validation.md)
-- [Issue #76: Reference equivalence](reviews/issue-0076-validation.md)
-- [Issue #77: Security corpus](reviews/issue-0077-validation.md)
-- [Issue #78: Observability](reviews/issue-0078-validation.md)
-- [Issue #79: Release CI](reviews/issue-0079-validation.md)
-- [Issue #80: Deployment](reviews/issue-0080-validation.md)
-- [Issue #81: Load qualification](reviews/issue-0081-validation.md)
-- [Issue #82: Staged rollout](reviews/issue-0082-validation.md)
-- [Issue #83: Cutover](reviews/issue-0083-validation.md)
-- [Issue #84: Shell retirement](reviews/issue-0084-validation.md)
-- [Issue #85: Operator handoff](reviews/issue-0085-validation.md)
-- [Standalone CBS 1.0 language specification](spec/standalone-cbs-1.0.md)
-- [Issue #86: Standalone language scope](reviews/issue-0086-validation.md)
-- [Issue #87: Standalone build command](reviews/issue-0087-validation.md)
-- [Issue #88: Standalone workspace policy](reviews/issue-0088-validation.md)
-- [Issue #89: Value semantics](reviews/issue-0089-validation.md)
-- [Issue #90: Platform selection](reviews/issue-0090-validation.md)
-- [Issue #91: Standard library boundary](reviews/issue-0091-validation.md)
-- [Issue #92: Filesystem semantics](reviews/issue-0092-validation.md)
-- [Issue #93: Dependency resolution](reviews/issue-0093-validation.md)
-- [Issue #94: Standalone source transport](reviews/issue-0094-validation.md)
-- [Issue #95: Standalone CIXPKG model](reviews/issue-0095-validation.md)
-- [Issue #96: Cancellation and resources](reviews/issue-0096-validation.md)
-- [Issue #97: Diagnostics and explain mode](reviews/issue-0097-validation.md)
-- [Issue #98: CLI conformance](reviews/issue-0098-validation.md)
-- [Issue #99: Language conformance suite](reviews/issue-0099-validation.md)
-- [Issue #100: Standalone packaging](reviews/issue-0100-validation.md)
-- [Issue #101: Standalone execution plan](reviews/issue-0101-validation.md)
-- [Issue #102: Standalone workspace lifecycle](reviews/issue-0102-validation.md)
-- [Issue #103: Source fetch and archive preparation](reviews/issue-0103-validation.md)
-- [Issue #104: Standalone phase runner](reviews/issue-0104-validation.md)
-- [Issue #105: Standalone execution context](reviews/issue-0105-validation.md)
-- [Issue #106: Standalone resource and cancellation controls](reviews/issue-0106-validation.md)
-- [Issue #107: Complete staged-tree validation](reviews/issue-0107-validation.md)
-- [Issue #108: Complete standalone CIXPKG](reviews/issue-0108-validation.md)
-- [Issue #109: Standalone dependency resolution](reviews/issue-0109-validation.md)
-- [Issue #113: Explicit target architecture](reviews/issue-0113-validation.md)
-- [Issue #110: Standalone CLI configuration](reviews/issue-0110-validation.md)
-- [Issue #111: End-to-end standalone fixtures](reviews/issue-0111-validation.md)
-- [Standalone CBS runbook](standalone-runbook.md)
-- [Issue #112: Standalone production workflow](reviews/issue-0112-validation.md)
-- [Issue #114: Complete standalone build pipeline](reviews/issue-0114-validation.md)
-- [ADR-0037: CIXPKG staged-payload indexing](adr/0037-cixpkg-payload-index.md)
-- [Issue #115: Sectioned CIXPKG container](reviews/issue-0115-validation.md)
+Practical, non-normative.
+
+- [CBS user manual](user-manual.md) — from a fresh checkout to a verified
+  artifact, plus a complete recipe reference and troubleshooting
+- [Standalone CBS runbook](standalone-runbook.md) — the operator's and CI
+  sequence
+- [Scope and determinism contract](standalone-scope.md) — what reaches a build,
+  and what cannot
+- [CBS and cixd integration contract](integration-contract.md) — the
+  process-level boundary cixd builds against
+- [cixd embedding guide](guides/cixd-embedding.md) — choosing and using one of
+  the two integration shapes
+- [Library boundary guide](library.md) — what `libcbs.a` and `cbs/cbs.h`
+  promise, and the consumer checklist
+- [CI and release guide](guides/ci-and-release.md) — qualifying a checkout,
+  bounds instrumentation, and the release checklist
+
+## Project state
+
+- [Repository status and scope](repository-status.md) — the authority on what
+  this repository owns and what belongs to cixd
+- [CBS delivery roadmap](roadmap.md) — workstreams and ownership boundaries
+- [Integration blocker register](integration-blockers.md) — the remaining
+  inputs for production integration
+- [CPDL and CBS test coverage](cpdl-test-coverage.md) — each surface mapped to
+  the test that asserts it
+- [Native helper registry](native-helpers.md) — required by ADR-0004, and
+  correctly empty
+- [Recipe-corpus coverage audit](cpdl-corpus-audit.md) — historical; the record
+  of what the shell corpus contained and how CPDL answered each construct
+
+Open work is tracked in the issue tracker, not in these documents.
+
+## History
+
+- [Architecture decision records](adr/README.md) — all 37, with the rule that a
+  decision is superseded rather than rewritten
+- [Validation records](reviews/README.md) — all 148, one per closed issue,
+  describing the implementation at that issue's close date rather than today
+
+The canonical [Cix Build System logo](../brand/cix-cbs-logo.svg) is maintained
+in the repository brand directory.

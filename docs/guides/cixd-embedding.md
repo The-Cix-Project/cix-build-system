@@ -15,7 +15,8 @@ cbs build RECIPE.cbs \
     --staged WORKSPACE \
     --output ARTIFACT \
     --cache CACHE \
-    --events jsonl \
+    --events human \
+    --events-fd 3 \
     --report REPORT.json
 ```
 
@@ -24,6 +25,21 @@ declared dependencies. Forward JSONL events to the interactive UI and retain
 the final report for build history. Use `--diagnostics=jsonl` on commands that
 can fail; diagnostics are machine-readable on stderr and do not replace the
 event stream.
+
+The two event options above are independent, and a forking parent wants both.
+`--events` selects the reporter on standard error; `--events-fd N` (or
+`--events-file FILE`) writes the JSONL stream to a channel the parent owns. So
+`--events human --events-fd 3` leaves the operator's log and the build
+commands' own output on standard error while the parent reads structured events
+on descriptor 3, with no per-line disambiguation. Without a destination,
+`--events jsonl` puts machine records on the same descriptor as every child's
+output, which is why selecting `human` for the operator used to mean giving up
+the structured stream.
+
+CBS duplicates the descriptor, so closing its reporter never closes one the
+parent still owns. A descriptor that is closed or not open for writing is a
+usage refusal (exit 2, `CBS-E1022`) before the build begins, so a parent never
+gets a successful build that silently reported nothing.
 
 After a successful build, verify the artifact before publication:
 

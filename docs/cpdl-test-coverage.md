@@ -28,5 +28,6 @@ The CLI contract test asserts output and representative failure exit statuses.
 Focused C tests assert operation results and diagnostic codes. The zstd package
 qualification builds zstd twice and requires byte-identical artifacts; it is
 included in make test and can use a caller-supplied CBS_UPSTREAM_CACHE
-directory. The retired migration drafts were deliberately not shipped as
-fixtures; their findings are recorded in the corpus audit.
+directory. The migration drafts that preceded the converted corpus were
+deliberately not shipped as fixtures; their findings are recorded in the
+corpus audit.

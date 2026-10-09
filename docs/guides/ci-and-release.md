@@ -27,6 +27,30 @@ The cache must contain each source archive under its declared SHA-256 digest.
 This keeps CI network policy explicit and makes a successful qualification
 replayable.
 
+## Bounds instrumentation
+
+TCC can instrument the parser and executor with bounds checking, which the
+default build does not enable. Run the parser and validation suite against the
+instrumented binary when changing lexer, parser, validator, or filesystem
+code:
+
+```sh
+tcc -b -Isrc -DCBS_VERSION='"'"$(sed -n 1p VERSION)"'"' \
+    -std=c11 -Wall -Wextra -Werror -pedantic \
+    $(sed -n '/^SOURCES :=/,/^$/p' Makefile | grep -oE 'src/[a-z]+\.c') \
+    -larchive -lzstd -ldl -o /tmp/cbs-bounds
+./tests/parser-validation.sh /tmp/cbs-bounds
+```
+
+Build every source, not a subset: `src/main.c` reaches into the observation,
+digest, CIXPKG and plan units, so a hand-picked list stops linking the moment
+the CLI grows a reference. Taking the list from `SOURCES` in the `Makefile`
+keeps it correct without maintaining a second copy.
+
+A bounds violation aborts with a TCC diagnostic rather than failing an
+assertion, so treat any abort as a defect in the code under test. Verified
+against v0.1.112: 68 parser and validation cases pass instrumented.
+
 Useful focused checks while developing are:
 
 ```sh

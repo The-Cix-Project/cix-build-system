@@ -62,9 +62,9 @@ qualification task.
 Applicable issues: #35–#44 and #57–#85.
 
 These require inputs not present in this repository: a versioned cixd protocol,
-production sandbox and repository services, and the first authoritative CPDL
-recipe corpus. Legacy shell recipes are the replacement target, not a CBS
-runtime dependency. See [the integration blocker register](integration-blockers.md).
+and production sandbox and repository services. The recipe corpus is no longer
+among them — it was converted to CPDL by 2026-10-09 and lives in the recipe
+repository, not here. See [the integration blocker register](integration-blockers.md).
 
 ## Language completeness (2026-09-18)
 
@@ -80,4 +80,4 @@ capabilities a build image must provide.
 2. Improve CLI diagnostics and machine-readable operation modes.
 3. Add dependency, provenance, and signature foundations.
 4. Add security, reproducibility, resource, and CI qualification.
-5. Integrate cixd and migrate the authoritative recipe corpus.
+5. Integrate cixd.

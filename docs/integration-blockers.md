@@ -35,16 +35,22 @@ v2 specification. The old manifest-only API and v1 reader are retired.
 No standalone unblock action remains. Keep the tree format as the sole
 production format and treat CIXPKG v2 as the supported reader/writer contract.
 
-### 2. The replacement recipe corpus is intentionally narrow
+### 2. The recipe corpus is converted
 
-The legacy shell recipes are the system CBS is replacing; they are not a CBS
-dependency and must not be executed or treated as CPDL input. This repository
-ships only the build-tested `zstd` qualification recipe. The retired migration
-drafts were not shipped as fixtures; their findings are recorded in the corpus
-audit, and the CPDL gaps they identified were closed on 2026-09-18.
+Measured on 2026-10-09, the Cix recipe corpus holds 1010 CPDL definitions
+across 181 distinct packages and **no remaining shell recipes**; 1567 `.sh`
+package files exist in its history and none survive. The conversion this
+register was written to track is therefore done, and the language gaps the
+corpus audit identified were closed on 2026-09-18.
 
-Unblock action: keep the qualification recipe current and track future
-migrations as explicitly tested work rather than shipping unverified drafts.
+That corpus is not in this repository and should not be. It belongs to the
+recipe repository; CBS ships only the build-tested `zstd` qualification recipe,
+which exists to prove the engine against a real upstream rather than to be a
+corpus. Legacy shell recipes are neither a CBS dependency nor CPDL input.
+
+No unblock action remains. The standing requirement is that the qualification
+recipe stays current and that a CPDL change is measured against the real corpus
+before release, which `cbs validate` over the recipe repository does cheaply.
 
 ### 3. cixd integration contract defined
 
@@ -71,12 +77,13 @@ tests are the correct boundary and production claims should remain pending.
 
 ## External inputs for production qualification
 
-The highest-value user inputs are:
+One input remains:
 
-- provide or nominate the first CPDL recipe seed set for blocker 2;
-- choose the migration acceptance criteria in blocker 2;
 - identify a reachable cixd test endpoint or authorize a fixture-only adapter
   phase.
 
-Nothing is needed to use CBS standalone today. These inputs are only needed
-for compatibility and production integration.
+The recipe-corpus inputs this section previously asked for are answered: the
+corpus is converted (blocker 2).
+
+Nothing is needed to use CBS standalone today. The remaining input is needed
+only for cixd integration.

@@ -57,5 +57,8 @@ contract; the static archive is an explicit embedding option.
    reject a build if the event sink rejects an event.
 
 The process boundary remains the simplest integration: invoke `cbs`, consume
-`--events jsonl` and `--report`, and retain the verified artifact. Use the
-static API when the caller needs synchronous in-process policy control.
+the JSONL event stream and `--report`, and retain the verified artifact. A
+parent that also wants an operator-readable log passes `--events human` with
+`--events-fd N` or `--events-file FILE`, which keeps the two streams apart
+without an in-process sink. Use the static API when the caller needs
+synchronous in-process policy control.
