@@ -104,10 +104,16 @@ int cbs_archive_probe(const char *archive_path) {
     if (format == NULL || format[0] == '\0')
         result = 0;
     else if (supported_format(format))
+        /* A supported format whose header will not read is still an archive;
+         * extraction reports the real reason with the member in hand. */
         result = 1;
     else
-        result = -1;
-    (void)header_result;
+        /* An unsupported format CBS could parse is a deliberate refusal.  One
+         * whose header does not even read is libarchive having guessed: its
+         * mtree reader claims any text whose first line looks like
+         * `word key=value`, which would otherwise refuse a JSON or key/value
+         * configuration fragment as a malformed archive. */
+        result = header_result == ARCHIVE_OK ? -1 : 0;
     archive_read_free(reader);
     return result;
 }

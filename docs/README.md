@@ -5,7 +5,7 @@ reads, and **CIXPKG** is the artifact format it produces and verifies. This
 directory holds the language and artifact specifications, the practical guides,
 and the project's decision and validation history.
 
-Current release: **CBS v0.1.113**. `VERSION`, the release tag, and
+Current release: **CBS v0.1.114**. `VERSION`, the release tag, and
 `cbs --version` are kept in sync by the release gate.
 
 ## Start here

@@ -162,3 +162,4 @@ All 148 records, by issue number:
 - [Issue #291 validation: `require tool … for` reports a generic "expected phase operation" instead of naming the rule](issue-0291-validation.md)
 - [Issue #292 validation: `check` and `validate` documented as aliases in opposite directions, with `--json` hidden on `check`](issue-0292-validation.md)
 - [Issue #293 validation: documentation quality pass](issue-0293-validation.md)
+- [Issue #294 validation: a plain-text source whose first line looks like mtree is refused as a malformed archive](issue-0294-validation.md)

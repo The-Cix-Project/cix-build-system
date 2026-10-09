@@ -12,6 +12,7 @@ features must add focused success and failure assertions to this matrix.
 | Filesystem failures propagate, name the path acted on, and distinguish a confinement refusal from a collision; allow_failure applies only where the grammar offers it | fs-test.c and the move-allow-failure invalid fixture |
 | extract (including selective members), materialize, and configuration assertions | extract-test.c and extract.cbs |
 | Archive safety: refused member paths, skipped escaping symlinks, and the selected-member exception | archive-test.c |
+| Archive format probing: text is an ordinary file, supported formats are archives, unsupported-but-parseable formats are refused | archive-test.c |
 | replace (literal and until), insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |
 | each expansion, nesting, scoped env, and item-naming failures | each-test.c, each.cbs, invalid each-* fixtures, and explain counts in cli-build-test.sh |
 | Sources, mirrors, checksums, cache, and fetch failures | source-test.c and fetch-test.c |

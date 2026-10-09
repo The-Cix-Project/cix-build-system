@@ -776,6 +776,15 @@ archive. It copies that exact regular file into the confined build filesystem;
 it cannot read an arbitrary cache path or follow a source symlink. This is
 intended for checked configuration fragments and other auxiliary source files.
 
+For this purpose a source's bytes are an archive when they are a tar, pax or
+zip stream (ADR-0006), or a stream in another format that CBS can actually
+parse — the second being a deliberate refusal rather than a materializable
+file. A stream that CBS cannot parse, in a format it does not support, is an
+ordinary file. The distinction matters because archive detection is heuristic:
+a plain text fragment whose first line reads `word key=value` resembles an
+mtree specification closely enough to be claimed as one, and a configuration
+fragment must not become an archive error on that basis.
+
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
 and entries whose own path escapes the extraction root are runtime failures.
 

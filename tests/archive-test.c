@@ -50,6 +50,49 @@ done:
     return ok;
 }
 
+/* Write a plain text file. Issue #294: libarchive's mtree reader claims any
+ * text whose first line looks like `word key=value`, so these are the shapes
+ * that must still probe as ordinary files. */
+static int write_text(const char *path, const char *text) {
+    FILE *file = fopen(path, "wb");
+    int ok;
+    if (file == NULL)
+        return 0;
+    ok = fputs(text, file) >= 0;
+    return fclose(file) == 0 && ok;
+}
+
+/* Write a cpio archive: a real archive in a format CBS does not support, so
+ * it must stay a deliberate refusal rather than becoming an ordinary file. */
+static int make_cpio_archive(const char *path) {
+    struct archive *archive = archive_write_new();
+    struct archive_entry *entry = NULL;
+    const char byte = 'x';
+    int ok = 0;
+
+    if (archive == NULL ||
+        archive_write_set_format_cpio(archive) != ARCHIVE_OK ||
+        archive_write_open_filename(archive, path) != ARCHIVE_OK)
+        goto done;
+    entry = archive_entry_new();
+    archive_entry_set_pathname(entry, "member");
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_entry_set_size(entry, 1);
+    if (archive_write_header(archive, entry) != ARCHIVE_OK ||
+        archive_write_data(archive, &byte, 1) != 1)
+        goto done_entry;
+    ok = 1;
+done_entry:
+    archive_entry_free(entry);
+done:
+    if (archive != NULL) {
+        archive_write_close(archive);
+        archive_write_free(archive);
+    }
+    return ok;
+}
+
 static int make_unicode_archive(const char *path) {
     struct archive *archive = archive_write_new();
     struct archive_entry *entry = NULL;
@@ -662,6 +705,44 @@ int main(void) {
                 "the non-ASCII archive member is missing");
     CHECK(S_ISREG(status.st_mode), "the non-ASCII archive member is not a file");
 
+    /* Issue #294: cbs_archive_probe discarded the header result, so a format
+     * libarchive guessed at and then failed to parse was reported as an
+     * invalid archive (-1) instead of an ordinary file (0).  mtree is the
+     * format it guesses, and its heuristic claims any text whose first line
+     * looks like `word key=value` -- which refused configuration fragments,
+     * JSON included, as malformed archives. */
+    {
+        static const char *const ordinary[] = {
+            "cfg contents\n", "name mode=0644\n", "name size=12\n",
+            "name uid=0 gid=0\n", "{\"a\":1}\n", "CONFIG_X=y\n",
+            "hello world\n"
+        };
+        size_t probe_index;
+        char probe_path[4160];
+        snprintf(probe_path, sizeof(probe_path), "%s/probe-input", root);
+        for (probe_index = 0;
+             probe_index < sizeof(ordinary) / sizeof(ordinary[0]);
+             ++probe_index) {
+            CHECK(write_text(probe_path, ordinary[probe_index]),
+                  "cannot write the probe input");
+            if (cbs_archive_probe(probe_path) != 0) {
+                fprintf(stderr,
+                        "archive-test: probed as an archive, not a file: %s",
+                        ordinary[probe_index]);
+                CHECK(0, "plain text was not probed as an ordinary file");
+            }
+        }
+        /* A supported archive still probes as one. */
+        CHECK(make_link_archive(probe_path, 0), "cannot write the probe archive");
+        CHECK(cbs_archive_probe(probe_path) == 1,
+              "a supported archive was not probed as an archive");
+        /* A real archive in an unsupported format stays a refusal, so the fix
+         * cannot have been made by calling every failed guess a file. */
+        CHECK(make_cpio_archive(probe_path), "cannot write the cpio probe archive");
+        CHECK(cbs_archive_probe(probe_path) == -1,
+              "an unsupported archive format was not refused");
+    }
+
 cleanup:
     test_remove_tree(root);
     if (failures != 0) {
@@ -671,6 +752,7 @@ cleanup:
     }
     puts("archive extraction tests: PASS (safe links, mtimes, implicit "
          "parents, deferred directory modes, hostile entries, skipped "
-         "escaping links, UTF-8 pax paths, and named diagnostics)");
+         "escaping links, format probing, UTF-8 pax paths, and named "
+         "diagnostics)");
     return 0;
 }
