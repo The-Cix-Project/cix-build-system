@@ -10,7 +10,8 @@ features must add focused success and failure assertions to this matrix.
 | on_fail, allow_failure, continuation, and primary errors | runtime-test.c and failure.cbs |
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, stage library, and globs | fs-test.c and filesystem.cbs |
 | Filesystem failures propagate, name the path acted on, and distinguish a confinement refusal from a collision; allow_failure applies only where the grammar offers it | fs-test.c and the move-allow-failure invalid fixture |
-| extract (including selective members), materialize, and configuration assertions | extract-test.c and extract.cbs |
+| extract (including selective members) and configuration assertions | extract-test.c and extract.cbs |
+| materialize: success, and its refusals -- undeclared reference, undeclared path, source symlink, non-regular source, escaping destination | fs-test.c |
 | Archive safety: refused member paths, skipped escaping symlinks, and the selected-member exception | archive-test.c |
 | Archive format probing: text is an ordinary file, supported formats are archives, unsupported-but-parseable formats are refused | archive-test.c |
 | replace (literal and until), insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |

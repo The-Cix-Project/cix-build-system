@@ -163,3 +163,4 @@ All 148 records, by issue number:
 - [Issue #292 validation: `check` and `validate` documented as aliases in opposite directions, with `--json` hidden on `check`](issue-0292-validation.md)
 - [Issue #293 validation: documentation quality pass](issue-0293-validation.md)
 - [Issue #294 validation: a plain-text source whose first line looks like mtree is refused as a malformed archive](issue-0294-validation.md)
+- [Issue #295 validation: `materialize` had no failure tests despite being the third most-used operation](issue-0295-validation.md)

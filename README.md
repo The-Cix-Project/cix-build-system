@@ -15,7 +15,7 @@ CPDL is deliberately not a general programming language. It has no shell
 escape, no pipelines, no variables, and no runtime control flow, because a
 recipe that can reach the host cannot be reasoned about or reproduced.
 
-Current release: **CBS v0.1.114** — the first line of `VERSION`, with the
+Current release: **CBS v0.1.115** — the first line of `VERSION`, with the
 matching `v<version>` tag. `make` refuses a mismatch when building from a tag.
 
 ## Where to go

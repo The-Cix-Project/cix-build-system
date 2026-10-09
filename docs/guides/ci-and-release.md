@@ -49,7 +49,7 @@ keeps it correct without maintaining a second copy.
 
 A bounds violation aborts with a TCC diagnostic rather than failing an
 assertion, so treat any abort as a defect in the code under test. Verified
-against v0.1.114: 68 parser and validation cases pass instrumented.
+against v0.1.115: 68 parser and validation cases pass instrumented.
 
 Useful focused checks while developing are:
 
@@ -86,8 +86,8 @@ public header, and pkg-config metadata from the same tag.
 3. Confirm the upstream qualification result is either passed or explicitly
    skipped because `CBS_UPSTREAM_CACHE` is unset.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.114 -m
-   "CBS v0.1.114"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.115 -m
+   "CBS v0.1.115"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

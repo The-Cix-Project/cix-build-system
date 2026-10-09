@@ -78,6 +78,16 @@ static int path_join(char *buffer, size_t size, const char *left,
     return snprintf(buffer, size, "%s/%s", left, right) < (int)size;
 }
 
+/* Create a regular file with known contents, for sources a test declares. */
+static int write_regular(const char *path, const char *text) {
+    FILE *file = fopen(path, "wb");
+    int ok;
+    if (file == NULL)
+        return 0;
+    ok = fputs(text, file) >= 0;
+    return fclose(file) == 0 && ok;
+}
+
 static int regular_with(const char *path, const char *expected, mode_t mode) {
     struct stat status;
     char content[64];
@@ -121,6 +131,13 @@ static int expect_edit_failure(const CbsNode *operation,
                                const CbsExecutionContext *context) {
     return !cbs_execute_edit_assertion(operation, context);
 }
+
+/* Assert one condition, failing at the line that broke. */
+#define CHECK_FS(condition)                                                  \
+    do {                                                                     \
+        if (!(condition))                                                    \
+            FS_FAIL();                                                       \
+    } while (0)
 
 static int run_test(const char *recipe_path) {
     char src[4160], build[4160], dest[4160], outside[4160], path[4160],
@@ -592,6 +609,87 @@ static int run_test(const char *recipe_path) {
     escape.second_value = "${dest}/copied/a-link";
     if (!expect_failure(&escape, &context, NULL))
         FS_FAIL();
+
+    /* Issue #295: materialize is the third most-used operation in the real
+     * corpus -- 3219 uses, behind only run and require -- and had exactly one
+     * success-path line in the whole suite.  Its refusals are a contract:
+     * CPDL 1.0 4.5 says it cannot read an arbitrary cache path and cannot
+     * follow a source symlink, and nothing asserted either. */
+    {
+        CbsNode materialize;
+        CbsNamedSource verified[1];
+        const CbsNamedSource *saved_sources = context.sources;
+        size_t saved_count = context.source_count;
+        char declared_source[4160], undeclared_source[4160];
+        char linked_source[4160], directory_source[4160];
+        TestCapture materialize_capture;
+        char materialize_output[2048];
+        int refusals;
+
+        snprintf(declared_source, sizeof(declared_source), "%s/declared-source",
+                 src);
+        snprintf(undeclared_source, sizeof(undeclared_source),
+                 "%s/undeclared-source", src);
+        snprintf(linked_source, sizeof(linked_source), "%s/linked-source", src);
+        snprintf(directory_source, sizeof(directory_source),
+                 "%s/directory-source", src);
+        CHECK_FS(write_regular(declared_source, "config\n"));
+        CHECK_FS(write_regular(undeclared_source, "config\n"));
+        CHECK_FS(symlink(declared_source, linked_source) == 0);
+        CHECK_FS(mkdir(directory_source, 0755) == 0);
+
+        verified[0].name = "config";
+        verified[0].path = declared_source;
+        context.sources = verified;
+        context.source_count = 1;
+
+        memset(&materialize, 0, sizeof(materialize));
+        materialize.location.path = recipe_path;
+        materialize.location.line = 1;
+        materialize.location.column = 1;
+        materialize.kind = CBS_NODE_MATERIALIZE;
+        materialize.second_value = "${build}/materialized";
+
+        /* The success path first, so the refusals below cannot pass vacuously.
+         * A recipe names a source by reference, not by path. */
+        materialize.value = "$source.config";
+        CHECK_FS(cbs_execute_materialize(&materialize, &context));
+        snprintf(path, sizeof(path), "%s/materialized", build);
+        CHECK_FS(regular_with(path, "config\n", 0644));
+
+        /* Each refusal emits CPDL-E4004, so capture while asserting them. */
+        CHECK_FS(test_capture_begin(&materialize_capture, capture_root));
+        refusals = 0;
+        /* "cannot read an arbitrary cache path": a readable regular file that
+         * is simply not a declared source. */
+        materialize.value = undeclared_source;
+        refusals += !cbs_execute_materialize(&materialize, &context);
+        /* An undeclared reference resolves to nothing. */
+        materialize.value = "$source.nosuch";
+        refusals += !cbs_execute_materialize(&materialize, &context);
+        /* "cannot follow a source symlink" -- declared, and pointing at the
+         * declared source, which is why the check is on the source itself and
+         * not on what it resolves to. */
+        verified[0].path = linked_source;
+        materialize.value = "$source.config";
+        refusals += !cbs_execute_materialize(&materialize, &context);
+        /* A declared source that is not a regular file. */
+        verified[0].path = directory_source;
+        refusals += !cbs_execute_materialize(&materialize, &context);
+        /* A destination that leaves the confined roots. */
+        verified[0].path = declared_source;
+        materialize.second_value = "${build}/../../escaped-materialize";
+        refusals += !cbs_execute_materialize(&materialize, &context);
+        test_capture_end(&materialize_capture, materialize_output,
+                         sizeof(materialize_output));
+        CHECK_FS(refusals == 5);
+        CHECK_FS(strstr(materialize_output, "CPDL-E4004") != NULL);
+        snprintf(path, sizeof(path), "%s/../../escaped-materialize", build);
+        CHECK_FS(lstat(path, &status) != 0);
+
+        context.sources = saved_sources;
+        context.source_count = saved_count;
+    }
 
     /* Issue #285: a write stores its text's token kind in `second_flag`, and
      * the failure path once read that field as allow_failure.  Every failing
