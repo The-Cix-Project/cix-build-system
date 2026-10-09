@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.107 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.108 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -185,6 +185,12 @@ fetches sources, runs phases, or mutates the workspace. Use
 
 The `--staged` value is a workspace root. Create it first; CBS creates the
 `src`, `build`, `dest`, `cache`, and `tmp` directories inside it.
+
+The path may be relative or absolute. CBS resolves a relative one against the
+current directory once, before any phase runs, because the build roots are what
+every confined path is checked against. Workspace paths never reach the
+artifact, so the same recipe built through a relative and an absolute workspace
+produces byte-identical bytes.
 
 ```text
 mkdir -p /tmp/cbs-hello

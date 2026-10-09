@@ -65,6 +65,11 @@ For process-level embedders, `cbs build` also accepts
 phases and before manifest/package creation; a non-zero exit rejects the build
 and no artifact is written. The command is executed directly, without a shell.
 
+The workspace may be a relative path. CBS resolves it to an absolute root once
+before any phase runs, so an embedder that invokes CBS from an arbitrary working
+directory does not have to pre-resolve it, and the resolution cannot reach the
+artifact. The same applies to the library entry points.
+
 CBS validates and plans the recipe, executes its phases, runs the embedder
 finalization policy, computes the typed manifest, and writes/verifies CIXPKG v2.
 The container has no network requirement: source fetching is cache-first.

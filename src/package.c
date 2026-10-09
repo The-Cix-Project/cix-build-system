@@ -821,6 +821,28 @@ static void destroy_privileged_allowances(CbsPrivilegedAllowance *allowances,
 }
 
 /* Report a high-level pipeline rejection that has no parser diagnostic. */
+/* Compose an absolute workspace root.
+ *
+ * Confinement compares every resolved recipe path against the build roots, and
+ * `safe_root` refuses a root that is not absolute.  A caller is not required to
+ * pass an absolute `--staged`, and nothing in the CLI says it must be, so a
+ * relative one is resolved once here.  Leaving it relative made every confined
+ * operation fail with a confinement error naming a path that was inside the
+ * roots all along (issue #284).  Symbolic links are deliberately not resolved:
+ * `safe_root` already refuses a symlinked root, so realpath() would only change
+ * which message a caller sees. */
+static int absolute_workspace(const char *workspace, char *out, size_t size) {
+    char working[4096];
+
+    if (workspace == NULL || workspace[0] == '\0')
+        return 0;
+    if (workspace[0] == '/')
+        return snprintf(out, size, "%s", workspace) < (int)size;
+    if (getcwd(working, sizeof(working)) == NULL)
+        return 0;
+    return snprintf(out, size, "%s/%s", working, workspace) < (int)size;
+}
+
 static void pipeline_error(const char *recipe, const char *source,
                            CbsLocation location, const char *step,
                            const char *detail) {
@@ -1145,6 +1167,7 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     size_t entry_count = 0;
     CbsPrivilegedAllowance *allowances = NULL;
     size_t allowance_count = 0;
+    char absolute_root[4096];
     char src[4096], build[4096], dest[4096], cache[4096], manifest[4096],
         manifest_error[512], *package_identity = NULL;
     char tool_command_path[8192];
@@ -1194,6 +1217,14 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
                        "recipe has no executable phase plan");
         ok = 0;
     }
+    if (ok && !absolute_workspace(workspace, absolute_root,
+                                  sizeof(absolute_root))) {
+        pipeline_error(recipe, text, document->location, "workspace",
+                       "cannot resolve the workspace to an absolute path");
+        ok = 0;
+    }
+    if (ok)
+        workspace = absolute_root;
     if (ok && !cbs_workspace_prepare(workspace)) {
         char detail[512];
         snprintf(detail, sizeof(detail), "cannot prepare %s: %s", workspace,

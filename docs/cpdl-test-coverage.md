@@ -18,6 +18,7 @@ features must add focused success and failure assertions to this matrix.
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |
 | Event reporters, event destinations (--events-fd/--events-file), redaction, logs, and metrics | observability-test.sh |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
+| Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
 | Every test writes under its own TMPDIR-aware root and removes it | tests/temp.h, used by every C test; shell tests clean up with a trap |
 | Every in-repository migrated recipe parses and validates | make recipe-test |
 | The self-hosting pin names one release, matches its archive tag, and never runs ahead of VERSION | recipe-metadata-test.sh on cbs.cbs |
