@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.106 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.107 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -275,8 +275,11 @@ source SHA-256 verification.
 The remaining build options are for callers embedding CBS in a larger system:
 
 ```text
---events human|jsonl      stream build progress; jsonl is one JSON object per
-                          line, for a parent process to consume
+--events human|jsonl      stream build progress to standard error; jsonl is
+                          one JSON object per line
+--events-fd N             write the JSONL stream to descriptor N, which the
+                          caller has already opened for writing
+--events-file FILE        write the JSONL stream to FILE instead
 --report FILE             atomically persist a cbs.build-report/v1 result for
                           successful and failed builds
 --prune-policy FILE       apply a staged-tree prune policy (strip-debug,
@@ -293,6 +296,25 @@ The remaining build options are for callers embedding CBS in a larger system:
                           default is `/usr/bin:/bin`, with no ambient PATH
 --library-path DIRS       use these colon-separated absolute library roots;
                           default is `/usr/lib:/lib:/usr/lib64:/lib64`
+```
+
+`--events` and the two destination options are independent, so one build can
+produce an operator-readable log and a machine-readable stream at once:
+
+```sh
+./cbs build recipe.cbs --arch x86_64 --staged /tmp/ws \
+    --events human --events-fd 3  3>events.jsonl
+```
+
+Standard error keeps the human reporter and the build commands' own output;
+descriptor 3 receives only JSONL. A destination always carries JSONL, because
+a machine channel has no use for prose, and it works with no `--events` at all.
+Giving `--events jsonl` together with a destination moves the stream to that
+destination rather than writing it twice. `--events-fd` and `--events-file`
+cannot be combined, and a descriptor that is not open for writing is refused
+before the build starts rather than losing events part way through.
+
+```text
 --tool-identity NAME@VERSION=MANIFEST_SHA256
                           repeatable verified identities for composed tool
                           roots; use the same complete set for build and

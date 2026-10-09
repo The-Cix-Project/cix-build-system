@@ -97,6 +97,27 @@ preferred integration path for cixd: it can forward events to terminal or web
 UIs without scraping recipe output. The legacy phase-only callback in
 `CbsExecutionContext` remains available for phase-only consumers.
 
+A process-level embedder does not have to choose between an operator log and a
+structured stream. `--events human|jsonl` selects the reporter on standard
+error, and `--events-fd N` or `--events-file FILE` writes the JSONL stream to a
+channel of the caller's own:
+
+```text
+cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output ARTIFACT \
+    --events human --events-fd 3
+```
+
+A forking parent opens the descriptor, passes it as `N`, and reads events while
+standard error keeps the human reporter and the build commands' own output. The
+destination always carries JSONL and needs no `--events` of its own; combining
+`--events jsonl` with a destination moves the stream there instead of
+duplicating it. The two destination options are mutually exclusive, and a
+descriptor that is closed or not open for writing is a usage refusal (exit 2,
+`CBS-E1022`) before the build begins, so a caller never gets a successful build
+that silently reported nothing. CBS duplicates the descriptor, so closing its
+reporter never closes one the parent still owns. `--report` continues to
+aggregate the same events alongside either destination.
+
 CBS event callbacks are synchronous and may reject an event; CBS then fails the
 build closed. Event strings and pointers are valid only for the callback
 duration, and sequence numbers are monotonically increasing within a build.

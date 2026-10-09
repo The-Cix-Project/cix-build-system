@@ -59,8 +59,8 @@ public header, and pkg-config metadata from the same tag.
 3. Confirm the upstream qualification result is either passed or explicitly
    skipped because `CBS_UPSTREAM_CACHE` is unset.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.106 -m
-   "CBS v0.1.106"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.107 -m
+   "CBS v0.1.107"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

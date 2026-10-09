@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-28
 
-## Current implementation note (v0.1.106)
+## Current implementation note (v0.1.107)
 
 This historical command-surface proposal is not the current CLI contract.
 `cbs --help` currently exposes `check`/`validate`, `explain`, `build`,
@@ -11,6 +11,12 @@ This historical command-surface proposal is not the current CLI contract.
 Artifact installation and image transactions remain cixd responsibilities.
 The current command examples are maintained in the user manual and the
 standalone runbook.
+
+Exit statuses are as this ADR fixes them: 0 success, 2 invocation error, 3
+definition/operation failure, 4 artifact verification failure. Where a build's
+event stream is written is an invocation concern and not part of this surface:
+`--events` selects the standard-error reporter, while `--events-fd` and
+`--events-file` name an independent JSONL destination (issue #282).
 
 CBS exposes six operations through one internal API and a thin CLI: `check`
 (parse/validate), `build` (produce staged tree), `package` (emit CIXPKG),

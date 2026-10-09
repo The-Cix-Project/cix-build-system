@@ -5,6 +5,8 @@
 
 #include <errno.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -779,6 +781,7 @@ static void usage(FILE *stream) {
         "  cbs build RECIPE.cbs --arch ARCH --staged ROOT [--output FILE] "
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
         "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
+        "      [--events-fd N | --events-file FILE]\n"
         "      [--report FILE]\n"
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
@@ -802,6 +805,37 @@ static void usage(FILE *stream) {
         stream);
 }
 
+/* Validate --events-fd: a descriptor the caller has already opened for
+ * writing.  It is checked up front so a mistyped or closed descriptor is a
+ * usage error, not a build that silently reports no events. */
+static int parse_event_descriptor(const char *text, int *descriptor) {
+    char *end;
+    long value;
+    int flags;
+
+    errno = 0;
+    value = strtol(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' || value < 0 ||
+        value > INT_MAX) {
+        cli_errorf("build", "CBS-E1022", "cli", 2,
+                   "--events-fd must be a non-negative file descriptor");
+        return 0;
+    }
+    flags = fcntl((int)value, F_GETFL);
+    if (flags < 0) {
+        cli_errorf("build", "CBS-E1022", "cli", 2,
+                   "--events-fd %ld is not an open file descriptor", value);
+        return 0;
+    }
+    if ((flags & O_ACCMODE) == O_RDONLY) {
+        cli_errorf("build", "CBS-E1022", "cli", 2,
+                   "--events-fd %ld is not open for writing", value);
+        return 0;
+    }
+    *descriptor = (int)value;
+    return 1;
+}
+
 typedef struct {
     const char *recipe;
     const char *architecture;
@@ -810,6 +844,9 @@ typedef struct {
     const char *cache;
     const char *ca_file;
     const char *events;
+    /* Where the event stream is written. Unset means stderr. */
+    const char *events_fd;
+    const char *events_file;
     const char *finalize_command;
     const char *prune_policy;
     const char *firmware_root;
@@ -994,6 +1031,10 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 10;
         else if (strncmp(argument, "--events=", 9) == 0)
             value = argument + 9;
+        else if (strncmp(argument, "--events-fd=", 12) == 0)
+            value = argument + 12;
+        else if (strncmp(argument, "--events-file=", 14) == 0)
+            value = argument + 14;
         else if (strncmp(argument, "--finalize-command=", 19) == 0)
             value = argument + 19;
         else if (strncmp(argument, "--prune-policy=", 15) == 0)
@@ -1012,6 +1053,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--cache") == 0 ||
                  strcmp(argument, "--ca-file") == 0 ||
                  strcmp(argument, "--events") == 0 ||
+                 strcmp(argument, "--events-fd") == 0 ||
+                 strcmp(argument, "--events-file") == 0 ||
                  strcmp(argument, "--finalize-command") == 0 ||
                  strcmp(argument, "--prune-policy") == 0 ||
                  strcmp(argument, "--firmware-root") == 0 ||
@@ -1073,6 +1116,12 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--report") == 0 ||
                  strncmp(argument, "--report=", 9) == 0)
             options->report_path = value;
+        else if (strcmp(argument, "--events-fd") == 0 ||
+                 strncmp(argument, "--events-fd=", 12) == 0)
+            options->events_fd = value;
+        else if (strcmp(argument, "--events-file") == 0 ||
+                 strncmp(argument, "--events-file=", 14) == 0)
+            options->events_file = value;
         else
             options->events = value;
     }
@@ -1544,6 +1593,26 @@ typedef struct {
     CbsBuildReport report;
 } CbsReportEventState;
 
+typedef struct {
+    CbsBuildEventSink first;
+    void *first_user;
+    CbsBuildEventSink second;
+    void *second_user;
+} CbsTeeEventState;
+
+/* Fan one event out to two reporters.  Either one rejecting the event fails
+ * the build closed, exactly as a single reporter does. */
+static int tee_event_sink(const CbsBuildEvent *event, void *user) {
+    CbsTeeEventState *state = user;
+    if (state == NULL || event == NULL)
+        return 0;
+    if (state->first != NULL && !state->first(event, state->first_user))
+        return 0;
+    if (state->second != NULL && !state->second(event, state->second_user))
+        return 0;
+    return 1;
+}
+
 static int report_event_sink(const CbsBuildEvent *event, void *user) {
     CbsReportEventState *state = user;
     if (state == NULL || event == NULL)
@@ -1585,6 +1654,7 @@ static int write_report_file(const char *path, const CbsBuildReport *report) {
 static int build_file(const char *recipe, const char *architecture,
                       const char *staged, const char *output, const char *cache,
                       const char *ca_file, const char *events,
+                      const char *events_fd, const char *events_file,
                       const char *finalize_command,
                       const char *prune_policy_path,
                       const char *firmware_root,
@@ -1598,7 +1668,10 @@ static int build_file(const char *recipe, const char *architecture,
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
     FILE *event_stream = stderr;
+    FILE *destination_stream = NULL;
     int event_fd = -1;
+    int destination_fd = -1;
+    CbsTeeEventState tee_state;
     int result;
     char fetch_error[256];
     CbsPrunePolicy prune_policy;
@@ -1612,6 +1685,7 @@ static int build_file(const char *recipe, const char *architecture,
     int report_written = 1;
     memset(&service, 0, sizeof(service));
     memset(&report_state, 0, sizeof(report_state));
+    memset(&tee_state, 0, sizeof(tee_state));
     if (report_path != NULL)
         cbs_build_report_init(&report_state.report);
     if (command_path != NULL && !cbs_command_path_is_valid(command_path)) {
@@ -1659,6 +1733,11 @@ static int build_file(const char *recipe, const char *architecture,
             return 3;
         }
     }
+    if (events_fd != NULL && events_file != NULL) {
+        cli_errorf("build", "CBS-E1022", "cli", 2,
+                   "--events-fd and --events-file cannot be combined");
+        return 2;
+    }
     if (events != NULL) {
         if (strcmp(events, "human") == 0)
             event_sink = cbs_build_event_human;
@@ -1669,6 +1748,8 @@ static int build_file(const char *recipe, const char *architecture,
                        "--events must be human or jsonl");
             return 2;
         }
+        /* The stderr reporter gets its own stream, as it always has, so its
+         * buffering is independent of diagnostics written to stderr. */
         event_fd = dup(fileno(stderr));
         if (event_fd < 0 || (event_stream = fdopen(event_fd, "w")) == NULL) {
             if (event_fd >= 0)
@@ -1678,11 +1759,56 @@ static int build_file(const char *recipe, const char *architecture,
             return 3;
         }
     }
-    effective_event_sink = event_sink;
-    effective_event_user = event_stream;
+    if (events_file != NULL) {
+        destination_stream = fopen(events_file, "w");
+        if (destination_stream == NULL) {
+            cli_errorf(events_file, "CBS-E1023", "input", 3,
+                       "cannot open the event destination file");
+            return 3;
+        }
+    } else if (events_fd != NULL) {
+        int caller_fd;
+        if (!parse_event_descriptor(events_fd, &caller_fd))
+            return 2;
+        /* Duplicated rather than used directly, so closing the reporter never
+         * closes a descriptor the caller still owns. */
+        destination_fd = dup(caller_fd);
+        if (destination_fd < 0 ||
+            (destination_stream = fdopen(destination_fd, "w")) == NULL) {
+            if (destination_fd >= 0)
+                close(destination_fd);
+            cli_errorf("build", "CBS-E1023", "internal", 3,
+                       "cannot initialize the event destination");
+            return 3;
+        }
+    }
+    /* The stderr reporter and the destination stream are independent: a
+     * caller can keep an operator-readable log on stderr and read the
+     * structured stream on a channel of its own, which is what issue #282
+     * asked for.  The destination always carries JSONL, because a machine
+     * channel has no use for prose. */
+    if (destination_stream != NULL && event_sink == cbs_build_event_jsonl) {
+        /* The identical stream twice is never useful, so the explicit
+         * destination wins and stderr keeps only its own output. */
+        event_sink = NULL;
+    }
+    if (destination_stream != NULL && event_sink != NULL) {
+        tee_state.first = event_sink;
+        tee_state.first_user = event_stream;
+        tee_state.second = cbs_build_event_jsonl;
+        tee_state.second_user = destination_stream;
+        effective_event_sink = tee_event_sink;
+        effective_event_user = &tee_state;
+    } else if (destination_stream != NULL) {
+        effective_event_sink = cbs_build_event_jsonl;
+        effective_event_user = destination_stream;
+    } else {
+        effective_event_sink = event_sink;
+        effective_event_user = event_stream;
+    }
     if (report_path != NULL) {
-        report_state.primary = event_sink;
-        report_state.primary_user = event_stream;
+        report_state.primary = effective_event_sink;
+        report_state.primary_user = effective_event_user;
         effective_event_sink = report_event_sink;
         effective_event_user = &report_state;
     }
@@ -1712,6 +1838,8 @@ static int build_file(const char *recipe, const char *architecture,
             report_path == NULL ? NULL : report_state.report.fingerprint);
     if (event_stream != stderr)
         fclose(event_stream);
+    if (destination_stream != NULL)
+        fclose(destination_stream);
     if (report_path != NULL) {
         strncpy(report_state.report.recipe_path, recipe,
                 sizeof(report_state.report.recipe_path) - 1);
@@ -2644,7 +2772,8 @@ int main(int argc, char **argv) {
             return 2;
         result = build_file(options.recipe, options.architecture, options.staged,
                           options.output, options.cache, options.ca_file,
-                      options.events, options.finalize_command,
+                      options.events, options.events_fd, options.events_file,
+                      options.finalize_command,
                           options.prune_policy, options.firmware_root,
                           options.command_path, options.library_path,
                           options.report_path,
