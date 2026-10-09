@@ -1,0 +1,8 @@
+package "require-tool-for" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        require tool "make" for { "make" "tcc" }
+    }
+}

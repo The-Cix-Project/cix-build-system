@@ -49,6 +49,18 @@ static void expected(CbsParser *parser, const char *description) {
     parser->failed = 1;
 }
 
+/* Report a located unexpected token and mark parsing failed.  CPDL-E2002 is
+ * the contract's code for an unexpected token, and it lets a construct-specific
+ * rule name itself instead of falling through to the generic `expected
+ * <grammar element>` message from the enclosing production. */
+static void parse_unexpected(CbsParser *parser, CbsLocation location,
+                             const char *message) {
+    if (!parser->failed)
+        cbs_diagnostic(parser->path, parser->source, location, "error",
+                       "CPDL-E2002", CBS_DIAG_PARSE, message);
+    parser->failed = 1;
+}
+
 static CbsToken *consume_kind(CbsParser *parser, CbsTokenKind kind,
                               const char *description) {
     if (current(parser)->kind != kind) {
@@ -718,8 +730,17 @@ static CbsNode *parse_require(CbsParser *parser) {
         target = consume_path(parser);
     if (target != NULL)
         node->value = cbs_duplicate(target->text);
-    if (kind != NULL && strcmp(kind->text, "tool") == 0)
+    if (kind != NULL && strcmp(kind->text, "tool") == 0) {
+        /* This form has no property block, so the enclosing operation loop
+         * would otherwise meet the `for` and report that an operation was
+         * expected -- true, but it names neither the rule nor the token. */
+        if (is_word(parser, "for"))
+            parse_unexpected(parser, current(parser)->location,
+                             "`require tool` does not take a `for` list; its "
+                             "operand is a tool name resolved against the "
+                             "approved command path, not a target");
         return node;
+    }
     consume_kind(parser, CBS_TOKEN_LBRACE, "{");
     if (kind != NULL && strcmp(kind->text, "config") == 0) {
         while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
