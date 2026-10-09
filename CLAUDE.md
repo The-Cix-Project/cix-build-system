@@ -5,7 +5,7 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.109 at time of writing).
+Current release is the first line of `VERSION` (0.1.111 at time of writing).
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
 ## Scope: what lives here and what does not
@@ -362,20 +362,13 @@ Mostly closed since the CPDL 1.0 promotion. What remains:
   `src/manifest.c:251` writes. The line itself *is* specified, but in
   `cpdl-1.0.md` §3.1 instead.
 
-Two items are **already filed** — check the tracker before re-investigating:
-
-- **#286** (decision): the parser accepts `allow_failure` on `move`, CPDL 1.0
-  §4.4 grants it only to `copy` and `remove`. Behaviour preserved pending a
-  ruling on which is authoritative.
-- **#287** (bug): `safe_parents()` reports `ELOOP` for a parent that is merely
-  not a directory, so a confinement refusal and an ordinary path collision
-  produce the identical message; and a failed `symlink` names its target rather
-  than the link path it could not create.
-
 Previously-noted drift that is now **fixed** — don't re-report it: a relative
 `--staged` works (#284, v0.1.108) and artifacts are byte-identical either way;
-every `write` failure now propagates (#285, v0.1.109); the `E6xxx` and `W6xxx`
-ranges are specified (#283, v0.1.106); the
+every `write` failure now propagates (#285, v0.1.109); a confinement refusal
+(`ELOOP`) and an ordinary path collision (`ENOTDIR`) are distinguishable and a
+failed `symlink` names the link path (#287, v0.1.110); `allow_failure` is
+granted to `copy` and `remove` only, matching §4.4 (#286, v0.1.111); the
+`E6xxx` and `W6xxx` ranges are specified (#283, v0.1.106); the
 duplicate ADR-0012 is resolved (payload index moved to
 ADR-0037); `make test` no longer needs network; `src/exec.c` no longer appends
 `CC=` to `make` argv; `license`/`metadata`/`${firmware}` are specified; the
