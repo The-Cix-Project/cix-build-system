@@ -68,6 +68,12 @@ make upstream-test CBS_UPSTREAM_CACHE=/path/to/source-cache   # tarballs named b
 Other targets: `recipe-test` (every `recipes/*.cbs` validates), `version-check`
 (refuses a VERSION/tag mismatch), `qualification-test` (= `test`).
 
+**There is no CI and none is wanted.** The gate is run by hand, here. Osakka
+declined CI/CD on 2026-10-09; do not propose it or add a workflow file.
+`docs/roadmap.md` Workstream 4 and `docs/integration-blockers.md` blocker 4
+still nominate "clean-host CI" as outstanding qualification work — that is the
+engineering assessment, not a task to pick up.
+
 Focused loops while developing:
 
 ```sh
