@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.112 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.113 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -90,7 +90,9 @@ Important rules:
 
 ## 3. Validate before building
 
-Use either `check` or `validate`:
+`check` and `validate` are the same command under two spellings. Both accept
+`--json`, and each reports its own verb in a machine-readable diagnostic, so a
+script can use whichever reads better:
 
 ```text
 ./cbs check hello.cbs

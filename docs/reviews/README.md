@@ -160,4 +160,5 @@ All 148 records, by issue number:
 - [Issue #289 validation: the CIXPKG v2 spec omits the `m <key> <value>` manifest metadata line that CBS writes](issue-0289-validation.md)
 - [Issue #290 validation: `require-operation` omits `for`, omits `require config`, and its prose claims `for` works on `require tool`](issue-0290-validation.md)
 - [Issue #291 validation: `require tool … for` reports a generic "expected phase operation" instead of naming the rule](issue-0291-validation.md)
+- [Issue #292 validation: `check` and `validate` documented as aliases in opposite directions, with `--json` hidden on `check`](issue-0292-validation.md)
 - [Issue #293 validation: documentation quality pass](issue-0293-validation.md)
