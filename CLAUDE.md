@@ -294,9 +294,11 @@ tests assert failure paths.
 5. `docs/user-manual.md` (users), `docs/standalone-runbook.md` (operators),
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
-6. `docs/reviews/issue-NNNN-validation.md` — evidence at the time each ticket
-   closed. **Historical**: they over-claim scope and describe past state. Absence
-   of a record does not mean a ticket is open.
+6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
+   indexes of all 37 decisions and all 148 validation records. The records are
+   **historical**: they over-claim scope and describe past state, and absence of
+   a record does not mean a ticket is open. Regenerate an index from the
+   filesystem rather than hand-editing it when adding to either directory.
 
 ## Release convention
 
