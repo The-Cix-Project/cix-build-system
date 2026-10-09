@@ -144,6 +144,11 @@ struct CbsNode {
     int flag;
     /* Secondary boolean option. */
     int second_flag;
+    /* Whether a trailing allow_failure permits this operation to fail.  It is
+     * its own field because `flag` and `second_flag` carry the token kinds of
+     * `value` and `second_value`, and a `write` whose text is a quoted string
+     * therefore has a nonzero `second_flag` that means nothing of the sort. */
+    int allow_failure;
     /* Whether a source-edit target is a glob selector. */
     int selector_glob;
     /* Whether an insert operation writes before, rather than after, a match. */

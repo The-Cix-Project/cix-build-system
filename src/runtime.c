@@ -625,7 +625,7 @@ static int execute_operation(const CbsNode *operation,
         return cbs_execute_run(operation, context);
     if (is_filesystem(operation->kind)) {
         int result = cbs_execute_filesystem(operation, context);
-        if (!result && operation->second_flag)
+        if (!result && operation->allow_failure)
             return 1;
         return result;
     }

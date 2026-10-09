@@ -1494,7 +1494,8 @@ int cbs_execute_filesystem(const CbsNode *operation,
             /* An optional glob is a successful no-op when it matches
              * nothing. Do not publish a fatal-looking diagnostic for the
              * condition the recipe explicitly allowed. */
-            if (operation->flag && operation->second_flag && errno == ENOENT) {
+            if (operation->flag && operation->allow_failure &&
+                errno == ENOENT) {
                 free(first);
                 free(second);
                 path_list_destroy(&paths);
@@ -1591,7 +1592,7 @@ failure:
     free(first);
     free(second);
     path_list_destroy(&paths);
-    return operation->second_flag ? 1 : 0;
+    return operation->allow_failure ? 1 : 0;
 }
 
 /* Report a source-edit or assertion failure at its operation location. */

@@ -105,6 +105,7 @@ static CbsNode *clone_node(const CbsNode *source) {
     copy->number = source->number;
     copy->flag = source->flag;
     copy->second_flag = source->second_flag;
+    copy->allow_failure = source->allow_failure;
     copy->selector_glob = source->selector_glob;
     copy->insert_before = source->insert_before;
     copy->stderr_stream = source->stderr_stream;
@@ -394,7 +395,7 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         if (value != NULL)
             node->second_value = cbs_duplicate(value->text);
         if (is_word(parser, "allow_failure")) {
-            node->second_flag = 1;
+            node->allow_failure = 1;
             advance(parser);
         }
         return node;
@@ -408,7 +409,7 @@ static CbsNode *parse_filesystem(CbsParser *parser) {
         node = parse_selector(parser, CBS_NODE_REMOVE, keyword->location);
         node->number = tree;
         if (is_word(parser, "allow_failure")) {
-            node->second_flag = 1;
+            node->allow_failure = 1;
             advance(parser);
         }
         return node;

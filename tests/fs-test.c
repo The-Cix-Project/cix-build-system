@@ -590,6 +590,42 @@ static int run_test(const char *recipe_path) {
     escape.second_value = "${dest}/copied/a-link";
     if (!expect_failure(&escape, &context, NULL))
         FS_FAIL();
+
+    /* Issue #285: a write stores its text's token kind in `second_flag`, and
+     * the failure path once read that field as allow_failure.  Every failing
+     * write therefore reported success and produced a package silently
+     * missing the file, so assert the failure for both string kinds a write
+     * can carry. */
+    memset(&escape, 0, sizeof(escape));
+    escape.location.path = recipe_path;
+    escape.location.line = 1;
+    escape.location.column = 1;
+    escape.kind = CBS_NODE_WRITE;
+    escape.value = "${dest}/copied/a.txt/child";
+    escape.second_value = "content\n";
+    escape.flag = CBS_TOKEN_STRING;
+    escape.second_flag = CBS_TOKEN_STRING;
+    if (!expect_failure(&escape, &context, NULL))
+        FS_FAIL();
+    path_join(path, sizeof(path), dest, "copied/a.txt/child");
+    if (lstat(path, &status) == 0)
+        FS_FAIL();
+    escape.second_flag = CBS_TOKEN_BLOCK_STRING;
+    if (!expect_failure(&escape, &context, NULL))
+        FS_FAIL();
+
+    /* allow_failure still works where the grammar offers it: an optional glob
+     * that matches nothing is a successful no-op, not a failure. */
+    memset(&escape, 0, sizeof(escape));
+    escape.location.path = recipe_path;
+    escape.location.line = 1;
+    escape.location.column = 1;
+    escape.kind = CBS_NODE_REMOVE;
+    escape.value = "${build}/input/*.missing";
+    escape.flag = 1;
+    escape.allow_failure = 1;
+    if (!cbs_execute_filesystem(&escape, &context))
+        FS_FAIL();
     result = 0;
 
 cleanup:
@@ -612,6 +648,6 @@ int main(int argc, char **argv) {
     }
     test_remove_tree(base);
     puts("filesystem execution tests: PASS (operations, globs, confinement, "
-         "and staged sandbox libraries)");
+         "failure propagation, and staged sandbox libraries)");
     return 0;
 }
