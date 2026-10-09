@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.105 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.106 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -307,6 +307,24 @@ a directory member's mode and mtime are applied after its contents. When an
 archive is refused, the `CPDL-E6001` message names the member and the rule,
 for example ``source `bzip2`: member "dev/console": rejected: character
 device`` or ``member "lib/foo.c": cannot create file: Permission denied``.
+
+A symbolic-link member whose target leaves the extraction root is an exception:
+the member is skipped and reported as a `CPDL-W6001` warning, and the rest of
+the archive extracts normally.
+
+```text
+warning[CPDL-W6001]: source: source `edk2`: member
+  "edk2-master/EmulatorPkg/Unix/Host/X11IncludeHack": skipped: symbolic link
+  target `/opt/X11/include` leaves the archive root
+```
+
+Never creating the link satisfies the confinement rule exactly, so one
+unreachable link — common in large upstream trees that were not written with
+this constraint in mind — does not make a source unusable. The member is
+genuinely absent afterwards, so a recipe that needs it fails on its own
+`require`. A link named explicitly in an `extract { member … }` block is still
+a `CPDL-E6001` failure, because a recipe that asked for a member by name must
+get it or an error.
 Before reading archive headers, CBS activates a UTF-8 `LC_CTYPE` locale from
 the build environment (falling back to `C.UTF-8`/`C.utf8`). Other locale
 categories are unchanged. If no UTF-8 locale is available, extraction fails

@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
-/* Regression tests for archive format, traversal, link rejection, implicit
- * parent directories, deferred directory metadata, and named diagnostics. */
+/* Regression tests for archive format, traversal, link rejection, skipped
+ * escaping links, implicit parent directories, deferred directory metadata,
+ * and named diagnostics. */
 #include "cbs.h"
 #include "temp.h"
 #include <archive.h>
@@ -362,6 +363,89 @@ static RejectionResult rejects_with(const char *archive,
     return REJECTED_AS_EXPECTED;
 }
 
+/* Run one extraction that is expected to succeed while skipping a member,
+ * capturing stderr the same way rejects_with does.  A skip is not a failure,
+ * so the extraction result and the warning are asserted together: a silent
+ * skip and a refused archive are both wrong. */
+static RejectionResult skips_with(const char *archive, const char *destination,
+                                  const char *source_name,
+                                  CbsLocation location, const char *root,
+                                  const char *member, char *diagnostics,
+                                  size_t size) {
+    char capture_path[4096];
+    FILE *capture;
+    int saved;
+    int extracted;
+    size_t length;
+
+    if (snprintf(capture_path, sizeof(capture_path), "%s/diagnostics", root) >=
+        (int)sizeof(capture_path))
+        return CAPTURE_UNAVAILABLE;
+    capture = fopen(capture_path, "w+b");
+    if (capture == NULL)
+        return CAPTURE_UNAVAILABLE;
+    saved = dup(STDERR_FILENO);
+    if (saved < 0 || dup2(fileno(capture), STDERR_FILENO) < 0) {
+        if (saved >= 0)
+            close(saved);
+        fclose(capture);
+        unlink(capture_path);
+        return CAPTURE_UNAVAILABLE;
+    }
+    extracted = cbs_extract_archive(archive, destination, source_name,
+                                    location.path, NULL, location);
+    fflush(stderr);
+    if (dup2(saved, STDERR_FILENO) < 0) {
+        close(saved);
+        fclose(capture);
+        unlink(capture_path);
+        return CAPTURE_UNAVAILABLE;
+    }
+    close(saved);
+    rewind(capture);
+    length = fread(diagnostics, 1, size - 1, capture);
+    diagnostics[length] = '\0';
+    fclose(capture);
+    unlink(capture_path);
+    if (!extracted)
+        return REJECTION_MISMATCH;
+    if (strstr(diagnostics, "warning[CPDL-W6001]: source: ") == NULL ||
+        strstr(diagnostics, "skipped: ") == NULL ||
+        strstr(diagnostics, member) == NULL)
+        return REJECTION_MISMATCH;
+    /* Reported once, from the link pass only. */
+    if (strstr(strstr(diagnostics, "CPDL-W6001") + 1, "CPDL-W6001") != NULL)
+        return REJECTION_MISMATCH;
+    return REJECTED_AS_EXPECTED;
+}
+
+/* Assert one skipped member, naming it when the assertion fails.  The
+ * destination is explicit: a skip check must extract into a root of its own,
+ * or a file left by an earlier extraction would satisfy the survival
+ * assertion without this archive having produced anything. */
+#define CHECK_SKIPPED(archive, into, name, member)                           \
+    do {                                                                     \
+        RejectionResult outcome =                                            \
+            skips_with((archive), (into), (name), location, root,           \
+                       (member), diagnostics, sizeof(diagnostics));          \
+        if (outcome == CAPTURE_UNAVAILABLE) {                                \
+            report(__LINE__, "cannot capture stderr for `" name "`",         \
+                   strerror(errno));                                         \
+            goto cleanup;                                                    \
+        }                                                                    \
+        if (outcome != REJECTED_AS_EXPECTED) {                               \
+            fprintf(stderr,                                                  \
+                    "archive-test: expected one skip warning naming `%s`; "   \
+                    "diagnostic was: %s\n",                                  \
+                    (member),                                                \
+                    diagnostics[0] == '\0' ? "(no diagnostic)"               \
+                                           : diagnostics);                   \
+            report(__LINE__, "`" name "` was not skipped as specified",      \
+                   NULL);                                                    \
+            goto cleanup;                                                    \
+        }                                                                    \
+    } while (0)
+
 /* Assert one rejection, naming the fragment that was missing when it fails. */
 #define CHECK_REJECTED(archive, name, first, second)                         \
     do {                                                                     \
@@ -396,8 +480,14 @@ int main(void) {
     char implicit_file[4160], implicit_link[4160], implicit_dir[4160],
         implicit_parent[4160], readonly[4160], readonly_file[4160];
     char unicode_file[4160];
+    char skip_absolute[4160], skip_climbing[4160];
+    char skipped_absolute[4224], skipped_climbing[4224],
+        skipped_survivor[4224];
     char link_target[64];
     char diagnostics[2048];
+    const char *requested[] = {"link"};
+    TestCapture capture;
+    int selected_refused;
     struct stat status;
     CbsLocation location = {"archive-test", 1, 1, 0};
     ssize_t length;
@@ -428,6 +518,14 @@ int main(void) {
     snprintf(readonly_file, sizeof(readonly_file), "%s/out/readonly/file", root);
     snprintf(unicode_file, sizeof(unicode_file), "%s/out/pkg-1.0/données.txt",
              root);
+    snprintf(skip_absolute, sizeof(skip_absolute), "%s/skip-absolute", root);
+    snprintf(skip_climbing, sizeof(skip_climbing), "%s/skip-climbing", root);
+    snprintf(skipped_absolute, sizeof(skipped_absolute), "%s/link",
+             skip_absolute);
+    snprintf(skipped_climbing, sizeof(skipped_climbing), "%s/dir/link",
+             skip_climbing);
+    snprintf(skipped_survivor, sizeof(skipped_survivor), "%s/target",
+             skip_climbing);
     memset(link_target, 0, sizeof(link_target));
     CHECK_ERRNO(mkdir(destination, 0700) == 0, "cannot create the output root");
 
@@ -439,9 +537,30 @@ int main(void) {
     CHECK(make_unsafe_archive(unsafe, 0), "cannot write the traversal archive");
     CHECK_REJECTED(unsafe, "traversal", "member \"../escape\": rejected: ",
                    "unsafe path");
+    /* An absolute link target leaves the root, so the member is skipped and
+     * named rather than refusing the archive.  Never creating the link
+     * satisfies the confinement property exactly. */
     CHECK(make_unsafe_archive(unsafe, 1), "cannot write the symlink archive");
-    CHECK_REJECTED(unsafe, "symlink", "member \"link\": rejected: ",
-                   "symbolic link target `/outside`");
+    CHECK_ERRNO(mkdir(skip_absolute, 0700) == 0,
+                "cannot create the absolute-link skip root");
+    CHECK_SKIPPED(unsafe, skip_absolute, "symlink",
+                  "symbolic link target `/outside`");
+    CHECK(lstat(skipped_absolute, &status) != 0,
+          "the escaping symbolic link was created");
+
+    /* The same member requested by name is still refused: a recipe that asked
+     * for it would otherwise get silence instead of its file. */
+    CHECK(test_capture_begin(&capture, root),
+          "cannot capture stderr for the selected-member refusal");
+    selected_refused = !cbs_extract_archive_members(
+        unsafe, skip_absolute, requested, 1, "symlink-selected", location.path,
+        NULL, location);
+    test_capture_end(&capture, diagnostics, sizeof(diagnostics));
+    CHECK(selected_refused,
+          "an explicitly requested escaping link was not refused");
+    CHECK(strstr(diagnostics, "error[CPDL-E6001]") != NULL &&
+              strstr(diagnostics, "rejected: ") != NULL,
+          "the selected-member refusal was not reported as CPDL-E6001");
 
     CHECK(make_link_archive(links, 0), "cannot write the link archive");
     CHECK(cbs_extract_archive(links, destination, "links", location.path, NULL,
@@ -457,10 +576,22 @@ int main(void) {
     CHECK_ERRNO(lstat(hard, &status) == 0, "the hard link is missing");
     CHECK(S_ISREG(status.st_mode), "the hard link is not a regular file");
 
+    /* A relative target that climbs out of the root is the same rule and is
+     * skipped the same way.  The archive's legitimate members must survive:
+     * denying 20 MB of files over one unreachable link is what issue #283
+     * reported. */
     CHECK(make_link_archive(unsafe, 1),
           "cannot write the climbing-link archive");
-    CHECK_REJECTED(unsafe, "unsafe-link", "member \"dir/link\": rejected: ",
-                   "symbolic link target `../../outside`");
+    CHECK_ERRNO(mkdir(skip_climbing, 0700) == 0,
+                "cannot create the climbing-link skip root");
+    CHECK_SKIPPED(unsafe, skip_climbing, "unsafe-link",
+                  "symbolic link target `../../outside`");
+    CHECK(lstat(skipped_climbing, &status) != 0,
+          "the climbing symbolic link was created");
+    CHECK_ERRNO(lstat(skipped_survivor, &status) == 0,
+                "a legitimate member was dropped with the skipped link");
+    CHECK(S_ISREG(status.st_mode),
+          "the surviving member is not a regular file");
 
     CHECK(make_timestamp_archive(timestamps),
           "cannot write the timestamp archive");
@@ -539,7 +670,7 @@ cleanup:
         return 1;
     }
     puts("archive extraction tests: PASS (safe links, mtimes, implicit "
-         "parents, deferred directory modes, hostile entries, UTF-8 pax "
-         "paths, and named diagnostics)");
+         "parents, deferred directory modes, hostile entries, skipped "
+         "escaping links, UTF-8 pax paths, and named diagnostics)");
     return 0;
 }

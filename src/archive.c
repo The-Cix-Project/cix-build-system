@@ -252,6 +252,7 @@ int cbs_extract_archive_members(
     int header_result;
     struct stat status;
     char path[4096], rule_text[4352];
+    char skip_message[4096 + 4352 + 256];
     const char *member = NULL;
     const char *rule = NULL;
     int failure_errno = 0;
@@ -329,10 +330,31 @@ int cbs_extract_archive_members(
             REJECT("FIFO");
         if (is_link && symlink_target != NULL &&
             !safe_link_target(name, symlink_target)) {
-            snprintf(rule_text, sizeof(rule_text),
-                     "symbolic link target `%s` leaves the archive root",
-                     symlink_target);
-            REJECT(rule_text);
+            /* Skipping the member satisfies "nothing is written outside the
+             * root" exactly, because the link is never created.  Refusing the
+             * archive would additionally deny every legitimate member, and
+             * upstream trees are not written with this constraint in mind: one
+             * unreachable link must not make a tree unpackageable.  A member
+             * requested by name is still a refusal, because a recipe that
+             * named it would otherwise get silence instead of its file. */
+            if (members != NULL && member_count != 0) {
+                snprintf(rule_text, sizeof(rule_text),
+                         "symbolic link target `%s` leaves the archive root",
+                         symlink_target);
+                REJECT(rule_text);
+            }
+            /* Links are created in the second pass, so report there: the
+             * first pass walks the same members and would duplicate this. */
+            if (pass != 0) {
+                snprintf(skip_message, sizeof(skip_message),
+                         "source `%s`: member \"%s\": skipped: symbolic link "
+                         "target `%s` leaves the archive root",
+                         source_name == NULL ? "unknown" : source_name, name,
+                         symlink_target);
+                cbs_diagnostic(recipe_path, recipe_source, location, "warning",
+                               "CPDL-W6001", CBS_DIAG_SOURCE, skip_message);
+            }
+            continue;
         }
         if (is_link && symlink_target == NULL && !safe_name(hardlink)) {
             snprintf(rule_text, sizeof(rule_text),

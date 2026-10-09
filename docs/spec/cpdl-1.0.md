@@ -769,7 +769,22 @@ Configuration assertions use `require config PATH { SYMBOL = STATE ... }`.
 `# SYMBOL is not set` spelling, while `absent` requires neither form.
 
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
-and entries escaping through symlinks are runtime failures. A member whose
+and entries whose own path escapes the extraction root are runtime failures.
+
+A member that is itself a symbolic link whose target leaves the extraction root
+is **skipped**, not fatal: CBS never creates the link, which satisfies the
+confinement rule exactly, and reports one `CPDL-W6001` warning naming the
+source, the member, and the target. Both an absolute target and a relative
+target that climbs above the root are skipped under this rule. One unreachable
+link in a third-party tree therefore does not make that source unusable. A
+member skipped this way is still absent from the extracted tree, so a recipe
+that needs it fails on its own assertion rather than silently building without
+it. The exception is member selection: a symbolic link named explicitly in an
+`extract { member … }` block is a `CPDL-E6001` failure, because a recipe that
+requested a member by name must receive it or an error, never silence. A
+hard-link member whose target escapes the root remains a failure.
+
+A member whose
 parent directory has no member of its own is extracted beneath implicitly
 created parents; a directory member applies its mode and modification time
 after every member beneath it has been written, whatever the archive order.
@@ -1107,8 +1122,10 @@ CPDL-E2xxx  parse errors
 CPDL-E3xxx  validation errors
 CPDL-E4xxx  runtime/operation errors
 CPDL-E5xxx  source preparation and verification errors
-CPDL-E9xxx  internal invariant failures
+CPDL-E6xxx  archive preparation and extraction errors
 CPDL-W3xxx  validation warnings
+CPDL-W6xxx  archive preparation warnings
+CPDL-E9xxx  internal invariant failures
 CPDL-Nxxxx  related notes
 ```
 
@@ -1139,6 +1156,8 @@ The initial mandatory codes are:
 | `CPDL-E4006` | Source extraction failed safety validation |
 | `CPDL-E4007` | Staged-tree or packaging-policy refusal |
 | `CPDL-E5001` | Source checksum verification failed |
+| `CPDL-E6001` | Archive preparation or extraction was refused |
+| `CPDL-W6001` | Archive member skipped: its symbolic link target leaves the root |
 | `CPDL-E9001` | CBS internal invariant failed |
 
 ### 8.3 Required wording examples

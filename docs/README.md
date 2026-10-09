@@ -1,6 +1,6 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.105**. `VERSION`, the release tag,
+The current repository release is **CBS v0.1.106**. `VERSION`, the release tag,
 and the binary's `--version` output are kept in sync by the release gate.
 
 This directory contains the architecture and language documentation for:
@@ -122,6 +122,7 @@ active backlog.
 - [ADR-0036: Staging shared libraries from the build sandbox](adr/0036-stage-sandbox-libraries.md)
 - [Issue #178: stage library — ship a sandbox library without naming its directory](reviews/issue-0178-validation.md)
 - [Issue #179: lowercase environment names](reviews/issue-0179-validation.md)
+- [Issue #283: one escaping symlink rejects the whole source archive](reviews/issue-0283-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)
