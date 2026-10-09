@@ -55,7 +55,10 @@ public header, and pkg-config metadata from the same tag.
 ## Release checklist
 
 1. Update implementation, tests, guides, and current release references.
-2. Run `git diff --check` and the full `make -j1 test` gate.
+2. Run `git diff --check`, then `make -o version-check test`. At a tagged
+   checkout `version-check` refuses the bumped `VERSION` until the commit in
+   step 4 moves `HEAD` off the previous tag, so the full `make -j1 test` runs
+   after that commit and again from the new tag in step 7.
 3. Confirm the upstream qualification result is either passed or explicitly
    skipped because `CBS_UPSTREAM_CACHE` is unset.
 4. Commit the change with a focused message.
