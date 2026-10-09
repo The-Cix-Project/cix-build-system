@@ -529,6 +529,12 @@ int cbs_execute_materialize(const CbsNode *operation,
     struct stat status;
     int declared = 0;
     int result;
+    /* Which operand a refusal is about, and why.  The two have fixed and
+     * different roles, so the pair is chosen at the site that refuses rather
+     * than from the node kind: naming the source for a destination failure
+     * sends the author to check a source that is fine. */
+    const char *reported = operation->value;
+    const char *reason = "verified source cannot be materialized";
 
     if (source == NULL)
         goto failure;
@@ -544,6 +550,9 @@ int cbs_execute_materialize(const CbsNode *operation,
     destination = resolve_path(operation->second_value, context, &root);
     if (destination == NULL || !safe_parents(destination, root)) {
         free(destination);
+        reported = operation->second_value;
+        reason = "materialize destination cannot be resolved in the confined "
+                 "roots";
         goto failure;
     }
     result = copy_one(source, destination);
@@ -555,8 +564,7 @@ int cbs_execute_materialize(const CbsNode *operation,
     return result;
 
 failure:
-    fs_error(operation, context, operation->value,
-             "verified source cannot be materialized");
+    fs_error(operation, context, reported, reason);
     free(source);
     return 0;
 }

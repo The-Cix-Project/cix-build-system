@@ -164,3 +164,4 @@ All 148 records, by issue number:
 - [Issue #293 validation: documentation quality pass](issue-0293-validation.md)
 - [Issue #294 validation: a plain-text source whose first line looks like mtree is refused as a malformed archive](issue-0294-validation.md)
 - [Issue #295 validation: `materialize` had no failure tests despite being the third most-used operation](issue-0295-validation.md)
+- [Issue #296 validation: a `materialize` destination refusal is reported against the source](issue-0296-validation.md)

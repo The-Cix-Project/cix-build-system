@@ -687,6 +687,32 @@ static int run_test(const char *recipe_path) {
         snprintf(path, sizeof(path), "%s/../../escaped-materialize", build);
         CHECK_FS(lstat(path, &status) != 0);
 
+        /* Issue #296: a refusal names the operand that was refused.  The two
+         * operands have fixed and different roles, so a destination failure
+         * must not be reported against a source that is fine. */
+        CHECK_FS(test_capture_begin(&materialize_capture, capture_root));
+        materialize.value = "$source.config";
+        materialize.second_value = "${build}/../../escaped-operand";
+        refusals = !cbs_execute_materialize(&materialize, &context);
+        test_capture_end(&materialize_capture, materialize_output,
+                         sizeof(materialize_output));
+        CHECK_FS(refusals == 1);
+        CHECK_FS(strstr(materialize_output,
+                        "${build}/../../escaped-operand") != NULL);
+        CHECK_FS(strstr(materialize_output, "destination") != NULL);
+        CHECK_FS(strstr(materialize_output, "$source.config") == NULL);
+
+        /* A source refusal still names the source reference. */
+        CHECK_FS(test_capture_begin(&materialize_capture, capture_root));
+        materialize.value = "$source.nosuch";
+        materialize.second_value = "${build}/unreached";
+        refusals = !cbs_execute_materialize(&materialize, &context);
+        test_capture_end(&materialize_capture, materialize_output,
+                         sizeof(materialize_output));
+        CHECK_FS(refusals == 1);
+        CHECK_FS(strstr(materialize_output, "$source.nosuch") != NULL);
+        CHECK_FS(strstr(materialize_output, "verified source") != NULL);
+
         context.sources = saved_sources;
         context.source_count = saved_count;
     }
