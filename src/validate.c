@@ -631,6 +631,14 @@ static void validate_operation(Validator *validator, const CbsNode *operation,
         if (operation->kind == CBS_NODE_MOVE && operation->number)
             validation_error(validator, operation, "CPDL-E3004",
                              "move does not support tree sources");
+        /* CPDL 1.0 4.4 grants allow_failure to copy and remove only.  Those
+         * are best-effort operations on paths that may legitimately be
+         * absent; a move renames something the recipe just produced, so
+         * tolerating its failure hides a real defect rather than expressing
+         * intent. */
+        if (operation->kind == CBS_NODE_MOVE && operation->allow_failure)
+            validation_error(validator, operation, "CPDL-E3004",
+                             "move does not support allow_failure");
         if (operation->kind == CBS_NODE_COPY && operation->number &&
             operation->flag)
             validation_error(validator, operation, "CPDL-E3004",

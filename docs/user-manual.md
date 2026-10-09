@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.110 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.111 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -753,7 +753,15 @@ one, declare its exact staged path and mode at package scope, for example
 
 `copy` is not recursive. `move` stays within the CBS filesystem and does not
 fall back to copy-and-delete across filesystems. `remove tree` is required for
-non-empty directories. Symlink targets are stored exactly as written, while
+non-empty directories.
+
+A trailing `allow_failure` is accepted on `copy` and `remove`, and on those
+only. Both are best-effort operations over paths that may legitimately be
+absent — dropping a static archive that this configuration did not build, for
+example. `move` renames something the recipe has just produced, so a failure
+there is a defect rather than an expected outcome, and
+`move … allow_failure` is rejected at validation. Every other filesystem
+operation fails the phase. Symlink targets are stored exactly as written, while
 the link destination is confined. A glob selector is explicit:
 
 ```cbs

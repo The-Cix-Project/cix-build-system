@@ -1,0 +1,9 @@
+package "move-allow-failure" {
+    version "1"
+    release 1
+    format "cixpkg"
+    build {
+        write "${build}/a" "x\n" chmod 0644
+        move "${build}/a" to "${build}/b" allow_failure
+    }
+}
