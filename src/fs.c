@@ -229,9 +229,20 @@ static int safe_parents(const char *path, const char *root) {
         saved = *cursor;
         *cursor = '\0';
         if (lstat(copy, &status) == 0) {
-            if (!S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode)) {
+            if (S_ISLNK(status.st_mode)) {
+                /* A symbolic link in a parent position could redirect the
+                 * operation outside the root.  This is the confinement
+                 * refusal, and ELOOP describes it. */
                 free(copy);
                 errno = ELOOP;
+                return 0;
+            }
+            if (!S_ISDIR(status.st_mode)) {
+                /* An ordinary path collision: something that is not a
+                 * directory sits where one is needed.  Reporting ELOOP here
+                 * made this indistinguishable from the refusal above. */
+                free(copy);
+                errno = ENOTDIR;
                 return 0;
             }
         } else if (errno != ENOENT) {
@@ -471,6 +482,14 @@ static int copy_tree(const char *source, const char *destination) {
     }
     closedir(directory);
     return chmod(destination, source_mode) == 0;
+}
+
+/* The path an operation acts on.  Every filesystem operation names it in
+ * `value` except `symlink`, whose `value` is the link's target text and whose
+ * `second_value` is the path being created. */
+static const char *operation_target_path(const CbsNode *operation) {
+    return operation->kind == CBS_NODE_SYMLINK ? operation->second_value
+                                               : operation->value;
 }
 
 /* Name the destination parent when a filesystem operation failed there. */
@@ -1585,7 +1604,8 @@ failure:
             reported = paths.items[0];
         else
             reported = filesystem_failure_path(
-                operation, operation->value, failure_path, sizeof(failure_path));
+                operation, operation_target_path(operation), failure_path,
+                sizeof(failure_path));
         fs_error(operation, context, reported,
                  "filesystem operation failed");
     }

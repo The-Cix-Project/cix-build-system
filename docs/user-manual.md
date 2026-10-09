@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.109 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.110 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -1046,6 +1046,20 @@ does not reinterpret a nonzero status as success.
 `operation timed out` means CBS terminated and reaped the command’s process
 group. Reduce jobs, inspect for a deadlock, or set a justified larger timeout;
 never hide it with `allow_failure` in the main phase.
+
+`filesystem operation failed` names the path CBS acted on and the
+operating-system error, and two of those errors are worth telling apart:
+
+- `errno=20 (Not a directory)` — something that is not a directory sits where
+  one is needed, for example a `write` under a path that is already a regular
+  file. An ordinary mistake in the recipe or in the order of its operations.
+- `errno=40 (Too many levels of symbolic links)` — a **confinement refusal**. A
+  symbolic link occupies a parent position, so following it could have written
+  outside the CBS roots. CBS never follows it. Treat this as a policy refusal,
+  not a path typo.
+
+A failing `symlink` names the link path it could not create, not the target
+text, because the target is only the link's contents and is never resolved.
 
 CBS also applies child resource limits before execution. Standalone defaults
 cover address space, individual file size, CPU time, open descriptors, and

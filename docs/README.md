@@ -1,6 +1,6 @@
 # Cix Build System documentation
 
-The current repository release is **CBS v0.1.109**. `VERSION`, the release tag,
+The current repository release is **CBS v0.1.110**. `VERSION`, the release tag,
 and the binary's `--version` output are kept in sync by the release gate.
 
 This directory contains the architecture and language documentation for:
@@ -126,6 +126,7 @@ active backlog.
 - [Issue #282: an independent destination for the build event stream](reviews/issue-0282-validation.md)
 - [Issue #284: a relative --staged workspace and confined paths](reviews/issue-0284-validation.md)
 - [Issue #285: filesystem failures propagate; allow_failure has its own field](reviews/issue-0285-validation.md)
+- [Issue #287: a confinement refusal and a path collision are distinguishable](reviews/issue-0287-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

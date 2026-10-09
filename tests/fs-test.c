@@ -542,7 +542,9 @@ static int run_test(const char *recipe_path) {
     if (symlink(outside, path) != 0)
         FS_FAIL();
     escape.value = "${dest}/linked-parent/escaped";
-    if (!expect_failure(&escape, &context, NULL))
+    /* Issue #287: a symbolic link in a parent position is the confinement
+     * refusal, and keeps ELOOP so it stays distinguishable from a collision. */
+    if (!expect_failure(&escape, &context, "Too many levels of symbolic links"))
         FS_FAIL();
     path_join(path, sizeof(path), outside, "escaped");
     if (lstat(path, &status) == 0)
@@ -612,6 +614,26 @@ static int run_test(const char *recipe_path) {
         FS_FAIL();
     escape.second_flag = CBS_TOKEN_BLOCK_STRING;
     if (!expect_failure(&escape, &context, NULL))
+        FS_FAIL();
+
+    /* Issue #287: a parent that is merely not a directory is an ordinary
+     * collision, so it reports ENOTDIR.  Reporting ELOOP made it
+     * indistinguishable from the confinement refusal asserted above. */
+    escape.second_flag = CBS_TOKEN_STRING;
+    if (!expect_failure(&escape, &context, "Not a directory"))
+        FS_FAIL();
+
+    /* Issue #287: every filesystem operation names the path it acts on in
+     * `value` except symlink, whose `value` is the link's target text.  The
+     * failure must name the link path, not the target. */
+    memset(&escape, 0, sizeof(escape));
+    escape.location.path = recipe_path;
+    escape.location.line = 1;
+    escape.location.column = 1;
+    escape.kind = CBS_NODE_SYMLINK;
+    escape.value = "the-target";
+    escape.second_value = "${dest}/copied/a.txt/the-link";
+    if (!expect_failure(&escape, &context, "${dest}/copied/a.txt/the-link"))
         FS_FAIL();
 
     /* allow_failure still works where the grammar offers it: an optional glob

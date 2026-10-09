@@ -9,7 +9,7 @@ features must add focused success and failure assertions to this matrix.
 | Run argv, environment, optional inputs, jobs, expected exit, timeout, and limits | exec-test.c and argv.cbs |
 | on_fail, allow_failure, continuation, and primary errors | runtime-test.c and failure.cbs |
 | env, cd, mkdir, copy, move, remove, symlink, write, chmod, stage library, and globs | fs-test.c and filesystem.cbs |
-| Filesystem failures propagate, and allow_failure applies only where the grammar offers it | fs-test.c |
+| Filesystem failures propagate, name the path acted on, and distinguish a confinement refusal from a collision; allow_failure applies only where the grammar offers it | fs-test.c |
 | extract (including selective members), materialize, and configuration assertions | extract-test.c and extract.cbs |
 | Archive safety: refused member paths, skipped escaping symlinks, and the selected-member exception | archive-test.c |
 | replace (literal and until), insert, require kinds, and assertion diagnostics | edit-assert-test.c, edit-assert.cbs, and invalid fixtures with .expect text |
