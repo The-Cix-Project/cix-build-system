@@ -301,10 +301,16 @@ whatever the last few commits happened to do:
    since `bc277db`.
 3. Confirm the upstream qualification either passed or was explicitly skipped
    because `CBS_UPSTREAM_CACHE` is unset.
-4. Commit with a focused message: a lowercase imperative subject, then a body
-   explaining **why**, ending `Resolves #N.` for a ticket (see `d31f91a`,
-   `87d4ec0`). Subject-only, no body, is for changes with nothing to explain
-   (e.g. `Allow directory checksum list URLs`).
+4. Commit with a focused message. The history has two forms, and subject case
+   tracks whether there is a body:
+   - **Capitalized subject, no body** — the common form for ordinary changes
+     (`Allow directory checksum list URLs`, `Make declared tool policies
+     fingerprintable`). Every commit from v0.1.99 to v0.1.105 is this.
+   - **lowercase imperative subject, then a body explaining why**, ending
+     `Resolves #N.` — used when resolving a tracker ticket (`ee304b7`,
+     `d31f91a`). The body carries the reasoning the diff cannot.
+
+   Pick by whether there is a *why* worth recording, and match the case to it.
 5. Annotated tag, never lightweight: `git tag -a v0.1.N -m "CBS v0.1.N"`.
 6. Push the branch and tag together: `git push origin main v0.1.N`.
 7. Re-run `make -j1 test` from the tagged checkout.
