@@ -40,6 +40,10 @@ cd /home/osakka/cix-recipes && for r in $(find recipes -name '*.cbs'); do
 done
 ```
 
+When grepping the corpus for an operation keyword, anchor it: `remove` contains
+`move`, so `grep "move.*allow_failure"` returns every `remove … allow_failure`
+line. Use `grep -E '^[[:space:]]*move[[:space:]]'`.
+
 No `cixd` checkout exists on this machine. `/home/osakka/cix-cache` is a
 different project, not a CBS source cache.
 
@@ -349,18 +353,21 @@ using the real ticket title + the index entry in `docs/README.md` + a commit
 saying `Resolves #N` + push + a Gitea comment with before/after evidence + close
 via `PATCH state=closed`.
 
-## Residual spec drift (verified 2026-10-09)
+## Residual spec drift (verified 2026-10-09, v0.1.111)
 
-Mostly closed since the CPDL 1.0 promotion. What remains:
+Closed, as of v0.1.111. One known gap remains, unfiled:
 
-- `docs/spec/cpdl-1.0.md` §2.4's keyword set omits twelve keywords the parser
-  accepts: `license`, `metadata`, `replaces`, `resources`, `tools`,
-  `privileged`, `truncate`, `links`, `patch`, `parents`, `leaf`, `same_as`.
-  §3.1's grammar does list the declarations, so §2.4 is the stale part.
-- `docs/spec/cixpkg-1.0.md`'s manifest section lists only `f`/`d`/`l` entries
-  and never mentions the `m license <spdx>` metadata line that
-  `src/manifest.c:251` writes. The line itself *is* specified, but in
-  `cpdl-1.0.md` §3.1 instead.
+- `for` (the `require … { } for { … }` form) is described in
+  `cpdl-1.0.md` §4.7 **prose** only and appears in no EBNF production. It is in
+  §2.4's keyword set, but the formal grammar does not contain the construct.
+  Writing that production is a grammar change, not a list correction.
+
+When auditing §2.4's keyword set against the parser, three things shrink a
+naive grep: `sha256` contains digits; `after` is a ternary
+(`consume_word(parser, insert ? "after" : "from")`); and `config`, `needs`,
+`forbids` and the `require` kinds are compared against `->text` or checked in
+`src/validate.c` rather than passed to `is_word`. The full derivation is in
+`docs/reviews/issue-0288-validation.md`.
 
 Previously-noted drift that is now **fixed** — don't re-report it: a relative
 `--staged` works (#284, v0.1.108) and artifacts are byte-identical either way;
