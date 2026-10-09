@@ -130,6 +130,7 @@ active backlog.
 - [Issue #286: allow_failure is granted to copy and remove only](reviews/issue-0286-validation.md)
 - [Issue #288: the complete CPDL 1.0 keyword set](reviews/issue-0288-validation.md)
 - [Issue #289: the CIXPKG manifest metadata line](reviews/issue-0289-validation.md)
+- [Issue #290: the require-operation grammar, for lists, and require config](reviews/issue-0290-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

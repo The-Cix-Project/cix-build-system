@@ -776,10 +776,6 @@ archive. It copies that exact regular file into the confined build filesystem;
 it cannot read an arbitrary cache path or follow a source symlink. This is
 intended for checked configuration fragments and other auxiliary source files.
 
-Configuration assertions use `require config PATH { SYMBOL = STATE ... }`.
-`STATE` is `y`, `m`, `n`, or `absent`; `n` accepts either `SYMBOL=n` or Linux's
-`# SYMBOL is not set` spelling, while `absent` requires neither form.
-
 Absolute archive paths, `..` traversal, embedded NUL, duplicate output paths,
 and entries whose own path escapes the extraction root are runtime failures.
 
@@ -900,11 +896,11 @@ does not publish a binding.
 ### 4.7 Assertions and globs
 
 ```ebnf
-require-operation = require-file
-                  | require-directory
-                  | require-symlink
-                  | require-glob
+require-operation = ( require-file | require-directory | require-symlink
+                    | require-glob | require-config ), [ for-list ]
                   | require-tool ;
+
+for-list = "for", "{", text-value, { text-value }, "}" ;
 
 require-file = "require", "file", path-value, "{",
                "exists",
@@ -925,11 +921,22 @@ require-glob = "require", "glob", string, "{",
                ( "exactly" | "count" ), integer,
                "}" ;
 
+require-config = "require", "config", path-value, "{",
+                 identifier, "=", config-state,
+                 { identifier, "=", config-state },
+                 "}" ;
+
+config-state = "y" | "m" | "n" | "absent" ;
+
 require-tool = "require", "tool", string ;
 ```
 
-Any require operation may be followed by `for { text-value ... }`. Each value
-expands the assertion into one independent operation. A `run` may contain
+Every require operation except `require tool` may be followed by a `for` list.
+Each value expands the assertion into one independent operation, replacing the
+target the assertion inspects. `require tool` takes no `for` list and no
+property block: its operand is a tool name resolved against the approved
+command search path, not a target in the build filesystem, so there is no
+target for a value to replace. A `run` may contain
 `each text-value ...` after its fixed arguments; each value similarly expands
 the command, appending that value as the final argument. Both lists must be
 non-empty, and expansion is syntactic: there are no runtime variables or
@@ -944,6 +951,9 @@ dangling link satisfies `exists`; `target` compares the link text literally,
 after substitution, with the value given. Each `contains` performs a literal
 byte search. `same_as` compares two confined regular files byte-for-byte.
 `require glob` requires exactly the stated number of matches.
+`require config` asserts curated configuration states in a kconfig-style file.
+`absent` requires the symbol to carry neither form; `n` accepts either
+`SYMBOL=n` or Linux's `# SYMBOL is not set` spelling.
 `require tool` resolves a bare executable name through the approved command
 PATH and requires that it is executable. It does not execute the tool or
 depend on a tool-specific option such as `--version`, and it can verify a
