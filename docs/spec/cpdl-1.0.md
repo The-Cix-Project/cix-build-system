@@ -84,22 +84,34 @@ identifier-continue = identifier-start | "0"…"9" | "-" ;
 Identifiers are ASCII and case-sensitive. All keywords are lowercase. A
 keyword cannot be used where the grammar requires an identifier.
 
-The complete CPDL 1.0 keyword set is:
+The complete CPDL 1.0 keyword set is listed below, in alphabetical order reading
+down each column. It covers declaration names, phase and operation names,
+operation options, and assertion property names, because all of them are
+reserved in the positions this grammar gives them:
 
 ```text
-allow_failure  after      any           architecture  as          bootstrap
-build          cd         check         chmod       compiler       config
-configure      contains   copy          count       directory      build_image
-capability     toolchain  upstream      each        in
-env            exactly    exit          exists      expect
-extra          extract    file          from        glob          headers
-insert         into       jobs           library     main
-mkdir          move       on_fail        package     prepare
-release        format     remove        replace     require     requires
-run            runtime    sha256         source      sources     stage
-symlink        target     test           timeout     to          tool
-tree           until      url            version     whitespace  write
-materialize    line
+after          copy           install        package        stderr
+alias          count          into           parents        stdout
+allow_failure  directory      jobs           patch          strip
+any            each           key            prepare        symlink
+architecture   env            leaf           privileged     tag
+args           exactly        library        reason         target
+as             executable     license        release        test
+at             exists         line           remove         timeout
+before         exit           line_start     replace        to
+bootstrap      expect         links          replaces       tool
+build          extra          main           require        toolchain
+build_image    extract        materialize    requires       tools
+capability     file           member         resources      tree
+case           for            memory         run            truncate
+cd             forbids        metadata       runtime        until
+check          format         mkdir          same_as        upstream
+checksums      from           mode           sha256         url
+chmod          glob           move           signature      verify
+compiler       headers        needs          signed-tag     version
+config         in             nonempty       source         whitespace
+configure      input          on_fail        sources        write
+contains       insert         origin         stage
 ```
 
 Keywords reserved for later versions are not silently accepted. An unknown
