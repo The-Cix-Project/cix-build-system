@@ -129,6 +129,7 @@ active backlog.
 - [Issue #287: a confinement refusal and a path collision are distinguishable](reviews/issue-0287-validation.md)
 - [Issue #286: allow_failure is granted to copy and remove only](reviews/issue-0286-validation.md)
 - [Issue #288: the complete CPDL 1.0 keyword set](reviews/issue-0288-validation.md)
+- [Issue #289: the CIXPKG manifest metadata line](reviews/issue-0289-validation.md)
 - [Issue #24: CIXPKG creation](reviews/issue-0024-validation.md)
 - [Issue #25: CIXPKG inspection and verification](reviews/issue-0025-validation.md)
 - [Issue #26: Safe extraction and installation](reviews/issue-0026-validation.md)

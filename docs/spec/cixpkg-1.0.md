@@ -22,12 +22,22 @@ truncation. Byte 224 is a u8 metadata-flags field; bit 0
 policy completed before manifest generation. Unknown flag bits are invalid.
 All other header bytes are reserved and zero-filled.
 
-The manifest is UTF-8 text, sorted by unique path. Every entry carries an
-octal mode and normalized ownership (`uid=0 gid=0`):
+The manifest is UTF-8 text. It begins with zero or more metadata lines, then
+lists its entries sorted by unique path. Every entry carries an octal mode and
+normalized ownership (`uid=0 gid=0`):
 
+* metadata: `m key value\n`
 * regular file: `f mode 0 0 size digest path\n`
 * directory: `d mode 0 0 path\n`
 * symbolic link: `l mode 0 0 target-hex path\n`
+
+A writer emits its metadata lines before the first entry. A key is a token of
+at most 31 bytes; a value is the remainder of the line, at most 4095 bytes, and
+must not be empty. Readers accept any key and must not treat an unrecognized
+one as corruption, so a later CBS release can record a new fact without a
+format version; an unknown key is carried through rather than interpreted. CPDL
+1.0 defines one key, `license`, written when the recipe declares one (see
+`cpdl-1.0.md` §3.1). The path-ordering requirement applies to entries only.
 
 Regular-file bytes are concatenated in manifest order. Directories, including
 empty directories, have no payload bytes. Symbolic-link targets are stored
