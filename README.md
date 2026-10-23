@@ -129,3 +129,12 @@ What this repository owns, and what belongs to `cixd`, is stated in
 in [the blocker register](docs/integration-blockers.md), and the workstream view
 is in [the roadmap](docs/roadmap.md). Open work is tracked in the issue tracker,
 not in these documents.
+
+## Licence
+
+CBS is free software under the [GNU Lesser General Public License, version
+3](COPYING.LESSER), or (at your option) any later version
+(`LGPL-3.0-or-later`). The LGPL is a set of additional permissions on top of
+the [GNU General Public License, version 3](COPYING), which is why both texts
+are here. The Cix name and marks, and what counts as an official Cix artifact,
+are governed separately by [TRADEMARK.md](TRADEMARK.md).
