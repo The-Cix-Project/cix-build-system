@@ -75,13 +75,23 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     CbsBuildEvent event;
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     struct timespec now;
+    unsigned long long sequence;
 
-    if (context == NULL || context->event_sink == NULL)
+    if (context == NULL)
+        return 1;
+    /* Advance before the sink check, so a build numbers its events -- and the
+     * command logs named from them -- identically whether or not anyone is
+     * listening.  CBS_LOG_DIR is an opt-in a caller may set with no sink at
+     * all, and a counter that stalled there named every log command-1.log. */
+    sequence = mutable_context->sequence_counter != NULL
+                   ? ++*mutable_context->sequence_counter
+                   : ++mutable_context->event_sequence;
+    if (context->event_sink == NULL)
         return 1;
     memset(&event, 0, sizeof(event));
     event.version = 1;
     event.type = type;
-    event.sequence = ++mutable_context->event_sequence;
+    event.sequence = sequence;
     if (clock_gettime(CLOCK_REALTIME, &now) == 0)
         event.timestamp_ms = (unsigned long long)now.tv_sec * 1000ULL +
                              (unsigned long long)now.tv_nsec / 1000000ULL;
@@ -896,8 +906,14 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
         return 0;
     }
     if (context->log_directory != NULL) {
+        /* Name the log from the build's counter, not a copy's: two phases
+         * whose copies start level would otherwise name the same file and
+         * the later command would overwrite the earlier one's log. */
         if (snprintf(log_path, sizeof(log_path), "%s/command-%llu.log",
-                     context->log_directory, context->event_sequence + 1) >=
+                     context->log_directory,
+                     (context->sequence_counter != NULL
+                          ? *context->sequence_counter
+                          : context->event_sequence) + 1) >=
             (int)sizeof(log_path)) {
             runtime_error(run, context, "CPDL-E4001",
                           "command log path is too long");

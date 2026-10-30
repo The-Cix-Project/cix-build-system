@@ -32,6 +32,11 @@ cc $(pkg-config --cflags --libs --static cbs) consumer.c -o consumer
 cbs --capabilities
 ```
 
+`CBS_ABI_VERSION` is 4 as of v0.1.117, raised from 3 when
+`CbsExecutionContext` gained the build-wide event counter that makes event
+sequence numbers monotonic. A consumer built against ABI 3 must be rebuilt; the
+guard below is what catches it.
+
 The public header exposes `CBS_API_VERSION`, `CBS_ABI_VERSION`,
 `CBS_CPDL_VERSION`, `CBS_CPDL_CONTRACT`, and `CBS_CIXPKG_VERSION`. `CBS_CPDL_CONTRACT`
 is the language version (`"1.0"`), while `CBS_CPDL_VERSION` is its numeric

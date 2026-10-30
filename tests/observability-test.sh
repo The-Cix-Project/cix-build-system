@@ -121,4 +121,57 @@ if "$cbs" build tests/fixtures/observability-success.cbs \
 fi
 grep -F 'cannot be combined' "$root/both.bad.stderr" >/dev/null
 
-echo 'observability tests: PASS (events, reporters, event destinations, redaction, logs, metrics, failure, timeout)'
+# Issue #298: one counter for the build. A phase or `cd` block runs in a copy
+# of the execution context, so a counter held in the copy numbered events
+# nobody else saw: phase-end carried a number lower than the commands inside
+# that phase, and the next phase reused numbers already issued.
+mkdir "$root/seqstage" "$root/seqlogs" "$root/seqlogs-nosink"
+CBS_LOG_DIR="$root/seqlogs" "$cbs" build \
+    tests/fixtures/observability-sequence.cbs \
+    --arch x86_64 --staged "$root/seqstage" --output "$root/seq.cixpkg" \
+    --events-file "$root/seq.events" >"$root/seq.out" 2>"$root/seq.err"
+
+# Strictly increasing, with no value issued twice.
+sed -n 's/.*"sequence":\([0-9]*\).*/\1/p' "$root/seq.events" >"$root/seq.nums"
+total=$(wc -l <"$root/seq.nums")
+distinct=$(sort -u -n "$root/seq.nums" | wc -l)
+if [ "$total" -ne "$distinct" ]; then
+    echo "observability tests: $total events but only $distinct distinct" \
+        "sequence numbers" >&2
+    exit 1
+fi
+if ! sort -n -c "$root/seq.nums" 2>/dev/null; then
+    echo 'observability tests: event sequence numbers are not increasing' >&2
+    exit 1
+fi
+# The shape that regressed: the phase's own phase-end must come after every
+# command inside it, not before.
+first_phase_end=$(sed -n 's/.*"type":"phase-end".*"sequence":\([0-9]*\).*/\1/p' \
+    "$root/seq.events" | head -1)
+last_prepare_cmd=$(grep '"phase":"prepare"' "$root/seq.events" |
+    sed -n 's/.*"sequence":\([0-9]*\).*/\1/p' | sort -n | tail -1)
+test -n "$first_phase_end"
+test -n "$last_prepare_cmd"
+if [ "$first_phase_end" -lt "$last_prepare_cmd" ]; then
+    echo "observability tests: phase-end ($first_phase_end) precedes a command" \
+        "in its own phase ($last_prepare_cmd)" >&2
+    exit 1
+fi
+
+# One log per command, and the same names whether or not events are consumed:
+# the counter advances before the sink check, so a log name does not depend on
+# anyone listening. Four commands run in that fixture.
+test "$(ls "$root/seqlogs" | wc -l)" -eq 4
+CBS_LOG_DIR="$root/seqlogs-nosink" "$cbs" build \
+    tests/fixtures/observability-sequence.cbs \
+    --arch x86_64 --staged "$root/seqstage" --output "$root/seq2.cixpkg" \
+    >"$root/seq2.out" 2>"$root/seq2.err"
+test "$(ls "$root/seqlogs-nosink" | wc -l)" -eq 4
+ls "$root/seqlogs" | sort >"$root/seqlogs.list"
+ls "$root/seqlogs-nosink" | sort >"$root/seqlogs-nosink.list"
+if ! cmp -s "$root/seqlogs.list" "$root/seqlogs-nosink.list"; then
+    echo 'observability tests: command log names depend on the event sink' >&2
+    exit 1
+fi
+
+echo 'observability tests: PASS (events, reporters, event destinations, sequence numbering, redaction, logs, metrics, failure, timeout)'

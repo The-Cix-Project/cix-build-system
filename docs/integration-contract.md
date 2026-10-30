@@ -126,6 +126,20 @@ aggregate the same events alongside either destination.
 CBS event callbacks are synchronous and may reject an event; CBS then fails the
 build closed. Event strings and pointers are valid only for the callback
 duration, and sequence numbers are monotonically increasing within a build.
+
+That last property was broken until v0.1.117: a phase or `cd` block executes in
+a copy of the execution context, and the counter lived in the copy, so a
+`phase-end` carried a number lower than the commands inside its own phase and
+the next phase reissued numbers already used. A consumer that dropped any event
+whose sequence did not advance lost every `phase-end`. One counter now belongs
+to the build and every copy advances it, which required a new
+`CbsExecutionContext` field and so `CBS_ABI_VERSION` 4 — rebuild an embedder
+against the matching header.
+
+The counter advances whether or not a sink is attached, so a build numbers its
+events identically either way. Command logs are named from it, which is why
+`CBS_LOG_DIR` with no sink previously named every log `command-1.log` and kept
+only the last.
 The `cbs_build_event_jsonl()` and `cbs_build_event_human()` sinks provide
 reusable output adapters, but presentation and transport remain cixd concerns.
 

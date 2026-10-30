@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 3U
+#define CBS_ABI_VERSION 4U
 /* Numeric language contract version.  The public language contract is CPDL
  * 1.0; the string form below is authoritative for external consumers. */
 #define CBS_CPDL_VERSION 1U
@@ -177,7 +177,16 @@ typedef struct {
     const char *current_prune_path;
     const char *current_prune_rule;
     unsigned long long current_prune_bytes;
+    /* Storage for the build's event counter.  Read it only through
+     * sequence_counter: a phase or `cd` block runs in a copy of this struct,
+     * so a counter held in the copy advances a number nobody else sees. */
     unsigned long long event_sequence;
+    /* The one counter for the whole build, pointing at the originating
+     * context's event_sequence.  Every copy inherits the pointer, so numbering
+     * stays monotonic across phases.  NULL falls back to the local field,
+     * which is what a caller that zeroes this struct and drives execution
+     * itself gets. */
+    unsigned long long *sequence_counter;
     unsigned long long current_cpu_ms;
     unsigned long long current_max_memory_bytes;
     unsigned long long current_source_bytes;

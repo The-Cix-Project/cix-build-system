@@ -5,7 +5,7 @@ reads, and **CIXPKG** is the artifact format it produces and verifies. This
 directory holds the language and artifact specifications, the practical guides,
 and the project's decision and validation history.
 
-Current release: **CBS v0.1.116**. `VERSION`, the release tag, and
+Current release: **CBS v0.1.117**. `VERSION`, the release tag, and
 `cbs --version` are kept in sync by the release gate.
 
 ## Start here
@@ -76,12 +76,12 @@ Open work is tracked in the issue tracker, not in these documents.
 
 - [Architecture decision records](adr/README.md) — all 37, with the rule that a
   decision is superseded rather than rewritten
-- [Validation records](reviews/README.md) — all 153, one per closed issue,
+- [Validation records](reviews/README.md) — all 154, one per closed issue,
   describing the implementation at that issue's close date rather than today
 
 ## Release notes
 
-- [v0.1.106 – v0.1.116, and the licence change](release-notes-0.1.116.md) — for
+- [v0.1.106 – v0.1.117, and the licence change](release-notes-0.1.117.md) — for
   maintainers, recipe authors and embedders: what to act on, what was
   unblocked, and the diagnostics that changed
 

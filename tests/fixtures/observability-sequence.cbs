@@ -1,0 +1,24 @@
+# Several phases, several commands each: the shape that exposes a per-phase
+# event counter. A build whose phases each ran one command cannot show a
+# sequence number repeating across phases, which is why issue #298 went
+# unnoticed against observability-success.cbs.
+package "observability-sequence" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    prepare {
+        run "true" { expect exit 0 }
+        run "true" { expect exit 0 }
+    }
+
+    build {
+        run "true" { expect exit 0 }
+        write "${dest}/built" "built\n" chmod 0644
+    }
+
+    install {
+        run "true" { expect exit 0 }
+        require file "${dest}/built" { exists }
+    }
+}

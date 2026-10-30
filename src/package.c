@@ -1253,6 +1253,9 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     context.recipe_source = text;
     context.event_sink = event_sink;
     context.event_sink_user = event_sink_user;
+    /* One counter for the build.  Phases and `cd` blocks execute in copies of
+     * this context, so the pointer -- not the value -- is what they share. */
+    context.sequence_counter = &context.event_sequence;
     context.build_id = build_id;
     context.log_directory = getenv("CBS_LOG_DIR");
     if (ok && sources.count > 0)
