@@ -25,6 +25,7 @@ features must add focused success and failure assertions to this matrix.
 | A command inherits no descriptor above stderr: not the event stream, not one the composer leaked | descriptor-hygiene-test.sh |
 | A command's stdin is /dev/null, not whatever CBS was given | descriptor-hygiene-test.sh |
 | Two different finalizers give different keys; the verb predicts a finalizer build; an unidentified callback refuses a key | finalizer-identity-test.sh and policy-test.c |
+| The verb predicts a build using --firmware-root or --prune-policy, in both option forms, and refuses what a build refuses | fingerprint-parity-test.sh |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
 | Several outputs from one recipe: the partition, per-output license and requires, canonical names, one shared fingerprint, per-output determinism, and the overlap and single-path refusals | multi-output-test.sh, multi-output.cbs, output-overlap.cbs, and the invalid output-* fixtures |

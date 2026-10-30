@@ -795,7 +795,8 @@ static void usage(FILE *stream) {
         "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
         "  cbs fingerprint RECIPE.cbs --arch ARCH [--command-path DIRS]\n"
         "      [--library-path DIRS] [--tool-identity NAME@VERSION=MANIFEST_SHA256 ...]\n"
-        "      [--finalize-command CMD]         Compute the build action fingerprint\n"
+        "      [--finalize-command CMD] [--prune-policy FILE]\n"
+        "      [--firmware-root DIR]            Compute the build action fingerprint\n"
         "  cbs list ARTIFACT.cixpkg [--json]    List verified manifest entries\n"
         "  cbs diff LEFT.cixpkg RIGHT.cixpkg [--json] Compare manifests\n"
         "  cbs --capabilities                    Show integration capabilities\n"
@@ -2412,6 +2413,8 @@ typedef struct {
     CbsToolIdentity tool_identities[32];
     size_t tool_identity_count;
     const char *finalize_command;
+    const char *prune_policy_path;
+    const char *firmware_root;
 } CbsFingerprintOptions;
 
 static int add_fingerprint_input(CbsFingerprintOptions *options,
@@ -2503,10 +2506,16 @@ static int parse_fingerprint_options(int argc, char **argv,
             value = argument + 15;
         else if (strncmp(argument, "--finalize-command=", 19) == 0)
             value = argument + 19;
+        else if (strncmp(argument, "--prune-policy=", 15) == 0)
+            value = argument + 15;
+        else if (strncmp(argument, "--firmware-root=", 16) == 0)
+            value = argument + 16;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--command-path") == 0 ||
                  strcmp(argument, "--library-path") == 0 ||
-                 strcmp(argument, "--finalize-command") == 0) {
+                 strcmp(argument, "--finalize-command") == 0 ||
+                 strcmp(argument, "--prune-policy") == 0 ||
+                 strcmp(argument, "--firmware-root") == 0) {
             if (++index >= argc) {
                 cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
                            "option `%s` requires a value", argument);
@@ -2527,6 +2536,12 @@ static int parse_fingerprint_options(int argc, char **argv,
         else if (strcmp(argument, "--finalize-command") == 0 ||
                  strncmp(argument, "--finalize-command=", 19) == 0)
             options->finalize_command = value;
+        else if (strcmp(argument, "--prune-policy") == 0 ||
+                 strncmp(argument, "--prune-policy=", 15) == 0)
+            options->prune_policy_path = value;
+        else if (strcmp(argument, "--firmware-root") == 0 ||
+                 strncmp(argument, "--firmware-root=", 16) == 0)
+            options->firmware_root = value;
         else
             options->library_path = value;
     }
@@ -2547,6 +2562,38 @@ static int fingerprint_file(CbsFingerprintOptions *options) {
     context.tool_identity_count = options->tool_identity_count;
     /* Resolve and digest the finalizer the way a build does, so a key for a
      * finalizer build is predictable without running one (#303). */
+    if (options->firmware_root != NULL) {
+        struct stat firmware_status;
+        if (stat(options->firmware_root, &firmware_status) != 0 ||
+            !S_ISDIR(firmware_status.st_mode)) {
+            cli_errorf(options->firmware_root, "CBS-E1008", "input", 3,
+                       "firmware root is not an accessible directory");
+            free_fingerprint_inputs(options);
+            free_tool_identities(options->tool_identities,
+                                 options->tool_identity_count);
+            return 3;
+        }
+        context.firmware_root = options->firmware_root;
+    }
+    if (options->prune_policy_path != NULL) {
+        CbsPrunePolicy prune_policy = {0};
+        char prune_error[512];
+        /* Loaded, not merely named: the key binds the three resolved booleans,
+         * so naming the file would predict nothing. */
+        if (!cbs_prune_policy_load(options->prune_policy_path, &prune_policy,
+                                   prune_error, sizeof(prune_error))) {
+            cli_errorf("fingerprint", "CBS-E1007", "policy", 2, "%s",
+                       prune_error);
+            free_fingerprint_inputs(options);
+            free_tool_identities(options->tool_identities,
+                                 options->tool_identity_count);
+            return 2;
+        }
+        context.prune_strip_debug = prune_policy.strip_debug;
+        context.prune_drop_static_archives = prune_policy.drop_static_archives;
+        context.prune_drop_libtool_archives =
+            prune_policy.drop_libtool_archives;
+    }
     if (options->finalize_command != NULL) {
         resolved_finalizer = resolve_finalize_command(
             options->finalize_command,

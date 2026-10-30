@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.123, and the licence change
+# CBS v0.1.106 – v0.1.124, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the eighteen releases of 2026-10-09 and
-2026-10-30, which closed twenty-three tracker issues.
+licence decision of 2026-10-23 and the nineteen releases of 2026-10-09 and
+2026-10-30, which closed twenty-four tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -135,8 +135,14 @@ artifact says what finalized it.
 
 `cbs fingerprint` accepts `--finalize-command` too, resolved and digested the
 same way, so a finalizer build's key is predictable before the build — which is
-what the key is for. `--prune-policy` and `--firmware-root` still cannot be
-given to the verb and both enter the key; that is #305.
+what the key is for.
+
+From v0.1.124 the verb also takes `--prune-policy` and `--firmware-root`, the
+last two inputs that entered the key and could not be given to it (#305). The
+prune policy is **loaded** rather than named, because the key binds the three
+rules it resolves to and not the file. So every input in the key can be given
+to the verb, and the documentation no longer carries a list of exceptions to
+the parity claim.
 
 **For a library embedder:** pass the identity to
 `cbs_build_standalone_with_finalizer()` or
@@ -476,7 +482,7 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 46 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 47 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 71 cases, and they also pass under
 TCC bounds instrumentation (`tcc -b`) as of v0.1.120.
@@ -493,7 +499,7 @@ artifacts — is the one gate step that does not run by default; it needs
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#304 cover this
+decision, its evidence, and the acceptance criteria met: #282–#305 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

@@ -93,9 +93,9 @@ alias, not the workspace-specific wrapper directory. Consequently,
 `cbs fingerprint` can compute the same key before materialisation, and the
 report and packaged provenance remain identical to that precomputed key, given
 the same `--arch`, `--command-path`, `--library-path`, `--input` and
-`--tool-identity` and `--finalize-command`. `fingerprint` accepts no
-`--prune-policy` or `--firmware-root`, and both enter the key, so a build that
-uses either cannot be predicted by the verb.
+`--tool-identity`, `--finalize-command`, `--prune-policy` and
+`--firmware-root`. Every input that enters the key can be given to the verb, so
+a key is knowable before a build with no exceptions to remember (#305).
 
 The key binds each executable the recipe runs by digest, resolved through the
 approved command path; it does not hash the rest of the path. A firmware root

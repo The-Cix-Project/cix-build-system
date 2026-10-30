@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.123 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.124 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -170,9 +170,10 @@ The contents of a search path are not otherwise material: CBS binds the
 commands a recipe actually invokes, not every file on the path. So a key is
 available for an ordinary recipe, and `build` and `fingerprint` agree on it
 given the same `--arch`, `--command-path`, `--library-path`, `--input` and
-`--tool-identity` and `--finalize-command`. `fingerprint` accepts no
-`--prune-policy` or `--firmware-root`, and each enters the key, so a build
-using either is not predictable from the verb. A recipe whose command name is
+`--tool-identity`, `--finalize-command`, `--prune-policy` and
+`--firmware-root`. Every input that enters the key can be given to the verb,
+so a key is knowable before a build. `--prune-policy` is loaded rather than
+named, because the key binds the three rules it resolves to and not the file. A recipe whose command name is
 interpolated or relative
 cannot be measured, and the artifact then records
 `build_fingerprint unavailable` with a `build_fingerprint_reason` naming the
