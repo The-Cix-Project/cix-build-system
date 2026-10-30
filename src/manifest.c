@@ -229,6 +229,118 @@ static int write_entry(FILE *file, const CbsManifestEntry *entry) {
 }
 
 /* Collect, sort, and write a deterministic manifest file. */
+/* Does this output claim `path`?  A selector is either an exact staged path or
+ * a glob; an exact selector naming a directory claims the whole subtree, which
+ * is what `files { "usr/share/doc" }` has to mean. */
+static int selector_claims(const CbsOutputSelector *selector,
+                           const char *path) {
+    size_t length;
+    if (selector->glob)
+        return cbs_glob_match(selector->pattern, path);
+    if (strcmp(selector->pattern, path) == 0)
+        return 1;
+    length = strlen(selector->pattern);
+    return strncmp(selector->pattern, path, length) == 0 &&
+           path[length] == '/';
+}
+
+/* Which output claims `path`: its index, or -1 for the main package.  A path
+ * claimed twice is refused rather than resolved by declaration order, because
+ * silent precedence would make a package's contents depend on the order its
+ * outputs happen to appear in (ADR-0038). */
+static int claiming_output(const CbsOutputSpec *outputs, size_t output_count,
+                           const char *path, char *error, size_t error_size) {
+    size_t index;
+    size_t selector;
+    int claimed = -1;
+    for (index = 0; index < output_count; ++index)
+        for (selector = 0; selector < outputs[index].selector_count;
+             ++selector)
+            if (selector_claims(&outputs[index].selectors[selector], path)) {
+                if (claimed >= 0 && (size_t)claimed != index) {
+                    set_error(error, error_size,
+                              "staged path %s is claimed by outputs %s and %s",
+                              path, outputs[claimed].name,
+                              outputs[index].name);
+                    return -2;
+                }
+                claimed = (int)index;
+                break;
+            }
+    return claimed;
+}
+
+int cbs_manifest_write_outputs(const char *root,
+                               const CbsOutputSpec *outputs,
+                               size_t output_count,
+                               const CbsPrivilegedAllowance *allowances,
+                               size_t allowance_count, char *error,
+                               size_t error_size) {
+    CbsManifestEntry *items = NULL;
+    size_t count = 0, capacity = 0, index;
+    size_t output_index;
+    int *owner = NULL;
+    int result = 0;
+
+    if (error != NULL && error_size > 0)
+        error[0] = '\0';
+    /* One walk, then partition.  Walking per output would let two manifests
+     * disagree about ordering or a digest, the reasoning ADR-0037 applied to
+     * the payload index. */
+    if (!collect(root, "", &items, &count, &capacity, allowances,
+                 allowance_count, error, error_size))
+        goto done;
+    qsort(items, count, sizeof(*items), cbs_manifest_compare);
+    owner = cbs_allocate(count == 0 ? 1 : count * sizeof(*owner));
+    for (index = 0; index < count; ++index) {
+        owner[index] = claiming_output(outputs, output_count,
+                                       items[index].path, error, error_size);
+        if (owner[index] == -2)
+            goto done;
+    }
+    for (output_index = 0; output_index < output_count; ++output_index) {
+        const CbsOutputSpec *spec = &outputs[output_index];
+        size_t claimed = 0;
+        FILE *file;
+        for (index = 0; index < count; ++index)
+            if (owner[index] == (int)output_index)
+                ++claimed;
+        if (claimed == 0 && !spec->is_main) {
+            set_error(error, error_size,
+                      "output %s claims no staged path", spec->name);
+            goto done;
+        }
+        /* The main package with nothing left over is not emitted: the recipe
+         * produces exactly the outputs it named (ADR-0038). */
+        if (claimed == 0 && spec->is_main && output_count > 1)
+            continue;
+        file = fopen(spec->manifest_path, "wb");
+        if (file == NULL) {
+            set_error(error, error_size, "%s: cannot write manifest: %s",
+                      spec->manifest_path, strerror(errno));
+            goto done;
+        }
+        if (spec->license != NULL &&
+            fprintf(file, "m license %s\n", spec->license) < 0) {
+            fclose(file);
+            goto done;
+        }
+        for (index = 0; index < count; ++index)
+            if (owner[index] == (int)output_index &&
+                !write_entry(file, &items[index])) {
+                fclose(file);
+                goto done;
+            }
+        if (fclose(file) != 0)
+            goto done;
+    }
+    result = 1;
+done:
+    free(owner);
+    cbs_manifest_entries_destroy(items, count);
+    return result;
+}
+
 int cbs_manifest_write_with_license_policy_error(
     const char *root, const char *output, const char *license,
     const CbsPrivilegedAllowance *allowances, size_t allowance_count,

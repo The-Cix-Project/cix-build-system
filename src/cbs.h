@@ -122,7 +122,15 @@ typedef enum {
     /* stage library/file/tree from an approved build image root. */
     CBS_NODE_STAGE,
     /* Explicit package-level authorization for one privileged file mode. */
-    CBS_NODE_PRIVILEGED
+    CBS_NODE_PRIVILEGED,
+    /* One additional package emitted from this build (ADR-0038).  Its name is
+     * the output's package name; its children are the file selectors and its
+     * own requires, license and replaces. */
+    CBS_NODE_OUTPUT,
+    /* The staged paths one output claims. */
+    CBS_NODE_FILES,
+    /* One selector inside `files`: a path or a glob when `flag` is set. */
+    CBS_NODE_FILE_SELECTOR
 } CbsNodeKind;
 
 typedef struct CbsNode CbsNode;
@@ -298,6 +306,9 @@ int cbs_execute_edit_assertion(const CbsNode *operation,
                                const CbsExecutionContext *context);
 int cbs_execute_glob_binding(const CbsNode *operation,
                              const CbsExecutionContext *context);
+/* Match one path against the CPDL glob syntax.  The single matcher: recipe
+ * globs and output file selectors must agree on what a pattern selects. */
+int cbs_glob_match(const char *pattern, const char *text);
 /* Expand a confined glob into sorted, owned argument paths. */
 int cbs_expand_glob(const char *pattern, const CbsExecutionContext *context,
                     char ***matches, size_t *count);
@@ -328,6 +339,35 @@ typedef struct {
     /* Exact permission bits authorized for this path. */
     unsigned mode;
 } CbsPrivilegedAllowance;
+typedef struct {
+    /* The selector text, relative to the staged root. */
+    const char *pattern;
+    /* Nonzero when the selector is a glob rather than an exact path. */
+    int glob;
+} CbsOutputSelector;
+
+typedef struct {
+    /* The output's package name. */
+    const char *name;
+    /* Where this output's manifest is written. */
+    const char *manifest_path;
+    /* SPDX expression for this output, or NULL. */
+    const char *license;
+    /* Nonzero for the package declaration itself, which claims whatever no
+     * other output did and is omitted when that is nothing. */
+    int is_main;
+    const CbsOutputSelector *selectors;
+    size_t selector_count;
+} CbsOutputSpec;
+
+/* Write one manifest per output from a single walk of the staged root.  A path
+ * claimed by two outputs is refused; one claimed by none belongs to the main
+ * output (ADR-0038). */
+int cbs_manifest_write_outputs(const char *root, const CbsOutputSpec *outputs,
+                               size_t output_count,
+                               const CbsPrivilegedAllowance *allowances,
+                               size_t allowance_count, char *error,
+                               size_t error_size);
 /* Compare manifest entries by their canonical path. */
 int cbs_manifest_compare(const void *left, const void *right);
 /* Collect and sort every supported entry beneath a staged root. */

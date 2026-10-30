@@ -1554,6 +1554,72 @@ static CbsNode *parse_tools(CbsParser *parser) {
 }
 
 /* Parse an explicit per-path privileged-file package allowance. */
+/* Parse one additional package output (ADR-0038).  `files` claims staged
+ * paths; `requires`, `license` and `replaces` describe the output itself and
+ * reuse the package-level grammar, so there is no second vocabulary. */
+static CbsNode *parse_output(CbsParser *parser) {
+    CbsToken *keyword = consume_word(parser, "output");
+    CbsToken *name = consume_kind(parser, CBS_TOKEN_STRING, "output name");
+    CbsNode *node = cbs_node_create(CBS_NODE_OUTPUT, keyword->location);
+
+    if (name != NULL)
+        node->value = cbs_duplicate(name->text);
+    consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+    while (!parser->failed && current(parser)->kind != CBS_TOKEN_RBRACE &&
+           current(parser)->kind != CBS_TOKEN_EOF) {
+        if (is_word(parser, "files")) {
+            CbsToken *files_keyword = advance(parser);
+            CbsNode *files =
+                cbs_node_create(CBS_NODE_FILES, files_keyword->location);
+            consume_kind(parser, CBS_TOKEN_LBRACE, "{");
+            while (!parser->failed &&
+                   current(parser)->kind != CBS_TOKEN_RBRACE &&
+                   current(parser)->kind != CBS_TOKEN_EOF) {
+                CbsNode *selector;
+                CbsToken *value;
+                int is_glob = 0;
+                if (is_word(parser, "glob")) {
+                    advance(parser);
+                    is_glob = 1;
+                }
+                value = consume_kind(parser, CBS_TOKEN_STRING,
+                                     is_glob ? "glob string" : "staged path");
+                if (value == NULL)
+                    break;
+                selector = node_from_token(CBS_NODE_FILE_SELECTOR, value);
+                selector->flag = is_glob;
+                cbs_node_add(files, selector);
+            }
+            consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+            cbs_node_add(node, files);
+            continue;
+        }
+        if (is_word(parser, "requires")) {
+            cbs_node_add(node, parse_requires(parser));
+            continue;
+        }
+        if (is_word(parser, "replaces")) {
+            cbs_node_add(node, parse_replaces(parser));
+            continue;
+        }
+        if (is_word(parser, "license")) {
+            CbsToken *license_keyword = advance(parser);
+            CbsToken *value =
+                consume_kind(parser, CBS_TOKEN_STRING, "license string");
+            CbsNode *license =
+                cbs_node_create(CBS_NODE_LICENSE, license_keyword->location);
+            if (value != NULL)
+                license->value = cbs_duplicate(value->text);
+            cbs_node_add(node, license);
+            continue;
+        }
+        expected(parser, "files, requires, license, replaces or }");
+        break;
+    }
+    consume_kind(parser, CBS_TOKEN_RBRACE, "}");
+    return node;
+}
+
 static CbsNode *parse_privileged(CbsParser *parser) {
     CbsToken *keyword = current(parser);
     CbsToken *value;
@@ -1639,6 +1705,8 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         return parse_tools(parser);
     if (is_word(parser, "privileged"))
         return parse_privileged(parser);
+    if (is_word(parser, "output"))
+        return parse_output(parser);
     if (phase_word(parser)) {
         advance(parser);
         node = cbs_node_create(CBS_NODE_PHASE, keyword->location);

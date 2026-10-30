@@ -915,6 +915,8 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
         return 8;
     case CBS_NODE_PRIVILEGED:
         return 9;
+    case CBS_NODE_OUTPUT:
+        return 9;
     case CBS_NODE_PHASE:
         if (strcmp(name, "prepare") == 0)
             return 10;
@@ -1278,6 +1280,9 @@ static void validate_package(Validator *validator) {
             if (other->kind == item->kind &&
                 item->kind != CBS_NODE_CAPABILITY &&
                 item->kind != CBS_NODE_PRIVILEGED &&
+                /* Outputs are repeatable by design (ADR-0038); a repeated
+                 * *name* is caught where output names are checked. */
+                item->kind != CBS_NODE_OUTPUT &&
                 (item->kind != CBS_NODE_PHASE ||
                  strcmp(other->name, item->name) == 0))
                 validation_error(validator, item, "CPDL-E3002",
@@ -1447,6 +1452,59 @@ static void validate_package(Validator *validator) {
                 validation_error(validator, item, "CPDL-E3004",
                                  "privileged file mode must include setuid or setgid");
             break;
+        case CBS_NODE_OUTPUT: {
+            /* ADR-0038.  An output is a package, so its name obeys the
+             * package-name grammar; a duplicate name would make two artifacts
+             * claim one identity.  An output that claims nothing is always a
+             * mistake in a selector, and saying so names which. */
+            size_t earlier;
+            const CbsNode *files = NULL;
+            size_t child;
+            if (item->value == NULL || !valid_package_name(item->value))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "output name must be a package name");
+            else if (package->value != NULL &&
+                     strcmp(item->value, package->value) == 0)
+                validation_error(validator, item, "CPDL-E3002",
+                                 "output name duplicates the package name");
+            for (earlier = 0; earlier < index; ++earlier) {
+                const CbsNode *before = package->children[earlier];
+                if (before->kind == CBS_NODE_OUTPUT && before->value != NULL &&
+                    item->value != NULL &&
+                    strcmp(before->value, item->value) == 0)
+                    validation_error(validator, item, "CPDL-E3002",
+                                     "duplicate output name");
+            }
+            for (child = 0; child < item->child_count; ++child) {
+                const CbsNode *part = item->children[child];
+                if (part->kind != CBS_NODE_FILES)
+                    continue;
+                if (files != NULL)
+                    validation_error(validator, part, "CPDL-E3002",
+                                     "duplicate files declaration in output");
+                files = part;
+            }
+            if (files == NULL || files->child_count == 0)
+                validation_error(validator, item, "CPDL-E3001",
+                                 "output requires at least one files selector");
+            else
+                for (child = 0; child < files->child_count; ++child) {
+                    const CbsNode *selector = files->children[child];
+                    validate_value(validator, selector, selector->value);
+                    if (selector->value == NULL || selector->value[0] == '\0')
+                        validation_error(validator, selector, "CPDL-E3004",
+                                         "files selector must not be empty");
+                    else if (selector->value[0] == '/')
+                        validation_error(
+                            validator, selector, "CPDL-E3004",
+                            "files selector is relative to the staged root");
+                    else if (!selector->flag &&
+                             strpbrk(selector->value, "*?[") != NULL)
+                        validation_error(validator, selector, "CPDL-E3004",
+                                         "files selector needs glob to use a pattern");
+                }
+            break;
+        }
         case CBS_NODE_PHASE:
             ++phases;
             if (phases > CBS_MAX_PHASES)

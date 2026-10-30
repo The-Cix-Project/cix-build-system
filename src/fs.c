@@ -629,8 +629,10 @@ static int class_match(const char **pattern, unsigned char byte) {
     return negate ? !matched : matched;
 }
 
-/* Match a path against the supported glob syntax. */
-static int glob_match(const char *pattern, const char *text) {
+/* Match a path against the supported glob syntax.  Shared so the output
+ * partition (ADR-0038) selects staged paths with the same matcher recipes
+ * already use, rather than a second implementation that could disagree. */
+int cbs_glob_match(const char *pattern, const char *text) {
     if (*pattern == '\0')
         return *text == '\0';
     if (pattern[0] == '*' && pattern[1] == '*' &&
@@ -641,10 +643,10 @@ static int glob_match(const char *pattern, const char *text) {
             return 1;
         if (*rest == '/')
             ++rest;
-        if (glob_match(rest, text))
+        if (cbs_glob_match(rest, text))
             return 1;
         while (*cursor != '\0') {
-            if (*cursor++ == '/' && glob_match(rest, cursor))
+            if (*cursor++ == '/' && cbs_glob_match(rest, cursor))
                 return 1;
         }
         return 0;
@@ -652,7 +654,7 @@ static int glob_match(const char *pattern, const char *text) {
     if (*pattern == '*') {
         const char *cursor = text;
         do {
-            if (glob_match(pattern + 1, cursor))
+            if (cbs_glob_match(pattern + 1, cursor))
                 return 1;
         } while (*cursor != '\0' && *cursor++ != '/');
         return 0;
@@ -660,15 +662,15 @@ static int glob_match(const char *pattern, const char *text) {
     if (*text == '\0')
         return 0;
     if (*pattern == '?')
-        return *text != '/' && glob_match(pattern + 1, text + 1);
+        return *text != '/' && cbs_glob_match(pattern + 1, text + 1);
     if (*pattern == '[') {
         const char *next = pattern;
         return *text != '/' && class_match(&next, (unsigned char)*text) &&
-               glob_match(next, text + 1);
+               cbs_glob_match(next, text + 1);
     }
     if (*pattern == '\\' && pattern[1] != '\0')
         ++pattern;
-    return *pattern == *text && glob_match(pattern + 1, text + 1);
+    return *pattern == *text && cbs_glob_match(pattern + 1, text + 1);
 }
 
 /* Append one matched path to a dynamically growing list. */
@@ -698,7 +700,7 @@ static void collect_matches(const char *directory, const char *pattern,
             continue;
         path = join_path(directory, entry->d_name);
         if (lstat(path, &status) == 0) {
-            if (glob_match(pattern, path))
+            if (cbs_glob_match(pattern, path))
                 path_list_add(matches, path);
             if (S_ISDIR(status.st_mode) && !S_ISLNK(status.st_mode))
                 collect_matches(path, pattern, matches);
