@@ -365,7 +365,11 @@ Moving the `cbs.cbs` self-hosting pin is a **separate, later** commit: fetch
 Gitea, needs `curl -sk -H "Authorization: token …"`; Gitea archives are
 byte-stable), sha256 it, update `version`/`url`/`sha256`, then
 `./cbs validate cbs.cbs` and `sh tests/recipe-metadata-test.sh cbs.cbs`. The pin
-necessarily lags one release, because the tagged archive contains the recipe.
+necessarily lags, because the tagged archive contains the recipe — the copy
+inside the `v0.1.N` archive still pins `v0.1.N-1`. Nothing *enforces* one
+release, though: the pin sat at v0.1.30 for ninety releases until 2026-10-30,
+and `recipe-metadata-test.sh` only checks that it matches its own archive tag
+and does not exceed `VERSION`. Check it against `VERSION` when releasing.
 
 There is no CI configuration in this repository; the gate is run locally.
 
