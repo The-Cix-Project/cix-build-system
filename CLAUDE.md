@@ -98,7 +98,7 @@ src/        the engine (~17k lines C11) and both headers
 tests/      *.c focused tests, *.sh contract tests, fixtures/
 recipes/    zstd.cbs — the one build-tested qualification recipe
 docs/       spec/ (normative), adr/ (37 decisions), guides/, reviews/ (closed-ticket evidence)
-cbs.cbs     CBS's own self-hosting recipe (pin necessarily lags one release)
+cbs.cbs     CBS's own self-hosting recipe (its pin necessarily lags a release)
 COPYING*    COPYING is GPLv3, COPYING.LESSER the LGPLv3: LGPL-3.0-or-later
 TRADEMARK   the Cix marks policy (TRADEMARK.md), separate from the licence
 ```
