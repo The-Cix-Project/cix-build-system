@@ -59,8 +59,9 @@ int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user) {
     fputs(",\"rule\":", stream);
     json_string(stream, event->rule);
     fprintf(stream,
-            ",\"status\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"source_bytes\":%llu,\"fetch_duration_ms\":%llu,\"tree_bytes\":%llu,\"tree_files\":%llu,\"artifact_bytes\":%llu,\"prune_bytes\":%llu}\n",
-            event->status, event->duration_ms, event->stdout_bytes,
+            ",\"status\":%d,\"exit_status\":%d,\"signal\":%d,\"duration_ms\":%ld,\"stdout_bytes\":%llu,\"stderr_bytes\":%llu,\"cpu_ms\":%llu,\"max_memory_bytes\":%llu,\"source_bytes\":%llu,\"fetch_duration_ms\":%llu,\"tree_bytes\":%llu,\"tree_files\":%llu,\"artifact_bytes\":%llu,\"prune_bytes\":%llu}\n",
+            event->status, event->exit_status, event->signal,
+            event->duration_ms, event->stdout_bytes,
             event->stderr_bytes, event->cpu_ms, event->max_memory_bytes,
             event->source_bytes, event->fetch_duration_ms, event->tree_bytes,
             event->tree_files, event->artifact_bytes, event->prune_bytes);
@@ -85,9 +86,24 @@ int cbs_build_event_human(const CbsBuildEvent *event, void *user) {
                 event->log_path == NULL || event->log_path[0] == '\0' ? "" :
                 event->log_path,
                 event->log_path == NULL || event->log_path[0] == '\0' ? "" : ")");
-    else if (strcmp(event->type, "command-end") == 0)
-        fprintf(stream, "  %s %s (%ld ms)\n", subject == NULL ? "command" : subject,
-                event->status == 0 ? "done" : "FAILED", event->duration_ms);
+    else if (strcmp(event->type, "command-end") == 0) {
+        /* Name the cause on a failure: "FAILED" alone cannot distinguish a
+         * command that exited 2 from one that was killed. */
+        char outcome[64];
+        if (event->status == 0)
+            snprintf(outcome, sizeof(outcome), "done");
+        else if (event->signal != 0)
+            snprintf(outcome, sizeof(outcome), "FAILED (signal %d)",
+                     event->signal);
+        else if (event->exit_status >= 0)
+            snprintf(outcome, sizeof(outcome), "FAILED (exit %d)",
+                     event->exit_status);
+        else
+            snprintf(outcome, sizeof(outcome), "FAILED");
+        fprintf(stream, "  %s %s (%ld ms)\n",
+                subject == NULL ? "command" : subject, outcome,
+                event->duration_ms);
+    }
     else if (strcmp(event->type, "case-end") == 0)
         fprintf(stream, "  check  %s  %s\n",
                 event->message == NULL ? "" : event->message,

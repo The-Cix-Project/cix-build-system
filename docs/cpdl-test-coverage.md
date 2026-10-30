@@ -21,6 +21,7 @@ features must add focused success and failure assertions to this matrix.
 | validate, check, explain, inspect, build, verify, extract, help, and version | cli-contract-test.sh and cli-build-test.sh |
 | Event reporters, event destinations (--events-fd/--events-file), redaction, logs, and metrics | observability-test.sh |
 | Event sequence numbers are monotonic and distinct across phases; command log names are unique and independent of the sink | observability-test.sh and observability-sequence.cbs |
+| command-end carries the exit code or terminating signal, in both sinks | observability-test.sh with the failure and timeout fixtures |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
 | Every test writes under its own TMPDIR-aware root and removes it | tests/temp.h, used by every C test; shell tests clean up with a trap |

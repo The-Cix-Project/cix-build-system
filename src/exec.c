@@ -67,11 +67,14 @@ static unsigned long long usage_cpu_ms(const struct rusage *usage) {
 }
 
 /* Deliver one structured event while keeping callback data synchronous. */
-int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
-                         const char *phase, const char *command,
-                         const char *message, int status, long duration_ms,
-                         unsigned long long stdout_bytes,
-                         unsigned long long stderr_bytes) {
+/* The one emit path.  cbs_emit_build_event is this with no command result,
+ * which is every event that is not a command's end. */
+static int emit_event(const CbsExecutionContext *context, const char *type,
+                      const char *phase, const char *command,
+                      const char *message, int status, int exit_status,
+                      int signal, long duration_ms,
+                      unsigned long long stdout_bytes,
+                      unsigned long long stderr_bytes) {
     CbsBuildEvent event;
     CbsExecutionContext *mutable_context = (CbsExecutionContext *)context;
     struct timespec now;
@@ -92,6 +95,8 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.version = 1;
     event.type = type;
     event.sequence = sequence;
+    event.exit_status = exit_status;
+    event.signal = signal;
     if (clock_gettime(CLOCK_REALTIME, &now) == 0)
         event.timestamp_ms = (unsigned long long)now.tv_sec * 1000ULL +
                              (unsigned long long)now.tv_nsec / 1000000ULL;
@@ -122,6 +127,25 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
     event.stdout_bytes = stdout_bytes;
     event.stderr_bytes = stderr_bytes;
     return context->event_sink(&event, context->event_sink_user);
+}
+
+int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
+                         const char *phase, const char *command,
+                         const char *message, int status, long duration_ms,
+                         unsigned long long stdout_bytes,
+                         unsigned long long stderr_bytes) {
+    return emit_event(context, type, phase, command, message, status, 0, 0,
+                      duration_ms, stdout_bytes, stderr_bytes);
+}
+
+int cbs_emit_command_end(const CbsExecutionContext *context, const char *phase,
+                         const char *command, const char *message, int status,
+                         int exit_status, int signal, long duration_ms,
+                         unsigned long long stdout_bytes,
+                         unsigned long long stderr_bytes) {
+    return emit_event(context, "command-end", phase, command, message, status,
+                      exit_status, signal, duration_ms, stdout_bytes,
+                      stderr_bytes);
 }
 
 /* Forward SIGINT to the active child process group. */
@@ -700,6 +724,8 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     struct timespec command_start;
     struct timespec command_end;
     int command_event_status;
+    int command_exit_status;
+    int command_signal;
     int log_fd = -1;
     char log_path[4096] = {0};
     char command_arguments[4096];
@@ -1022,10 +1048,22 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
     clock_gettime(CLOCK_MONOTONIC, &command_end);
     command_event_status = wait_result == 1 && WIFEXITED(status) &&
                            WEXITSTATUS(status) == expected_status ? 0 : 1;
-    if (!cbs_emit_build_event(
-            context, "command-end", NULL, program,
+    /* Carry the command's own result as well as whether it met the recipe's
+     * expectation: a command killed by a signal and one that exited 2 are the
+     * same `status`, and a consumer reporting a failed build is asked which it
+     * was.  Both values are in hand here. */
+    /* `status` is reaped whenever wait_for_child did not fail, which includes
+     * the timeout and interrupt paths where CBS itself sent the signal -- the
+     * case a consumer most wants named.  Only a failed waitpid leaves it
+     * meaningless. */
+    command_exit_status =
+        wait_result >= 0 && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    command_signal =
+        wait_result >= 0 && WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    if (!cbs_emit_command_end(
+            context, NULL, program,
             command_event_status == 0 ? NULL : "command failed",
-            command_event_status,
+            command_event_status, command_exit_status, command_signal,
             elapsed_milliseconds(&command_start, &command_end), 0, 0)) {
         if (capture != NULL)
             fclose(capture);

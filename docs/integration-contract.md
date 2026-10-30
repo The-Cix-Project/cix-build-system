@@ -123,6 +123,17 @@ that silently reported nothing. CBS duplicates the descriptor, so closing its
 reporter never closes one the parent still owns. `--report` continues to
 aggregate the same events alongside either destination.
 
+A `command-end` carries three numbers, and they answer different questions.
+`status` is whether the command met its recipe's expectation: a command the
+recipe declared `expect exit 3` carries `status` 0 when it exits 3.
+`exit_status` is the command's own exit code, or -1 when it did not exit;
+`signal` is the terminating signal, or 0. Until v0.1.118 only `status` was
+carried, so a command killed by a signal and one that exited 2 were
+indistinguishable — both reported 1 and nothing else. CBS's own timeout and
+interrupt kills populate `signal`, so a consumer can report a build's failed
+command as killed rather than merely failed. Adding the fields raised
+`CBS_ABI_VERSION` to 5.
+
 CBS event callbacks are synchronous and may reject an event; CBS then fails the
 build closed. Event strings and pointers are valid only for the callback
 duration, and sequence numbers are monotonically increasing within a build.

@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 4U
+#define CBS_ABI_VERSION 5U
 /* Numeric language contract version.  The public language contract is CPDL
  * 1.0; the string form below is authoritative for external consumers. */
 #define CBS_CPDL_VERSION 1U
@@ -85,7 +85,15 @@ typedef struct {
     const char *message;
     const char *path;
     const char *rule;
+    /* Whether the operation met its recipe's expectation: 0 yes, 1 no.  Not
+     * the command's own result -- a command the recipe expected to exit 3
+     * carries status 0 when it does. */
     int status;
+    /* A command's own exit code when it exited, or -1 when it did not, in
+     * which case `signal` names what killed it.  Both are 0 on events that
+     * are not a command's end. */
+    int exit_status;
+    int signal;
     long duration_ms;
     unsigned long long stdout_bytes;
     unsigned long long stderr_bytes;

@@ -452,6 +452,14 @@ int cbs_emit_build_event(const CbsExecutionContext *context, const char *type,
                          const char *message, int status, long duration_ms,
                          unsigned long long stdout_bytes,
                          unsigned long long stderr_bytes);
+/* Emit a command's end, carrying its own exit code or terminating signal
+ * alongside the expectation result.  `exit_status` is -1 when the command did
+ * not exit, and `signal` is 0 when it was not killed. */
+int cbs_emit_command_end(const CbsExecutionContext *context, const char *phase,
+                         const char *command, const char *message, int status,
+                         int exit_status, int signal, long duration_ms,
+                         unsigned long long stdout_bytes,
+                         unsigned long long stderr_bytes);
 int cbs_build_event_jsonl(const CbsBuildEvent *event, void *user);
 int cbs_build_event_human(const CbsBuildEvent *event, void *user);
 void cbs_build_report_init(CbsBuildReport *report);

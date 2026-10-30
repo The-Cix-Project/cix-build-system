@@ -37,6 +37,9 @@ if CBS_LOG_DIR="$logs" "$cbs" build tests/fixtures/observability-failure.cbs \
 fi
 grep -F '"type":"command-end"' "$root/failure" >/dev/null
 grep -F '"message":"command failed"' "$root/failure" >/dev/null
+# Issue #297: the command's own result, not only whether it met expectation.
+# `false` exits 1 and was not signalled.
+grep -F '"exit_status":1,"signal":0' "$root/failure" >/dev/null
 grep '"log_path":"[^"]*command-' "$root/failure" >/dev/null
 
 if "$cbs" build tests/fixtures/observability-timeout.cbs \
@@ -46,6 +49,21 @@ if "$cbs" build tests/fixtures/observability-timeout.cbs \
     exit 1
 fi
 grep 'process timed out' "$root/timeout" >/dev/null
+# A killed command reports the signal and no exit code, so a consumer can tell
+# it from one that exited non-zero -- both are status 1.
+grep -E '"exit_status":-1,"signal":(15|9)' "$root/timeout" >/dev/null
+# The human reporter names the cause rather than printing a bare FAILED.
+"$cbs" build tests/fixtures/observability-failure.cbs \
+    --arch x86_64 --staged "$stage" --events=human \
+    >"$root/failure.human.out" 2>"$root/failure.human" || true
+grep -F 'FAILED (exit 1)' "$root/failure.human" >/dev/null
+"$cbs" build tests/fixtures/observability-timeout.cbs \
+    --arch x86_64 --staged "$stage" --events=human \
+    >"$root/timeout.human.out" 2>"$root/timeout.human" || true
+grep -E 'FAILED \(signal (15|9)\)' "$root/timeout.human" >/dev/null
+# A command that met its expectation carries its exit code and no signal.
+grep -F '"type":"command-end"' "$root/events" >/dev/null
+grep -F '"status":0,"exit_status":0,"signal":0' "$root/events" >/dev/null
 
 # Issue #282: the event stream can be pointed away from stderr, so a caller
 # can read structured events while the human log keeps stderr to itself.
@@ -174,4 +192,4 @@ if ! cmp -s "$root/seqlogs.list" "$root/seqlogs-nosink.list"; then
     exit 1
 fi
 
-echo 'observability tests: PASS (events, reporters, event destinations, sequence numbering, redaction, logs, metrics, failure, timeout)'
+echo 'observability tests: PASS (events, reporters, event destinations, sequence numbering, command results, redaction, logs, metrics, failure, timeout)'

@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.117 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.118 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -284,7 +284,10 @@ The remaining build options are for callers embedding CBS in a larger system:
 
 ```text
 --events human|jsonl      stream build progress to standard error; jsonl is
-                          one JSON object per line
+                          one JSON object per line. A command's end carries
+                          `status` (did it meet the recipe's expectation),
+                          `exit_status` (its own exit code, or -1) and
+                          `signal` (what killed it, or 0)
 --events-fd N             write the JSONL stream to descriptor N, which the
                           caller has already opened for writing
 --events-file FILE        write the JSONL stream to FILE instead
