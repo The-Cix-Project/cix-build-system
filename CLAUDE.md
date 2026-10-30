@@ -5,7 +5,7 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.116 at time of writing;
+Current release is the first line of `VERSION` (0.1.120 at time of writing;
 `main` may sit a docs commit ahead of the tag).
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
@@ -54,7 +54,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 41 test groups, offline-clean
+make -j1 test        # the full gate: 44 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -177,6 +177,18 @@ guessing: `${name}`, `${version}`,
   rejected — the composer supplies `--command-path` (default `/usr/bin:/bin`)
   and `--library-path`. `CBS_LOG_DIR` is the only environment variable the
   engine itself reads (opt-in per-command logs, mode 0600).
+- A recipe may declare repeatable `output` blocks, so one build emits several
+  packages sharing one fingerprint (ADR-0038, v0.1.119). The `package`
+  declaration **is** the main output and receives every staged path no `output`
+  claimed; two outputs claiming one path is a refusal naming both; writing is
+  all-or-nothing. `--output-dir` derives canonical filenames and `--output
+  FILE` is refused for a multi-output recipe.
+- The build fingerprint binds **each executable the recipe runs**, resolved
+  through the approved command path, not the contents of the search path
+  (#300, v0.1.119). Don't re-add a search-path walk: it was removed because it
+  refused every real host and cost 56 s for `/usr/bin` alone. `tools { … }`
+  and `--tool-identity` are how a composed toolchain gets bound. A finalizer
+  is bound only as having run.
 - No shell, pipes, redirection, variables, conditionals, arithmetic, regex, or
   runtime loops. `each` expands **at parse time**; `${stdout.NAME}` is an
   immutable binding. Unknown constructs must fail parse or validation — never be
@@ -366,7 +378,7 @@ using the real ticket title + an entry in `docs/reviews/README.md` (regenerate
 it; see Documentation authority) + a commit saying `Resolves #N` + push + a
 Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
-## Residual spec drift (verified 2026-10-30, v0.1.116)
+## Residual spec drift (verified 2026-10-30, v0.1.120)
 
 Closed. One known gap remains, unfiled:
 
@@ -389,6 +401,8 @@ every `write` failure now propagates (#285, v0.1.109); a confinement refusal
 failed `symlink` names the link path (#287, v0.1.110); `allow_failure` is
 granted to `copy` and `remove` only, matching §4.4 (#286, v0.1.111); the
 `E6xxx` and `W6xxx` ranges are specified (#283, v0.1.106); the
+`build_fingerprint` is recorded for an ordinary recipe and equals what
+`cbs fingerprint` precomputes (#300, v0.1.119-120); the
 duplicate ADR-0012 is resolved (payload index moved to
 ADR-0037); `make test` no longer needs network; `src/exec.c` no longer appends
 `CC=` to `make` argv; `license`/`metadata`/`${firmware}` are specified; the
