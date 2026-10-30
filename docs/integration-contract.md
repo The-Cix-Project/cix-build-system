@@ -112,6 +112,18 @@ preferred integration path for cixd: it can forward events to terminal or web
 UIs without scraping recipe output. The legacy phase-only callback in
 `CbsExecutionContext` remains available for phase-only consumers.
 
+A descriptor an embedder hands CBS does not reach recipe commands. CBS closes
+every descriptor above standard error between `fork` and `execve`, so the
+`--events-fd` channel, the `--events-file` handle and any descriptor the parent
+left open are not inherited by a build command (#301, v0.1.121). An embedder
+can therefore pass an event descriptor without it becoming writable by the
+build it is reporting on.
+
+Standard input is the one exception: CBS has never redirected it, so a recipe
+command inherits whatever CBS was given. A composer that does not want a build
+to reach its console closes or redirects standard input when it spawns CBS, or
+in the container it builds.
+
 A process-level embedder does not have to choose between an operator log and a
 structured stream. `--events human|jsonl` selects the reporter on standard
 error, and `--events-fd N` or `--events-file FILE` writes the JSONL stream to a

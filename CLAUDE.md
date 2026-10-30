@@ -118,7 +118,7 @@ versioned boundary (`CBS_API_VERSION`, `CBS_ABI_VERSION`,
 | `ast.c` | node create/add/destroy, `cbs_allocate`/`cbs_duplicate`. |
 | `plan.c` | AST → ordered `CbsBuildPlan`, `cbs_build_metadata`, phase events. |
 | `runtime.c` | `cbs_execute_block` — the **single** block executor; jobs ceiling; stage-path policy. |
-| `exec.c` | `run`: direct `execve`, argv/env construction, timeouts, limits, command-path resolution, forbidden-executable policy. |
+| `exec.c` | `run`: direct `execve`, argv/env construction, timeouts, limits, command-path resolution, forbidden-executable policy. Also closes every descriptor above stderr in the child (`close_inherited_descriptors`) — don't drop it, see #301. |
 | `fs.c` | the confined filesystem vocabulary, source edits/assertions, globs, `materialize`, `patch`, `links`. Largest engine file (2.3k lines). |
 | `archive.c` | safe libarchive extraction (hostile entries, links, pax, modes). |
 | `source.c` | named sources, mirrors, SHA-256 verify, cache-first prepare, digests. |
