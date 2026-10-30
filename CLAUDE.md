@@ -389,12 +389,14 @@ Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
 ## Residual spec drift (verified 2026-10-30, v0.1.122)
 
-Closed. One known gap remains, unfiled:
-
-- `for` (the `require … { } for { … }` form) is described in
-  `cpdl-1.0.md` §4.7 **prose** only and appears in no EBNF production. It is in
-  §2.4's keyword set, but the formal grammar does not contain the construct.
-  Writing that production is a grammar change, not a list correction.
+**Closed, with no known gap.** Re-verified by reading the spec, not by trusting
+this section: `for` now has a full production — `for-list` at §4.7, and
+`require-operation` takes `[ for-list ]` while `require-tool` is a separate
+alternative that cannot. That matches the parser, which rejects
+`require tool "cc" for { … }` with `CPDL-E2002`. An earlier version of this
+file said `for` appeared in no production and called writing one outstanding
+work; that was true before #290 and stale afterwards, and it nearly produced a
+ticket for a non-problem. Check the spec before quoting this heading.
 
 When auditing §2.4's keyword set against the parser, three things shrink a
 naive grep: `sha256` contains digits; `after` is a ternary
