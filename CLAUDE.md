@@ -5,7 +5,7 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.121 at time of writing;
+Current release is the first line of `VERSION` (0.1.122 at time of writing;
 `main` may sit a docs commit ahead of the tag).
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
@@ -382,7 +382,7 @@ using the real ticket title + an entry in `docs/reviews/README.md` (regenerate
 it; see Documentation authority) + a commit saying `Resolves #N` + push + a
 Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
-## Residual spec drift (verified 2026-10-30, v0.1.121)
+## Residual spec drift (verified 2026-10-30, v0.1.122)
 
 Closed. One known gap remains, unfiled:
 

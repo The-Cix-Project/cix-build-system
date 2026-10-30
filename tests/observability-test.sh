@@ -130,6 +130,24 @@ for bad in '--events-fd abc' '--events-fd -1' '--events-fd 9'; do
     fi
     grep -F 'CBS-E1022' "$root/bad.stderr" >/dev/null
 done
+
+# The caller's descriptor is checked against the CALLER's table, before CBS
+# opens any of its own.  With 3..8 occupied, CBS's stderr-reporter dup lands on
+# 9, and until v0.1.122 `--events-fd 9` was validated against that dup and the
+# stream was written there.  This is how CBS failed to build CBS on Cix: the
+# outer engine left those descriptors occupied (#302).
+if (
+    exec 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null 7>/dev/null \
+         8>/dev/null
+    exec 9>&-
+    "$cbs" build tests/fixtures/observability-success.cbs \
+        --arch x86_64 --staged "$stage" --events jsonl --events-fd 9 \
+        >"$root/crowded.stdout" 2>"$root/crowded.stderr"
+); then
+    echo 'observability tests: `--events-fd 9` was accepted with 3..8 open' >&2
+    exit 1
+fi
+grep -F 'CBS-E1022' "$root/crowded.stderr" >/dev/null
 # A read-only descriptor is refused rather than failing deep in the build.
 if "$cbs" build tests/fixtures/observability-success.cbs \
     --arch x86_64 --staged "$stage" --events jsonl --events-fd 0 \

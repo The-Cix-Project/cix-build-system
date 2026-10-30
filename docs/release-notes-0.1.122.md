@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.121, and the licence change
+# CBS v0.1.106 – v0.1.122, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the sixteen releases of 2026-10-09 and
-2026-10-30, which closed twenty tracker issues.
+licence decision of 2026-10-23 and the seventeen releases of 2026-10-09 and
+2026-10-30, which closed twenty-one tracker issues.
 
 Read the five **Act on this** items if you read nothing else. Items 3, 4 and 5
 are the ones that change what cixd sees from a build it already runs today.
@@ -174,6 +174,18 @@ and in the gate.
 **Still inherited:** standard input, which CBS has never redirected. That is
 pre-existing and a separate decision, since a build command reading stdin may
 be intended, so it was not folded into this fix.
+
+The same self-hosted build then found the other direction, fixed in v0.1.122:
+CBS validated `--events-fd N` against **its own** descriptor table rather than
+the caller's. The stderr reporter's `dup` ran first and took the lowest free
+number, so where the parent left 3..8 occupied it took 9 — and `--events-fd 9`
+was checked against CBS's own dup of stderr, passed, and the event stream was
+written there. Measured: refused with 3..7 occupied, accepted with 3..8.
+
+A composer passing a stale descriptor number that collided with one of CBS's
+own therefore had its events written into that descriptor instead of being
+refused. The check now runs before CBS opens anything, which is what the
+comment above it always claimed.
 
 ## New capability: several packages from one recipe
 
@@ -447,7 +459,7 @@ artifacts — is the one gate step that does not run by default; it needs
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#300 cover this
+decision, its evidence, and the acceptance criteria met: #282–#302 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

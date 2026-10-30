@@ -1734,6 +1734,7 @@ static int build_file(const char *recipe, const char *architecture,
     FILE *destination_stream = NULL;
     int event_fd = -1;
     int destination_fd = -1;
+    int caller_fd = -1;
     CbsTeeEventState tee_state;
     int result;
     char fetch_error[256];
@@ -1801,6 +1802,15 @@ static int build_file(const char *recipe, const char *architecture,
                    "--events-fd and --events-file cannot be combined");
         return 2;
     }
+    /* Validate the caller's descriptor before CBS opens any of its own.  The
+     * question is whether the CALLER handed over an open, writable
+     * descriptor, so it can only be asked of the caller's descriptor table:
+     * the stderr reporter's `dup` below lands on the lowest free number, and
+     * where the parent left 3..8 occupied that is 9 -- so `--events-fd 9`
+     * passed a check against CBS's own dup of stderr and the stream went
+     * there (#302). */
+    if (events_fd != NULL && !parse_event_descriptor(events_fd, &caller_fd))
+        return 2;
     if (events != NULL) {
         if (strcmp(events, "human") == 0)
             event_sink = cbs_build_event_human;
@@ -1830,9 +1840,6 @@ static int build_file(const char *recipe, const char *architecture,
             return 3;
         }
     } else if (events_fd != NULL) {
-        int caller_fd;
-        if (!parse_event_descriptor(events_fd, &caller_fd))
-            return 2;
         /* Duplicated rather than used directly, so closing the reporter never
          * closes a descriptor the caller still owns. */
         destination_fd = dup(caller_fd);
