@@ -368,7 +368,7 @@ static int build_fingerprint_with_reason(
     if (material_context != NULL) {
         const char *paths[3] = {material_context->firmware_root,
                                 material_context->finalize_path, NULL};
-        const char *names[] = {"firmware_root", "finalize_path",
+        const char *names[] = {"firmware_root", "finalizer",
                                "tool_directory"};
         size_t material_count = 3;
         size_t material;
@@ -383,7 +383,7 @@ static int build_fingerprint_with_reason(
              * embedder callback has none, and binding that one ran is the
              * material fact.  A firmware or tool root that cannot be observed
              * must be reported below, not quietly recorded as a string. */
-            if (strcmp(names[material], "finalize_path") == 0 &&
+            if (strcmp(names[material], "finalizer") == 0 &&
                 paths[material][0] != '/') {
                 if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                         &fingerprint_capacity, names[material],
@@ -661,7 +661,7 @@ static int append_provenance(const char *manifest, const char *recipe,
 
     if (!cbs_digest_text(recipe_text, strlen(recipe_text), digest))
         return 0;
-    (void)finalize_path;
+
     (void)prune_policy;
     fingerprint_reason[0] = '\0';
     if (!fingerprint_available)
@@ -670,6 +670,11 @@ static int append_provenance(const char *manifest, const char *recipe,
     /* Name what could not be observed.  A bare
      * `fingerprint-material-unavailable` told an operator nothing, which is
      * how a search path holding one escaping symlink went unnoticed. */
+    if (!fingerprint_available && fingerprint_reason[0] == '\0' &&
+        material_reason != NULL &&
+        strcmp(material_reason, "finalizer-unidentified") == 0)
+        snprintf(fingerprint_reason, sizeof(fingerprint_reason),
+                 "finalizer-unidentified");
     if (!fingerprint_available && fingerprint_reason[0] == '\0' &&
         material_reason != NULL && material_reason[0] != '\0')
         snprintf(fingerprint_reason, sizeof(fingerprint_reason),
@@ -688,6 +693,8 @@ static int append_provenance(const char *manifest, const char *recipe,
         (!fingerprint_available && fingerprint_reason[0] != '\0' &&
          fprintf(file, "m build_fingerprint_reason %s\n",
                  fingerprint_reason) < 0) ||
+        (finalize_path != NULL &&
+         fprintf(file, "m finalizer %s\n", finalize_path) < 0) ||
         fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
         fprintf(file, "m architecture %s\n", context->arch) < 0 ||
         fprintf(file, "m toolchain %s\n", context->compiler == NULL
@@ -1267,6 +1274,7 @@ static int run_build_pipeline(
     const char *output_directory,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
     const char *command_path,
     const char *library_path,
@@ -1459,7 +1467,8 @@ static int run_build_pipeline(
     }
     if (ok) {
         fingerprint_context.firmware_root = context.firmware_root;
-        fingerprint_context.finalize_path = finalize == NULL ? NULL : "callback";
+        fingerprint_context.finalize_path =
+            finalize == NULL ? NULL : finalize_identity;
         fingerprint_context.tool_directory = context.tool_directory;
         fingerprint_context.environment = context.environment;
         fingerprint_context.environment_count = context.environment_count;
@@ -1478,6 +1487,18 @@ static int run_build_pipeline(
             library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
             context.inputs, context.input_count, &fingerprint_context,
             material_reason, sizeof(material_reason), fingerprint);
+        /* A finalizer CBS cannot name is a material input missing from the
+         * key.  Binding "a finalizer ran" would make the key look complete
+         * when it is not, which is what ADR-0038 6 refused for the report, so
+         * refuse the key and say why.  A process-level finalizer is always
+         * identifiable -- `main.c` digests the command it resolved -- so this
+         * reaches only an embedder that supplies a callback and declares
+         * nothing for it. */
+        if (finalize != NULL && finalize_identity == NULL) {
+            fingerprint_available = 0;
+            snprintf(material_reason, sizeof(material_reason),
+                     "finalizer-unidentified");
+        }
     }
     if (build_fingerprint != NULL && fingerprint_available)
         memcpy(build_fingerprint, fingerprint, sizeof(fingerprint));
@@ -1520,7 +1541,7 @@ static int run_build_pipeline(
                 continue; /* main with nothing left over: not emitted */
             if (!append_provenance(out->manifest_path, recipe, text, &sources,
                                    document, &context,
-                                   finalize == NULL ? NULL : "callback",
+                                   finalize == NULL ? NULL : finalize_identity,
                                    prune_policy, fingerprint,
                                    fingerprint_available, material_reason)) {
                 pipeline_error(recipe, text, document->location, "provenance",
@@ -1614,9 +1635,33 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     char build_fingerprint[65]) {
     return run_build_pipeline(
         recipe, workspace, package_path, NULL, architecture, fetch_service,
-        cache_directory, finalize, user, firmware_root, prune_policy,
+        cache_directory, finalize, user, NULL, firmware_root, prune_policy,
         command_path, library_path, inputs, input_count, tool_identities,
         tool_identity_count, event_sink, event_sink_user, build_fingerprint);
+}
+
+/* The entry point above plus `finalize_identity`: what the composer's
+ * finalizer *is*, so the key tells two finalizers apart (#303).  An absolute
+ * path is digested; any other string is bound verbatim, which is how an
+ * in-process callback declares itself.  NULL with a finalizer present refuses
+ * the key rather than binding a marker. */
+int cbs_build_standalone_with_finalizer(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]) {
+    return run_build_pipeline(
+        recipe, workspace, package_path, NULL, architecture, fetch_service,
+        cache_directory, finalize, user, finalize_identity, firmware_root,
+        prune_policy, command_path, library_path, inputs, input_count,
+        tool_identities, tool_identity_count, event_sink, event_sink_user,
+        build_fingerprint);
 }
 
 int cbs_build_standalone_outputs(
@@ -1631,9 +1676,29 @@ int cbs_build_standalone_outputs(
     char build_fingerprint[65]) {
     return run_build_pipeline(
         recipe, workspace, NULL, output_directory, architecture, fetch_service,
-        cache_directory, finalize, user, firmware_root, prune_policy,
+        cache_directory, finalize, user, NULL, firmware_root, prune_policy,
         command_path, library_path, inputs, input_count, tool_identities,
         tool_identity_count, event_sink, event_sink_user, build_fingerprint);
+}
+
+/* `cbs_build_standalone_outputs` plus the finalizer identity (#303). */
+int cbs_build_standalone_outputs_with_finalizer(
+    const char *recipe, const char *workspace, const char *output_directory,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]) {
+    return run_build_pipeline(
+        recipe, workspace, NULL, output_directory, architecture, fetch_service,
+        cache_directory, finalize, user, finalize_identity, firmware_root,
+        prune_policy, command_path, library_path, inputs, input_count,
+        tool_identities, tool_identity_count, event_sink, event_sink_user,
+        build_fingerprint);
 }
 
 int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(

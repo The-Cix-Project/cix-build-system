@@ -795,7 +795,7 @@ static void usage(FILE *stream) {
         "      [--command-path DIRS] [--library-path DIRS] Preflight safely\n"
         "  cbs fingerprint RECIPE.cbs --arch ARCH [--command-path DIRS]\n"
         "      [--library-path DIRS] [--tool-identity NAME@VERSION=MANIFEST_SHA256 ...]\n"
-        "      Compute the build action fingerprint\n"
+        "      [--finalize-command CMD]         Compute the build action fingerprint\n"
         "  cbs list ARTIFACT.cixpkg [--json]    List verified manifest entries\n"
         "  cbs diff LEFT.cixpkg RIGHT.cixpkg [--json] Compare manifests\n"
         "  cbs --capabilities                    Show integration capabilities\n"
@@ -1743,6 +1743,8 @@ static int build_file(const char *recipe, const char *architecture,
     struct stat firmware_status;
     struct stat input_status;
     CbsFinalizeCommand finalize_policy = {0};
+    char finalize_digest[65];
+    const char *finalize_identity = NULL;
     CbsReportEventState report_state;
     CbsBuildEventSink effective_event_sink = NULL;
     void *effective_event_user = NULL;
@@ -1774,6 +1776,17 @@ static int build_file(const char *recipe, const char *architecture,
                        "command-path policy");
             return 2;
         }
+        /* Identify the finalizer by content, not by where it sits: cixd's
+         * path is always /build/finalize.sh and its content changes release to
+         * release, so a path-bound key would give every finalizer it has ever
+         * shipped the same identity (#303). */
+        if (!cbs_digest_file(finalize_policy.resolved, finalize_digest)) {
+            cli_errorf("build", "CBS-E1006", "policy", 2,
+                       "cannot read the finalize command to identify it");
+            free(finalize_policy.resolved);
+            return 2;
+        }
+        finalize_identity = finalize_digest;
     }
     if (prune_policy_path != NULL &&
         !cbs_prune_policy_load(prune_policy_path, &prune_policy,
@@ -1898,21 +1911,21 @@ static int build_file(const char *recipe, const char *architecture,
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
     if (output_dir != NULL)
-        result = cbs_build_standalone_outputs(
+        result = cbs_build_standalone_outputs_with_finalizer(
             recipe, staged, output_dir, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
-            firmware_root,
+            finalize_identity, firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, inputs, input_count, tool_identities,
             tool_identity_count, effective_event_sink, effective_event_user,
             report_path == NULL ? NULL : report_state.report.fingerprint);
     else
-        result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+        result = cbs_build_standalone_with_finalizer(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
-            firmware_root,
+            finalize_identity, firmware_root,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, inputs, input_count, tool_identities,
             tool_identity_count, effective_event_sink, effective_event_user,
@@ -2398,6 +2411,7 @@ typedef struct {
     size_t input_count;
     CbsToolIdentity tool_identities[32];
     size_t tool_identity_count;
+    const char *finalize_command;
 } CbsFingerprintOptions;
 
 static int add_fingerprint_input(CbsFingerprintOptions *options,
@@ -2487,9 +2501,12 @@ static int parse_fingerprint_options(int argc, char **argv,
             value = argument + 15;
         else if (strncmp(argument, "--library-path=", 15) == 0)
             value = argument + 15;
+        else if (strncmp(argument, "--finalize-command=", 19) == 0)
+            value = argument + 19;
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--command-path") == 0 ||
-                 strcmp(argument, "--library-path") == 0) {
+                 strcmp(argument, "--library-path") == 0 ||
+                 strcmp(argument, "--finalize-command") == 0) {
             if (++index >= argc) {
                 cli_errorf("fingerprint", "CBS-E1001", "cli", 2,
                            "option `%s` requires a value", argument);
@@ -2507,6 +2524,9 @@ static int parse_fingerprint_options(int argc, char **argv,
         else if (strcmp(argument, "--command-path") == 0 ||
                  strncmp(argument, "--command-path=", 15) == 0)
             options->command_path = value;
+        else if (strcmp(argument, "--finalize-command") == 0 ||
+                 strncmp(argument, "--finalize-command=", 19) == 0)
+            options->finalize_command = value;
         else
             options->library_path = value;
     }
@@ -2520,9 +2540,32 @@ static int parse_fingerprint_options(int argc, char **argv,
 
 static int fingerprint_file(CbsFingerprintOptions *options) {
     char fingerprint[65];
+    char finalize_digest[65];
+    char *resolved_finalizer = NULL;
     CbsFingerprintContext context = {0};
     context.tool_identities = options->tool_identities;
     context.tool_identity_count = options->tool_identity_count;
+    /* Resolve and digest the finalizer the way a build does, so a key for a
+     * finalizer build is predictable without running one (#303). */
+    if (options->finalize_command != NULL) {
+        resolved_finalizer = resolve_finalize_command(
+            options->finalize_command,
+            options->command_path == NULL ? CBS_DEFAULT_COMMAND_PATH
+                                          : options->command_path);
+        if (resolved_finalizer == NULL ||
+            !cbs_digest_file(resolved_finalizer, finalize_digest)) {
+            free(resolved_finalizer);
+            cli_errorf("fingerprint", "CBS-E1006", "policy", 2,
+                       "finalize command is not executable under the approved "
+                       "command-path policy");
+            free_fingerprint_inputs(options);
+            free_tool_identities(options->tool_identities,
+                                 options->tool_identity_count);
+            return 2;
+        }
+        context.finalize_path = finalize_digest;
+        free(resolved_finalizer);
+    }
     /* Always with a context, even an empty one.  A build always supplies one,
      * so measuring without one gave the verb a different key from the
      * artifact it was supposed to predict. */

@@ -94,6 +94,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/stdout-test.sh ./$(TARGET)
 	./tests/observability-test.sh ./$(TARGET)
 	./tests/descriptor-hygiene-test.sh ./$(TARGET)
+	./tests/finalizer-identity-test.sh ./$(TARGET)
 	./tests/prune-test.sh ./$(TARGET)
 	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)

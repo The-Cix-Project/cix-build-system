@@ -36,6 +36,11 @@ exec 9>"$root/leaked-nine"
 exec 8>&-
 exec 9>&-
 
+# Standard input is constructed too: /dev/null, not whatever CBS was given
+# (#304).  In a cixd build container the inherited fd 0 is /dev/console, where
+# a command that reads it blocks until the daemon's watchdog kills the build.
+grep -qE '^lr-x.* 0 -> /dev/null$' "$root/probe-output"
+
 # `ls` opens one descriptor of its own for the directory it is listing, so the
 # child may hold 0, 1, 2 and that one.  Nothing else.
 sed -n 's/^l[-r][-w][-x].* \([0-9][0-9]*\) ->.*/\1/p' "$root/probe-output" \
@@ -63,4 +68,4 @@ grep -F '"type":"build-end"' "$root/events.jsonl" >/dev/null
 test ! -s "$root/leaked-eight"
 test ! -s "$root/leaked-nine"
 
-echo 'descriptor hygiene tests: PASS (no descriptor above stderr is inherited)'
+echo 'descriptor hygiene tests: PASS (stdin is /dev/null, nothing above stderr)'

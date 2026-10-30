@@ -32,12 +32,20 @@ cc $(pkg-config --cflags --libs --static cbs) consumer.c -o consumer
 cbs --capabilities
 ```
 
-`CBS_ABI_VERSION` is 6 as of v0.1.122. It was raised from 3 to 4 when
+`CBS_ABI_VERSION` is 6 as of v0.1.123. It was raised from 3 to 4 when
 `CbsExecutionContext` gained the build-wide event counter that makes event
 sequence numbers monotonic, from 4 to 5 when `CbsBuildEvent` gained
 `exit_status` and `signal` on `command-end`, and from 5 to 6 when
 `CbsBuildReport` gained `output_count`. A consumer built against an earlier ABI
 must be rebuilt; the guard below is what catches it.
+
+`cbs_build_standalone_with_finalizer()` and
+`cbs_build_standalone_outputs_with_finalizer()` are the current
+full-capability entry points. Each is the one before it plus the
+finalizer identity. An absolute path is digested; any other string is bound
+verbatim, so an in-process callback can declare itself. A callback with no
+identity refuses the key rather than binding a marker, and the artifact says
+`finalizer-unidentified`.
 
 The public header exposes `CBS_API_VERSION`, `CBS_ABI_VERSION`,
 `CBS_CPDL_VERSION`, `CBS_CPDL_CONTRACT`, and `CBS_CIXPKG_VERSION`. `CBS_CPDL_CONTRACT`

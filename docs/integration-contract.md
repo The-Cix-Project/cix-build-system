@@ -93,15 +93,30 @@ alias, not the workspace-specific wrapper directory. Consequently,
 `cbs fingerprint` can compute the same key before materialisation, and the
 report and packaged provenance remain identical to that precomputed key, given
 the same `--arch`, `--command-path`, `--library-path`, `--input` and
-`--tool-identity`. `fingerprint` accepts no `--prune-policy`, `--firmware-root`
-or `--finalize-command`, and all three enter the key, so a build that uses one
-cannot be predicted by the verb.
+`--tool-identity` and `--finalize-command`. `fingerprint` accepts no
+`--prune-policy` or `--firmware-root`, and both enter the key, so a build that
+uses either cannot be predicted by the verb.
 
 The key binds each executable the recipe runs by digest, resolved through the
 approved command path; it does not hash the rest of the path. A firmware root
-and a tool directory are bound by content. A finalizer is bound only as having
-run: the build records an opaque marker, not the finalizer's own digest, so two
-different `--finalize-command` scripts yield the same key.
+and a tool directory are bound by content.
+
+A finalizer is bound by **what it is**, not merely as having run. For
+`--finalize-command` CBS digests the command it resolved, so two different
+finalizer scripts yield different keys even at the same path — which matters
+because a composer's finalizer path is typically fixed while its content
+changes release to release. A library embedder passes the identity to
+`cbs_build_standalone_with_finalizer()` or
+`cbs_build_standalone_outputs_with_finalizer()`: an absolute path is digested,
+and any other string is bound verbatim, which is how an in-process callback
+declares itself.
+
+An embedder that supplies a finalize callback and no identity gets **no key**:
+the artifact records `build_fingerprint unavailable` with the reason
+`finalizer-unidentified`. Binding a marker instead would leave a material
+input out of a key that looks complete. The finalizer's identity is also
+recorded in the artifact as `finalizer`, so a stored artifact says what
+finalized it.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,
@@ -119,10 +134,13 @@ left open are not inherited by a build command (#301, v0.1.121). An embedder
 can therefore pass an event descriptor without it becoming writable by the
 build it is reporting on.
 
-Standard input is the one exception: CBS has never redirected it, so a recipe
-command inherits whatever CBS was given. A composer that does not want a build
-to reach its console closes or redirects standard input when it spawns CBS, or
-in the container it builds.
+Standard input is constructed too: a recipe command gets `/dev/null`, not
+whatever CBS was given (#304, v0.1.123). There is no exception. The reason is a
+measured failure rather than tidiness — in a cixd build container the inherited
+fd 0 is `/dev/console`, where a command that reads it blocks until the daemon's
+stall watchdog kills the build, giving a timeout that points away from its
+cause. `/dev/null` makes it an immediate EOF. It is redirected rather than
+closed, because a closed descriptor 0 is taken by the child's first `open()`.
 
 A process-level embedder does not have to choose between an operator log and a
 structured stream. `--events human|jsonl` selects the reporter on standard

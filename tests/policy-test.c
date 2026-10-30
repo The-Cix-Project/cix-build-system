@@ -51,6 +51,32 @@ static int run_test(const char *workspace) {
             access(marker, F_OK) != 0)
             return 1;
     }
+    /* A callback finalizer that declares nothing cannot be bound, so the key
+     * is refused and says why rather than binding a marker that leaves a
+     * material input out of a key that looks complete (#303).  An embedder
+     * that wants a key passes an identity to the `_with_finalizer` entry
+     * point; a `--finalize-command` build is always identifiable, because the
+     * CLI digests the command it resolved. */
+    {
+        char line[4096];
+        int saw_unavailable = 0;
+        int saw_reason = 0;
+        /* Read the provenance through the listing API: the manifest lives
+         * inside the container, not in its bytes. */
+        file = tmpfile();
+        if (file == NULL || !cbs_cixpkg_list(artifact, file, 0))
+            return 1;
+        rewind(file);
+        while (fgets(line, sizeof(line), file) != NULL) {
+            if (strstr(line, "build_fingerprint unavailable") != NULL)
+                saw_unavailable = 1;
+            if (strstr(line, "finalizer-unidentified") != NULL)
+                saw_reason = 1;
+        }
+        fclose(file);
+        if (!saw_unavailable || !saw_reason)
+            return 1;
+    }
     return 0;
 }
 

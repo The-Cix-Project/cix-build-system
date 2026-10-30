@@ -470,6 +470,28 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
 /* Build a recipe's outputs into `output_directory`, one canonically named
  * CIXPKG per declared output (ADR-0038).  The single-artifact entry point
  * above is refused when a recipe declares several. */
+int cbs_build_standalone_with_finalizer(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]);
+int cbs_build_standalone_outputs_with_finalizer(
+    const char *recipe, const char *workspace, const char *output_directory,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]);
 int cbs_build_standalone_outputs(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,

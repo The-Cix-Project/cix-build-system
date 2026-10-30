@@ -1065,6 +1065,21 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             if (log_fd >= 0 && !capture_stdout &&
                 dup2(log_fd, STDOUT_FILENO) < 0)
                 _exit(126);
+            /* Standard input is constructed too, and the reason is a measured
+             * failure rather than tidiness: in a cixd build container fd 0 is
+             * /dev/console, so a command that reads it blocks until the
+             * daemon's stall watchdog kills the build -- a timeout that points
+             * away from its cause.  /dev/null makes that an immediate EOF.  It
+             * is also the reproducibility rule CBS already applies with
+             * SOURCE_DATE_EPOCH: a build must not depend on what the parent
+             * happened to have on fd 0.  Redirected rather than closed,
+             * because a closed fd 0 is taken by the child's first open() and
+             * anything assuming 0, 1 and 2 are open then misbehaves. */
+            {
+                int null_fd = open("/dev/null", O_RDONLY);
+                if (null_fd < 0 || dup2(null_fd, STDIN_FILENO) < 0)
+                    _exit(126);
+            }
             close_inherited_descriptors();
             execve(executable, arguments.items, environment.items);
             _exit(127);

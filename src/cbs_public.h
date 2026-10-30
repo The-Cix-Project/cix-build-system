@@ -320,6 +320,23 @@ int cbs_build_standalone_outputs(
     const char *, const CbsPrunePolicy *, const char *, const char *,
     const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
     CbsBuildEventSink, void *, char[65]);
+/* The two entry points above plus `finalize_identity`: what the composer's
+ * finalizer is, so the key tells two finalizers apart (#303).  An absolute
+ * path is digested; any other string is bound verbatim, which is how an
+ * in-process callback declares itself.  NULL with a finalizer present refuses
+ * the key rather than binding a marker that looks complete. */
+int cbs_build_standalone_with_finalizer(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const char *, const CbsPrunePolicy *, const char *,
+    const char *, const CbsInputBinding *, size_t, const CbsToolIdentity *,
+    size_t, CbsBuildEventSink, void *, char[65]);
+int cbs_build_standalone_outputs_with_finalizer(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const char *, const CbsPrunePolicy *, const char *,
+    const char *, const CbsInputBinding *, size_t, const CbsToolIdentity *,
+    size_t, CbsBuildEventSink, void *, char[65]);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 

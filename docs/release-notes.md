@@ -1,11 +1,11 @@
-# CBS v0.1.106 – v0.1.122, and the licence change
+# CBS v0.1.106 – v0.1.123, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the seventeen releases of 2026-10-09 and
-2026-10-30, which closed twenty-one tracker issues.
+licence decision of 2026-10-23 and the eighteen releases of 2026-10-09 and
+2026-10-30, which closed twenty-three tracker issues.
 
-Read the five **Act on this** items if you read nothing else. Items 3, 4 and 5
-are the ones that change what cixd sees from a build it already runs today.
+Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
+the ones that change what cixd sees from a build it already runs today.
 
 ## Licence and marks
 
@@ -119,7 +119,36 @@ enter the key, so a build using one is not predictable from the verb; and a
 finalizer is bound only as *having run*, not by its own digest, so two
 different `--finalize-command` scripts produce the same key.
 
-### 4. `CBS_ABI_VERSION` went 3 → 6; rebuild
+### 4. A finalizer is now bound by what it is, so your keys change
+
+Until v0.1.123 the fingerprint bound a finalizer only as *having run*: the
+pipeline recorded a marker, so **two different `--finalize-command` scripts
+produced the same key**. A composer that changed its finalizer got a cache hit
+on an artifact the previous one built.
+
+The deciding fact came from cixd's own source: it passes
+`--finalize-command /build/finalize.sh` on every build, the path never changes,
+and the content changes release to release. So CBS now digests the command it
+resolved, and the key moves with content rather than with where the finalizer
+sits. The digest is recorded in the artifact as `finalizer`, so a stored
+artifact says what finalized it.
+
+`cbs fingerprint` accepts `--finalize-command` too, resolved and digested the
+same way, so a finalizer build's key is predictable before the build — which is
+what the key is for. `--prune-policy` and `--firmware-root` still cannot be
+given to the verb and both enter the key; that is #305.
+
+**For a library embedder:** pass the identity to
+`cbs_build_standalone_with_finalizer()` or
+`cbs_build_standalone_outputs_with_finalizer()`. An absolute path is digested;
+any other string is bound verbatim, which is how an in-process callback
+declares itself. A callback with **no** identity now gets no key at all —
+`build_fingerprint unavailable`, reason `finalizer-unidentified` — because
+binding a marker would leave a material input out of a key that looks
+complete. A `--finalize-command` caller is always identifiable and so is
+unaffected.
+
+### 5. `CBS_ABI_VERSION` went 3 → 6; rebuild
 
 Three releases changed the installed header. An embedder built against ABI 3
 must be rebuilt, and the guard in `docs/library.md` is what catches it.
@@ -133,7 +162,7 @@ must be rebuilt, and the guard in `docs/library.md` is what catches it.
 Upgrade the header, static archive and executable together from one tag, then
 rerun the install contract test.
 
-### 5. A recipe command no longer inherits CBS's descriptors
+### 6. A recipe command no longer inherits CBS's descriptors
 
 Reported by the cix maintainer against v0.1.120, which is also how it was
 caught: CBS's own `make test` failed when CBS was built by CBS.
@@ -171,9 +200,14 @@ from `/proc/self/fd` (a soft `RLIMIT_NOFILE` of 2^20 is ordinary, and a million
 `close()` calls per command is not). `tests/descriptor-hygiene-test.sh` is new
 and in the gate.
 
-**Still inherited:** standard input, which CBS has never redirected. That is
-pre-existing and a separate decision, since a build command reading stdin may
-be intended, so it was not folded into this fix.
+From v0.1.123 standard input is constructed too: a recipe command gets
+`/dev/null`. The reason is measured, not tidiness — in a cixd build container
+the inherited fd 0 is `/dev/console`, so a command that reads standard input
+**blocks** until the daemon's stall watchdog kills the build, giving a timeout
+that points away from its cause. `/dev/null` makes it an immediate EOF and a
+diagnosable failure. Redirected rather than closed, because a closed descriptor
+0 is taken by the child's first `open()`. No corpus recipe reads standard
+input.
 
 The same self-hosted build then found the other direction, fixed in v0.1.122:
 CBS validated `--events-fd N` against **its own** descriptor table rather than
@@ -442,7 +476,7 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 45 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 46 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 71 cases, and they also pass under
 TCC bounds instrumentation (`tcc -b`) as of v0.1.120.
@@ -459,7 +493,7 @@ artifacts — is the one gate step that does not run by default; it needs
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#302 cover this
+decision, its evidence, and the acceptance criteria met: #282–#304 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.
