@@ -111,6 +111,14 @@ grep -F '"type":"build-end"' "$root/bare.events" >/dev/null
 grep -F '"type":"build-end"' "$root/both.events" >/dev/null
 grep -F '"schema":"cbs.build-report/v1"' "$root/both.report.json" >/dev/null
 
+# Establish the closed descriptor rather than assume one is free.  An unused
+# number is only closed if nothing up the process tree left it open, and CBS
+# builds CBS: `make test` runs the freshly built ./cbs inside the outer cbs's
+# command tree, so the fresh binary inherits whatever that parent held.  This
+# assertion failed on Cix for exactly that reason, not because the refusal was
+# wrong.
+exec 9>&-
+
 # Refusals are usage errors, not a build that silently reports nothing.
 for bad in '--events-fd abc' '--events-fd -1' '--events-fd 9'; do
     # shellcheck disable=SC2086

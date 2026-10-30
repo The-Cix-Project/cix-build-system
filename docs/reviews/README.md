@@ -10,7 +10,7 @@ work, and [repository status](../repository-status.md) on what this repository
 owns now. The absence of a record does not mean an issue is open — some closed
 without one.
 
-All 157 records, by issue number:
+All 158 records, by issue number:
 
 - [Issue #1 validation: CPDL 1.0 grammar and diagnostics](issue-0001-validation.md)
 - [Issue #2 validation: CPDL lexer, parser, AST, and validator](issue-0002-validation.md)
@@ -169,3 +169,4 @@ All 157 records, by issue number:
 - [Issue #298 validation: build event sequence numbers repeat within a build](issue-0298-validation.md)
 - [Issue #299 validation: one recipe, several packages](issue-0299-validation.md)
 - [Issue #300 validation: every corpus recipe gets a build fingerprint](issue-0300-validation.md)
+- [Issue #301 validation: a command inherits no descriptor beyond stderr](issue-0301-validation.md)

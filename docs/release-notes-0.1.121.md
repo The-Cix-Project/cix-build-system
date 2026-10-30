@@ -1,10 +1,10 @@
-# CBS v0.1.106 – v0.1.120, and the licence change
+# CBS v0.1.106 – v0.1.121, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the fifteen releases of 2026-10-09 and
-2026-10-30, which closed nineteen tracker issues.
+licence decision of 2026-10-23 and the sixteen releases of 2026-10-09 and
+2026-10-30, which closed twenty tracker issues.
 
-Read the four **Act on this** items if you read nothing else. Items 3 and 4
+Read the five **Act on this** items if you read nothing else. Items 3, 4 and 5
 are the ones that change what cixd sees from a build it already runs today.
 
 ## Licence and marks
@@ -132,6 +132,48 @@ must be rebuilt, and the guard in `docs/library.md` is what catches it.
 
 Upgrade the header, static archive and executable together from one tag, then
 rerun the install contract test.
+
+### 5. A recipe command no longer inherits CBS's descriptors
+
+Reported by the cix maintainer against v0.1.120, which is also how it was
+caught: CBS's own `make test` failed when CBS was built by CBS.
+
+CBS builds the child's argv and environment from scratch and rejects a recipe
+`PATH` override, and this note has always said the child environment is
+constructed and never inherited. The **descriptor table** did not follow that
+rule. A recipe command received, all open and writable:
+
+```text
+3 -> pipe:[…]                 the same pipe as CBS's stdout
+4 -> /build/cbs-events.jsonl  the --events-file the composer passed
+5 -> /tmp/#2 (deleted)        the same file as CBS's stderr
+6 -> pipe:[…]
+```
+
+With `--events-fd N` the child inherited the composer's own event channel at
+the number the composer chose.
+
+**Scope, stated precisely.** The descriptor was present and writable, so a
+recipe command could open `/proc/self/fd/4`. An attempt to forge or corrupt an
+event through it did **not** succeed — CBS writes the stream through its own
+`FILE*` and that offset overwrites what a child appends, and shells are a
+forbidden executable, so `>&4` is not reachable from a recipe. Treat it as a
+contract violation and a hardening gap, not a demonstrated forgery.
+
+It also had a practical consequence beyond hygiene: a nested `cbs` inherited
+whatever the outer one held, so no descriptor number could be assumed free.
+That is what broke the self-hosted `make test` — an assertion that
+`--events-fd 9` must be refused is only true where fd 9 is actually closed.
+
+From v0.1.121 the child's table is constructed like its argv: after the `dup2`
+calls and before `execve`, every descriptor above stderr is closed, enumerated
+from `/proc/self/fd` (a soft `RLIMIT_NOFILE` of 2^20 is ordinary, and a million
+`close()` calls per command is not). `tests/descriptor-hygiene-test.sh` is new
+and in the gate.
+
+**Still inherited:** standard input, which CBS has never redirected. That is
+pre-existing and a separate decision, since a build command reading stdin may
+be intended, so it was not folded into this fix.
 
 ## New capability: several packages from one recipe
 
@@ -388,7 +430,7 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 44 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 45 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 71 cases, and they also pass under
 TCC bounds instrumentation (`tcc -b`) as of v0.1.120.

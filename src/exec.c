@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <limits.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -179,6 +181,41 @@ static int apply_child_limits(const CbsExecutionContext *context,
            apply_limit(RLIMIT_CPU, cpu, cpu, 1) &&
            apply_limit(RLIMIT_NOFILE, context->limits.open_files, 4096, 1) &&
            apply_limit(RLIMIT_NPROC, context->limits.processes, 4096, 1);
+}
+
+/* Build the child's descriptor table instead of inheriting it.  CBS already
+ * constructs the child environment rather than passing its own on, and a
+ * descriptor is part of that environment: without this a recipe command
+ * receives the composer's `--events-fd`, the open events file, and whatever
+ * the parent happened to leak, every one of them writable.  It also means a
+ * nested `cbs` sees whichever descriptors the outer one held, so a test that
+ * needs a closed descriptor cannot assume an unused number is closed.
+ *
+ * Enumerate rather than loop to the limit: a soft RLIMIT_NOFILE of 2^20 is
+ * ordinary, and a million close() calls per command is not. */
+static void close_inherited_descriptors(void) {
+    DIR *directory = opendir("/proc/self/fd");
+    struct dirent *entry;
+    int keep;
+    if (directory == NULL) {
+        /* No procfs: fall back to the ceiling apply_child_limits installs. */
+        int descriptor;
+        for (descriptor = STDERR_FILENO + 1; descriptor < 4096; ++descriptor)
+            close(descriptor);
+        return;
+    }
+    keep = dirfd(directory);
+    while ((entry = readdir(directory)) != NULL) {
+        char *end;
+        long value = strtol(entry->d_name, &end, 10);
+        if (end == entry->d_name || *end != '\0')
+            continue;
+        if (value <= STDERR_FILENO || value == (long)keep ||
+            value > (long)INT_MAX)
+            continue;
+        close((int)value);
+    }
+    closedir(directory);
 }
 
 /* Check whether a recipe attempts to invoke a prohibited shell utility. */
@@ -1028,6 +1065,7 @@ int cbs_execute_run(const CbsNode *run, const CbsExecutionContext *context) {
             if (log_fd >= 0 && !capture_stdout &&
                 dup2(log_fd, STDOUT_FILENO) < 0)
                 _exit(126);
+            close_inherited_descriptors();
             execve(executable, arguments.items, environment.items);
             _exit(127);
         }

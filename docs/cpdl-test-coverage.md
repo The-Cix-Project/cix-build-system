@@ -22,6 +22,7 @@ features must add focused success and failure assertions to this matrix.
 | Event reporters, event destinations (--events-fd/--events-file), redaction, logs, and metrics | observability-test.sh |
 | Event sequence numbers are monotonic and distinct across phases; command log names are unique and independent of the sink | observability-test.sh and observability-sequence.cbs |
 | command-end carries the exit code or terminating signal, in both sinks | observability-test.sh with the failure and timeout fixtures |
+| A command inherits no descriptor above stderr: not the event stream, not one the composer leaked | descriptor-hygiene-test.sh |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
 | Several outputs from one recipe: the partition, per-output license and requires, canonical names, one shared fingerprint, per-output determinism, and the overlap and single-path refusals | multi-output-test.sh, multi-output.cbs, output-overlap.cbs, and the invalid output-* fixtures |

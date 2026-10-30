@@ -32,7 +32,7 @@ cc $(pkg-config --cflags --libs --static cbs) consumer.c -o consumer
 cbs --capabilities
 ```
 
-`CBS_ABI_VERSION` is 6 as of v0.1.120. It was raised from 3 to 4 when
+`CBS_ABI_VERSION` is 6 as of v0.1.121. It was raised from 3 to 4 when
 `CbsExecutionContext` gained the build-wide event counter that makes event
 sequence numbers monotonic, from 4 to 5 when `CbsBuildEvent` gained
 `exit_status` and `signal` on `command-end`, and from 5 to 6 when
