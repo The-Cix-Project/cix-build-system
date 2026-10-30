@@ -79,6 +79,12 @@ Open work is tracked in the issue tracker, not in these documents.
 - [Validation records](reviews/README.md) — all 153, one per closed issue,
   describing the implementation at that issue's close date rather than today
 
+## Release notes
+
+- [v0.1.106 – v0.1.116, and the licence change](release-notes-0.1.116.md) — for
+  maintainers, recipe authors and embedders: what to act on, what was
+  unblocked, and the diagnostics that changed
+
 ## Licence and marks
 
 CBS is free software under the GNU Lesser General Public License, version 3, or
