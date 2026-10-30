@@ -5,7 +5,8 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.111 at time of writing).
+Current release is the first line of `VERSION` (0.1.116 at time of writing;
+`main` may sit a docs commit ahead of the tag).
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
 ## Scope: what lives here and what does not
@@ -26,11 +27,13 @@ a CBS feature. `docs/repository-status.md` is the authority on that boundary.
 
 `docs/` describes the authoritative corpus as external, and it is — but it is
 checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
-split from `cix#505` on 2026-09-21). It holds **993 `.cbs` recipes** under
-`recipes/package/`, `recipes/image/`, `recipes/deployment/`, named
-`<name>@<version>.<ext>`.
+split from `cix#505` on 2026-09-21), under `recipes/package/`,
+`recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-**All 993 validate against this engine** (checked 2026-10-09). That makes it the
+It moves fast — **1969 `.cbs` definitions across 245 distinct packages** on
+2026-10-30, up from 1010 and 181 three weeks earlier, with no shell recipes
+left. **All 1969 validate against this engine**, re-measured the same day. So
+re-measure rather than quoting these figures, and treat the corpus as the
 fastest real-world regression check for any CPDL or validator change — far
 broader than the single `recipes/zstd.cbs` fixture shipped here:
 
@@ -96,6 +99,8 @@ tests/      *.c focused tests, *.sh contract tests, fixtures/
 recipes/    zstd.cbs — the one build-tested qualification recipe
 docs/       spec/ (normative), adr/ (37 decisions), guides/, reviews/ (closed-ticket evidence)
 cbs.cbs     CBS's own self-hosting recipe (pin necessarily lags one release)
+COPYING*    COPYING is GPLv3, COPYING.LESSER the LGPLv3: LGPL-3.0-or-later
+TRADEMARK   the Cix marks policy (TRADEMARK.md), separate from the licence
 ```
 
 `src/cbs.h` is private (lexer/parser/AST/execution internals).
@@ -215,7 +220,7 @@ Touch the chain in order, or validation and execution drift apart:
 4. `src/main.c` — report it in `explain --json` if embedders need it.
 5. `tests/fixtures/valid/` **and** `tests/fixtures/invalid/` — a rejection
    fixture may carry a sibling `.expect` file holding the required diagnostic
-   text (16 of the 57 invalid fixtures do).
+   text (18 of the 59 invalid fixtures do).
 6. A focused test, wired into the `test:` target in the `Makefile` with its exact
    object list, run, then `rm -f`.
 7. `docs/spec/cpdl-1.0.md` (§2.4 keyword set, §3.1 grammar, §8.2 codes) and
@@ -295,7 +300,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 37 decisions and all 148 validation records. The records are
+   indexes of all 37 decisions and all 153 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.
@@ -357,13 +362,13 @@ There is no CI configuration in this repository; the gate is run locally.
 Tickets live in a private Gitea at `https://git.home.arpa/itdlabs/cix-build-system`
 (use `curl -sk`; the cert is untrusted and anonymous requests get 404, never
 401). The per-ticket loop: fix + tests + `docs/reviews/issue-NNNN-validation.md`
-using the real ticket title + the index entry in `docs/README.md` + a commit
-saying `Resolves #N` + push + a Gitea comment with before/after evidence + close
-via `PATCH state=closed`.
+using the real ticket title + an entry in `docs/reviews/README.md` (regenerate
+it; see Documentation authority) + a commit saying `Resolves #N` + push + a
+Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
-## Residual spec drift (verified 2026-10-09, v0.1.111)
+## Residual spec drift (verified 2026-10-30, v0.1.116)
 
-Closed, as of v0.1.111. One known gap remains, unfiled:
+Closed. One known gap remains, unfiled:
 
 - `for` (the `require … { } for { … }` form) is described in
   `cpdl-1.0.md` §4.7 **prose** only and appears in no EBNF production. It is in

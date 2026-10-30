@@ -76,8 +76,24 @@ Open work is tracked in the issue tracker, not in these documents.
 
 - [Architecture decision records](adr/README.md) — all 37, with the rule that a
   decision is superseded rather than rewritten
-- [Validation records](reviews/README.md) — all 148, one per closed issue,
+- [Validation records](reviews/README.md) — all 153, one per closed issue,
   describing the implementation at that issue's close date rather than today
+
+## Licence and marks
+
+CBS is free software under the GNU Lesser General Public License, version 3, or
+at your option any later version (`LGPL-3.0-or-later`). The LGPL is a set of
+additional permissions on top of the GPL, which is why both texts are in the
+repository: [COPYING.LESSER](../COPYING.LESSER) is the LGPLv3 and
+[COPYING](../COPYING) the GPLv3 it builds on.
+
+The Cix name and marks are governed separately, by
+[TRADEMARK.md](../TRADEMARK.md), which also states what counts as an official
+Cix artifact. A licence grants no right to the marks, and neither grants
+infrastructure or support.
+
+Nothing in these documents is a licence term. Where a guide or specification
+and a licence text disagree, the licence text governs.
 
 The canonical [Cix Build System logo](../brand/cix-cbs-logo.svg) is maintained
 in the repository brand directory.

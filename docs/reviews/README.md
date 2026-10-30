@@ -10,7 +10,7 @@ work, and [repository status](../repository-status.md) on what this repository
 owns now. The absence of a record does not mean an issue is open — some closed
 without one.
 
-All 148 records, by issue number:
+All 153 records, by issue number:
 
 - [Issue #1 validation: CPDL 1.0 grammar and diagnostics](issue-0001-validation.md)
 - [Issue #2 validation: CPDL lexer, parser, AST, and validator](issue-0002-validation.md)
