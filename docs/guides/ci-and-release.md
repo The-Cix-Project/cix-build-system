@@ -79,6 +79,14 @@ public header, and pkg-config metadata from the same tag.
 ## Release checklist
 
 1. Update implementation, tests, guides, and current release references.
+   The consolidated release note is `docs/release-notes.md` — a **stable
+   path**, extended in place. Do not put a version in its filename and do not
+   name it in the reference sweep: the sweep rewrote the link to it in
+   `docs/README.md` and broke that link on three consecutive releases, and a
+   version in the link text would advance the span it claims to cover whether
+   or not the note was extended. Its `# ` heading is the one place the covered
+   span lives. Cix cites this path from its own append-only ADRs, where a
+   stale link cannot be quietly fixed.
 2. Run `git diff --check`, then `make -o version-check test`. At a tagged
    checkout `version-check` refuses the bumped `VERSION` until the commit in
    step 4 moves `HEAD` off the previous tag, so the full `make -j1 test` runs

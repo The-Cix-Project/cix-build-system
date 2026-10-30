@@ -81,9 +81,10 @@ Open work is tracked in the issue tracker, not in these documents.
 
 ## Release notes
 
-- [v0.1.106 – v0.1.122, and the licence change](release-notes-0.1.122.md) — for
-  maintainers, recipe authors and embedders: what to act on, what was
-  unblocked, and the diagnostics that changed
+- [Release notes](release-notes.md) — for maintainers, recipe authors and
+  embedders: what to act on, what was unblocked, and the diagnostics that
+  changed. Its heading states the releases it covers; the path never changes,
+  so a link to it does not rot
 
 ## Licence and marks
 

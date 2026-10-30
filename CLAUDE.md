@@ -346,6 +346,11 @@ whatever the last few commits happened to do:
 8. Update the issue tracker with the commit, tag, test result, and any
    intentional qualification skip.
 
+`docs/release-notes.md` is a stable path, extended in place, and is
+deliberately **not** in the sweep: its heading carries the span, and versioning
+its filename or its link text broke the `docs/README.md` link three releases
+running (see the guide).
+
 Step 1's reference sweep is **required policy**, not churn. Every release bumps
 `VERSION` and rewrites the release string in all eight files that name it:
 `README.md`, `docs/README.md`, `docs/repository-status.md`, `docs/roadmap.md`,
