@@ -5,7 +5,7 @@ reads, and **CIXPKG** is the artifact format it produces and verifies. This
 directory holds the language and artifact specifications, the practical guides,
 and the project's decision and validation history.
 
-Current release: **CBS v0.1.119**. `VERSION`, the release tag, and
+Current release: **CBS v0.1.120**. `VERSION`, the release tag, and
 `cbs --version` are kept in sync by the release gate.
 
 ## Start here
@@ -81,7 +81,7 @@ Open work is tracked in the issue tracker, not in these documents.
 
 ## Release notes
 
-- [v0.1.106 – v0.1.119, and the licence change](release-notes-0.1.119.md) — for
+- [v0.1.106 – v0.1.120, and the licence change](release-notes-0.1.120.md) — for
   maintainers, recipe authors and embedders: what to act on, what was
   unblocked, and the diagnostics that changed
 

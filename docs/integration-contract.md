@@ -93,10 +93,15 @@ alias, not the workspace-specific wrapper directory. Consequently,
 `cbs fingerprint` can compute the same key before materialisation, and the
 report and packaged provenance remain identical to that precomputed key, given
 the same `--arch`, `--command-path`, `--library-path`, `--input` and
-`--tool-identity`. The key binds each executable the recipe runs by digest,
-resolved through the approved command path; it does not hash the rest of the
-path. A finalizer is bound by its resolved path when CBS resolved one, and as
-an opaque marker when an embedder supplied a callback, which has none.
+`--tool-identity`. `fingerprint` accepts no `--prune-policy`, `--firmware-root`
+or `--finalize-command`, and all three enter the key, so a build that uses one
+cannot be predicted by the verb.
+
+The key binds each executable the recipe runs by digest, resolved through the
+approved command path; it does not hash the rest of the path. A firmware root
+and a tool directory are bound by content. A finalizer is bound only as having
+run: the build records an opaque marker, not the finalizer's own digest, so two
+different `--finalize-command` scripts yield the same key.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,

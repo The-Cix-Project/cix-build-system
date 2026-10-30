@@ -235,6 +235,39 @@ static int run_test(const char *root) {
                                   package, excessive))
             return 1;
     }
+    /* Only the finalizer may be a marker rather than a path: an embedder
+     * callback has none.  Every other material root is a path, and one that
+     * cannot be observed refuses the key instead of being recorded as a
+     * string, which would silently stop binding its contents. */
+    {
+        char command_root[4256], command[4256], library_path[4256];
+        char key[65];
+        CbsFingerprintContext materials = {0};
+        snprintf(command_root, sizeof(command_root), "%s/marker-commands", root);
+        snprintf(library_path, sizeof(library_path), "%s/marker-libraries",
+                 root);
+        snprintf(command, sizeof(command), "%s/true", command_root);
+        if (mkdir(command_root, 0700) != 0 || mkdir(library_path, 0700) != 0)
+            return 1;
+        file = fopen(command, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("tool", file);
+        fclose(file);
+        if (chmod(command, 0755) != 0)
+            return 1;
+        materials.finalize_path = "callback";
+        if (!cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_root,
+                library_path, NULL, 0, &materials, key))
+            return 1;
+        materials.finalize_path = NULL;
+        materials.firmware_root = "no-such-relative-firmware-root";
+        if (cbs_build_fingerprint_with_context(
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_root,
+                library_path, NULL, 0, &materials, key))
+            return 1;
+    }
     /* Every executable the recipe runs is bound by digest, and an
      * embedder-supplied verified identity set binds the toolchain without
      * resolving anything on the host. */

@@ -379,10 +379,12 @@ static int build_fingerprint_with_reason(
             struct stat status;
             if (paths[material] == NULL)
                 continue;
-            /* The composer may supply a finalizer CBS cannot open: an embedder
-             * callback has no path.  Binding "a finalizer ran" is the material
-             * fact; refusing to measure it loses the whole key. */
-            if (paths[material][0] != '/') {
+            /* Only the finalizer may be something other than a path: an
+             * embedder callback has none, and binding that one ran is the
+             * material fact.  A firmware or tool root that cannot be observed
+             * must be reported below, not quietly recorded as a string. */
+            if (strcmp(names[material], "finalize_path") == 0 &&
+                paths[material][0] != '/') {
                 if (!fingerprint_append(&fingerprint, &fingerprint_length,
                                         &fingerprint_capacity, names[material],
                                         paths[material]))

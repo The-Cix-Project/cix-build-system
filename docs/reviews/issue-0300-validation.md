@@ -104,6 +104,31 @@ fail.
 Full gate green; all 1969 corpus recipes still validate. A plain
 `cbs build` is 0.016 s where the attempted fix measured 56 s.
 
+## Correction, v0.1.120
+
+The first cut of the opaque-marker branch tested `paths[material][0] != '/'`,
+which caught **any** relative path, not just the marker. A relative
+`--firmware-root` was then bound as the string `fw` and its contents stopped
+being digested: changing a byte under it left the key unmoved. That is the same
+silent-weakening class this ticket was about, introduced while fixing it, and
+it shipped in v0.1.119.
+
+The discriminator is now explicit — only `finalize_path` may be a marker rather
+than a path; every other material root that cannot be observed refuses the key
+with the `unobservable` reason. `tests/package-test.c` pins both halves: a
+`finalize_path` of `"callback"` yields a key, and a firmware root that is not an
+observable path does not. The assertion fails against the v0.1.119 engine.
+
+Also corrected in the same release: the integration contract claimed a
+finalizer is "bound by its resolved path when CBS resolved one". It is not. The
+pipeline has no access to the resolved command, so **every** finalizer —
+`--finalize-command` included — is bound only as having run, and two different
+finalize scripts yield the same key. Binding the resolved command's content is
+a follow-up, not something to imply here. Both documents also now say that
+`fingerprint` accepts no `--prune-policy`, `--firmware-root` or
+`--finalize-command` while all three enter the key, so the parity claim states
+its real condition.
+
 ## Not changed
 
 No ABI change: `cbs_manifest_collect_material` is declared in the private
