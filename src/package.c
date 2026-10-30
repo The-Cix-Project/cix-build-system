@@ -744,6 +744,123 @@ static const char *declared_license(const CbsNode *document) {
     return NULL;
 }
 
+/* One output the build will emit: the main package first, then each declared
+ * `output` in source order (ADR-0038). */
+typedef struct {
+    CbsOutputSpec spec;
+    CbsOutputSelector *selectors;
+    char *manifest_path;
+    char *artifact_path;
+    char *identity;
+    int written;
+} PipelineOutput;
+
+static void destroy_pipeline_outputs(PipelineOutput *outputs, size_t count) {
+    size_t index;
+    for (index = 0; index < count; ++index) {
+        free(outputs[index].selectors);
+        free(outputs[index].manifest_path);
+        free(outputs[index].artifact_path);
+        free(outputs[index].identity);
+    }
+    free(outputs);
+}
+
+/* Collect the outputs a document declares, main first.  `directory` is set
+ * when the caller asked for canonical filenames; otherwise `single_path` names
+ * the one artifact and there must be exactly one output. */
+static PipelineOutput *build_pipeline_outputs(
+    const CbsNode *document, const CbsPackageIdentity *identity,
+    const char *dest, const char *directory, const char *single_path,
+    size_t *count_out, CbsOutputSpec **specs_out) {
+    const CbsNode *package;
+    PipelineOutput *outputs;
+    size_t capacity = 1;
+    size_t count = 0;
+    size_t index;
+
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_OUTPUT)
+            ++capacity;
+    outputs = cbs_allocate(capacity * sizeof(*outputs));
+    memset(outputs, 0, capacity * sizeof(*outputs));
+
+    for (index = 0; index <= package->child_count; ++index) {
+        const CbsNode *node = NULL;
+        PipelineOutput *out;
+        CbsPackageIdentity output_identity = *identity;
+        const CbsNode *files = NULL;
+        size_t child;
+
+        if (index == 0) {
+            /* The main output: the package itself, claiming the remainder. */
+        } else {
+            node = package->children[index - 1];
+            if (node->kind != CBS_NODE_OUTPUT)
+                continue;
+        }
+        out = &outputs[count];
+        out->spec.is_main = node == NULL;
+        out->spec.name = node == NULL ? identity->name : node->value;
+        output_identity.name = out->spec.name;
+        out->identity = cbs_identity_string(&output_identity);
+        out->spec.license = NULL;
+        if (node == NULL)
+            out->spec.license = declared_license(document);
+        else
+            for (child = 0; child < node->child_count; ++child) {
+                if (node->children[child]->kind == CBS_NODE_LICENSE)
+                    out->spec.license = node->children[child]->value;
+                else if (node->children[child]->kind == CBS_NODE_FILES)
+                    files = node->children[child];
+            }
+        if (files != NULL && files->child_count > 0) {
+            out->selectors =
+                cbs_allocate(files->child_count * sizeof(*out->selectors));
+            for (child = 0; child < files->child_count; ++child) {
+                out->selectors[child].pattern = files->children[child]->value;
+                out->selectors[child].glob = files->children[child]->flag;
+            }
+            out->spec.selectors = out->selectors;
+            out->spec.selector_count = files->child_count;
+        }
+        {
+            char path[4096];
+            snprintf(path, sizeof(path), "%s/.cbs-manifest-%s", dest,
+                     out->spec.name);
+            out->manifest_path = cbs_duplicate(path);
+            out->spec.manifest_path = out->manifest_path;
+            if (directory != NULL) {
+                char *filename = cbs_identity_artifact_filename(
+                    &output_identity);
+                snprintf(path, sizeof(path), "%s/%s", directory,
+                         filename == NULL ? out->spec.name : filename);
+                free(filename);
+                out->artifact_path = cbs_duplicate(path);
+            } else if (single_path != NULL) {
+                out->artifact_path = cbs_duplicate(single_path);
+            }
+        }
+        ++count;
+    }
+    /* The partition takes a contiguous CbsOutputSpec array.  Handing it
+     * &outputs[0].spec would stride by sizeof(PipelineOutput) and read past
+     * the first element. */
+    if (specs_out != NULL) {
+        CbsOutputSpec *specs =
+            cbs_allocate((count == 0 ? 1 : count) * sizeof(*specs));
+        for (index = 0; index < count; ++index)
+            specs[index] = outputs[index].spec;
+        *specs_out = specs;
+    }
+    *count_out = count;
+    return outputs;
+}
+
+
 /* Resolve explicit privileged-file declarations once against the staged
  * destination. The manifest checker then performs exact path and mode tests. */
 static int collect_privileged_allowances(
@@ -1142,8 +1259,12 @@ done:
 }
 
 /* Execute a recipe, apply policy, and write its standalone artifact. */
-int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+/* The pipeline.  `output_directory` writes one canonically named artifact per
+ * output; `package_path` names a single artifact and is refused when the
+ * recipe declares several (ADR-0038).  Exactly one of the two is given. */
+static int run_build_pipeline(
     const char *recipe, const char *workspace, const char *package_path,
+    const char *output_directory,
     const char *architecture, const CbsFetchService *fetch_service,
     const char *cache_directory, CbsFinalizePolicy finalize, void *user,
     const char *firmware_root, const CbsPrunePolicy *prune_policy,
@@ -1359,25 +1480,52 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     }
     if (build_fingerprint != NULL && fingerprint_available)
         memcpy(build_fingerprint, fingerprint, sizeof(fingerprint));
-    if (ok && package_path != NULL) {
-        snprintf(manifest, sizeof(manifest), "%s/.cbs-manifest", dest);
-        ok = cbs_manifest_write_with_license_policy_error(
-            dest, manifest, declared_license(document), allowances,
-            allowance_count, manifest_error, sizeof(manifest_error));
-        if (!ok)
+    if (ok && (package_path != NULL || output_directory != NULL)) {
+        size_t output_count = 0;
+        size_t output_index;
+        CbsOutputSpec *output_specs = NULL;
+        PipelineOutput *outputs = build_pipeline_outputs(
+            document, &identity, dest, output_directory, package_path,
+            &output_count, &output_specs);
+        if (outputs == NULL || output_count == 0) {
+            pipeline_error(recipe, text, document->location, "package output",
+                           "cannot determine the outputs to emit");
+            ok = 0;
+        }
+        /* One path cannot name several artifacts.  Refusing is the whole
+         * reason --output-dir exists (ADR-0038). */
+        if (ok && output_directory == NULL && output_count > 1) {
+            pipeline_error(recipe, text, document->location, "package output",
+                           "recipe declares several outputs; use --output-dir");
+            ok = 0;
+        }
+        if (ok)
+            ok = cbs_manifest_write_outputs(
+                dest, output_specs, output_count, allowances,
+                allowance_count, manifest_error, sizeof(manifest_error));
+        if (!ok && outputs != NULL)
             pipeline_manifest_error(
                 recipe, text, document->location, "manifest",
-                manifest_error[0] != '\0' ? manifest_error
-                                           : "cannot write staged-tree manifest");
-        if (ok && !append_provenance(manifest, recipe, text, &sources,
-                                     document,
-                                     &context, finalize == NULL ? NULL
-                                                                : "callback",
-                                     prune_policy, fingerprint,
-                                     fingerprint_available)) {
-            pipeline_error(recipe, text, document->location, "provenance",
-                           "cannot append build provenance");
-            ok = 0;
+                manifest_error[0] != '\0'
+                    ? manifest_error
+                    : "cannot write staged-tree manifests");
+        /* Every artifact carries the same provenance, because there was one
+         * build action; only identity and the license line differ. */
+        for (output_index = 0; ok && output_index < output_count;
+             ++output_index) {
+            PipelineOutput *out = &outputs[output_index];
+            struct stat manifest_status;
+            if (lstat(out->manifest_path, &manifest_status) != 0)
+                continue; /* main with nothing left over: not emitted */
+            if (!append_provenance(out->manifest_path, recipe, text, &sources,
+                                   document, &context,
+                                   finalize == NULL ? NULL : "callback",
+                                   prune_policy, fingerprint,
+                                   fingerprint_available)) {
+                pipeline_error(recipe, text, document->location, "provenance",
+                               "cannot append build provenance");
+                ok = 0;
+            }
         }
         if (ok) {
             ok = cbs_manifest_collect_with_policy_error(
@@ -1397,27 +1545,46 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
             for (index = 0; index < entry_count; ++index)
                 context.current_tree_bytes += entries[index].size;
         }
-        if (ok)
-            ok = cbs_cixpkg_write_tree_with_flags(
-                manifest, dest, package_path, package_identity, flags);
-        if (!ok && entries != NULL)
-            pipeline_error(recipe, text, document->location, "package output",
-                           "cannot write CIXPKG output");
-        if (ok) {
+        for (output_index = 0; ok && output_index < output_count;
+             ++output_index) {
+            PipelineOutput *out = &outputs[output_index];
             struct stat artifact;
-            if (stat(package_path, &artifact) != 0) {
+            if (lstat(out->manifest_path, &artifact) != 0)
+                continue;
+            if (!cbs_cixpkg_write_tree_with_flags(out->manifest_path, dest,
+                                                  out->artifact_path,
+                                                  out->identity, flags)) {
+                pipeline_error(recipe, text, document->location,
+                               "package output", "cannot write CIXPKG output");
+                ok = 0;
+                break;
+            }
+            out->written = 1;
+            if (stat(out->artifact_path, &artifact) != 0) {
                 pipeline_error(recipe, text, document->location,
                                "package output", "cannot stat CIXPKG output");
                 ok = 0;
-            } else
-                context.current_artifact_bytes =
-                    (unsigned long long)artifact.st_size;
+                break;
+            }
+            context.current_artifact_bytes =
+                (unsigned long long)artifact.st_size;
+            if (!cbs_emit_build_event(&context, "artifact-finalized", NULL,
+                                      out->artifact_path, out->identity, 0, 0,
+                                      0, 0)) {
+                ok = 0;
+                break;
+            }
         }
-        unlink(manifest);
-        if (ok && !cbs_emit_build_event(&context, "artifact-finalized", NULL,
-                                        package_path, package_identity, 0, 0,
-                                        0, 0))
-            ok = 0;
+        /* All outputs or none: a half-written set would leave a repository
+         * holding artifacts for a build that failed. */
+        if (!ok)
+            for (output_index = 0; output_index < output_count; ++output_index)
+                if (outputs[output_index].written)
+                    unlink(outputs[output_index].artifact_path);
+        for (output_index = 0; output_index < output_count; ++output_index)
+            unlink(outputs[output_index].manifest_path);
+        free(output_specs);
+        destroy_pipeline_outputs(outputs, output_count);
     }
     if (context.event_sink != NULL && context.name != NULL)
         cbs_emit_build_event(&context, "build-end", NULL, NULL,
@@ -1432,6 +1599,40 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     cbs_token_list_destroy(&tokens);
     free(text);
     return ok;
+}
+
+int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]) {
+    return run_build_pipeline(
+        recipe, workspace, package_path, NULL, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy,
+        command_path, library_path, inputs, input_count, tool_identities,
+        tool_identity_count, event_sink, event_sink_user, build_fingerprint);
+}
+
+int cbs_build_standalone_outputs(
+    const char *recipe, const char *workspace, const char *output_directory,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65]) {
+    return run_build_pipeline(
+        recipe, workspace, NULL, output_directory, architecture, fetch_service,
+        cache_directory, finalize, user, firmware_root, prune_policy,
+        command_path, library_path, inputs, input_count, tool_identities,
+        tool_identity_count, event_sink, event_sink_user, build_fingerprint);
 }
 
 int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(

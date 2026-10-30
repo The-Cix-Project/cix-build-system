@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define CBS_API_VERSION 1U
-#define CBS_ABI_VERSION 5U
+#define CBS_ABI_VERSION 6U
 /* Numeric language contract version.  The public language contract is CPDL
  * 1.0; the string form below is authoritative for external consumers. */
 #define CBS_CPDL_VERSION 1U
@@ -137,6 +137,11 @@ typedef struct {
     unsigned long long prune_files;
     unsigned long long prune_bytes;
     int status;
+    /* How many artifacts the build emitted (ADR-0038).  The two fields below
+     * describe the artifact only when this is 1; with several outputs they are
+     * empty and the `artifact-finalized` events enumerate them, because one
+     * path and one digest cannot stand for N without looking complete. */
+    unsigned long long output_count;
     char artifact_path[4096];
     char artifact_digest[65];
     char failure_message[1024];
@@ -301,6 +306,15 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(
     const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
     CbsBuildEventSink, void *);
 int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
+    CbsBuildEventSink, void *, char[65]);
+/* Build a recipe's outputs into `output_directory`, one canonically named
+ * CIXPKG per declared output (ADR-0038).  The single-artifact entry point
+ * above is refused when a recipe declares several. */
+int cbs_build_standalone_outputs(
     const char *, const char *, const char *, const char *,
     const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
     const char *, const CbsPrunePolicy *, const char *, const char *,

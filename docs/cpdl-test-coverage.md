@@ -24,6 +24,7 @@ features must add focused success and failure assertions to this matrix.
 | command-end carries the exit code or terminating signal, in both sinks | observability-test.sh with the failure and timeout fixtures |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
+| Several outputs from one recipe: the partition, per-output license and requires, canonical names, one shared fingerprint, per-output determinism, and the overlap and single-path refusals | multi-output-test.sh, multi-output.cbs, output-overlap.cbs, and the invalid output-* fixtures |
 | Every test writes under its own TMPDIR-aware root and removes it | tests/temp.h, used by every C test; shell tests clean up with a trap |
 | Every in-repository migrated recipe parses and validates | make recipe-test |
 | The self-hosting pin names one release, matches its archive tag, and never runs ahead of VERSION | recipe-metadata-test.sh on cbs.cbs |

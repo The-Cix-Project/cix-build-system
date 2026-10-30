@@ -1,0 +1,28 @@
+# ADR-0038: one recipe, one build, several packages. Shaped like the case
+# issue #299 was filed for: a client carved out of a larger package, with its
+# own runtime requires, and the remainder staying in the main package.
+package "cix" {
+    version "1.4.0"
+    release 2
+    format "cixpkg"
+
+    requires { runtime { library "libarchive" } }
+
+    output "cixctl" {
+        files { "usr/bin/cixctl" }
+        requires { runtime { library "libcurl" } }
+        license "LGPL-3.0-or-later"
+    }
+
+    output "cix-tools" {
+        files { glob "usr/bin/mk*" }
+    }
+
+    build {
+        mkdir "${dest}/usr/bin" parents
+        write "${dest}/usr/bin/cixctl" "client\n" chmod 0755
+        write "${dest}/usr/bin/cixd" "daemon\n" chmod 0755
+        write "${dest}/usr/bin/mkbootroot" "tool\n" chmod 0755
+        write "${dest}/usr/bin/mkinstalleriso" "tool\n" chmod 0755
+    }
+}

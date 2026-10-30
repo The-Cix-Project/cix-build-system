@@ -180,9 +180,19 @@ int cbs_build_report_consume(const CbsBuildEvent *event, void *user) {
     } else if (strcmp(event->type, "artifact-finalized") == 0) {
         report->tree_bytes = event->tree_bytes;
         report->tree_files = event->tree_files;
-        report->artifact_bytes = event->artifact_bytes;
-        report_copy(report->artifact_path, sizeof(report->artifact_path),
-                    event->command);
+        /* Totals accumulate across outputs, because a total is one fact about
+         * the build.  The single-artifact fields do not (ADR-0038 6): with
+         * several outputs they are cleared rather than naming one of N and
+         * looking complete. */
+        report->artifact_bytes += event->artifact_bytes;
+        report->output_count++;
+        if (report->output_count == 1)
+            report_copy(report->artifact_path, sizeof(report->artifact_path),
+                        event->command);
+        else {
+            report->artifact_path[0] = '\0';
+            report->artifact_digest[0] = '\0';
+        }
     } else if (strcmp(event->type, "build-end") == 0) {
         report->status = event->status;
         report_copy(report->failure_message, sizeof(report->failure_message),
@@ -221,6 +231,9 @@ int cbs_build_report_write_json(const CbsBuildReport *report, FILE *stream) {
     json_string(stream, report->artifact_path);
     fputs(",\"artifact_digest\":", stream);
     json_string(stream, report->artifact_digest);
+    /* So a consumer can tell "one artifact, named above" from "several, see
+     * the event stream" rather than inferring it from an empty path. */
+    fprintf(stream, ",\"output_count\":%llu", report->output_count);
     fputs(",\"failure\":", stream);
     json_string(stream, report->failure_message);
     fputs("}\n", stream);

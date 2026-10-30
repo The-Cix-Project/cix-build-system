@@ -278,6 +278,32 @@ one source of truth for what an artifact is called, and `--output-dir` is the
 only spelling that keeps it so. See §5, which also makes `--output FILE` the
 legacy form rather than an equal alternative.
 
+## Implementation note (v0.1.119)
+
+Implementing §2 exposed a case the decision did not resolve: directories.
+
+A staged directory is a manifest entry because it carries a mode. A selector
+naming `usr/bin/cixctl` does not claim `usr` or `usr/bin`, so a recipe whose
+outputs claim every *file* still leaves the directories unclaimed, and the main
+package is emitted holding them.
+
+That is the right outcome, so "the main package has no files" in §2 is
+implemented as **no entries at all**. An artifact holding only directories is
+not empty: those entries are the only record of a non-default directory mode,
+and omitting the main package in that case would lose them silently — the
+failure class #285 and #294 were about. A recipe that genuinely means to emit
+only its named outputs claims the directories too, which `files { glob "**" }`
+does, and the main package is then omitted as §2 intends.
+
+Verified: directory modes survive the partition (`0700` and `0600` preserved
+through a claimed subtree), and a split output extracts standalone into an
+empty root because CIXPKG creates implicit parents — so directory entries are
+not duplicated into every output that needs them.
+
+This records what the accepted decision means in a case it did not foresee. It
+does not change it; per ADR-0029 a changed decision would need a superseding
+record.
+
 ## Accepted as written
 
 Accepted on 2026-10-30 with all four decisions as recommended, under the

@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.118 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.119 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -293,6 +293,10 @@ The remaining build options are for callers embedding CBS in a larger system:
 --events-file FILE        write the JSONL stream to FILE instead
 --report FILE             atomically persist a cbs.build-report/v1 result for
                           successful and failed builds
+--output-dir DIR          write one artifact per declared output, each named
+                          name-version-release-arch.cixpkg. Required when a
+                          recipe declares an output; --output names a single
+                          artifact and is the legacy single-output form
 --prune-policy FILE       apply a staged-tree prune policy (strip-debug,
                           drop-static-archives, drop-libtool-archives, one
                           per line) before the manifest is generated

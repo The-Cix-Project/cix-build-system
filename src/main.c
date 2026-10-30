@@ -782,6 +782,7 @@ static void usage(FILE *stream) {
         "[--cache DIR] [--ca-file FILE] [--events human|jsonl] "
         "[--finalize-command CMD] [--prune-policy FILE] [--firmware-root DIR]\n"
         "      [--events-fd N | --events-file FILE]\n"
+        "      [--output-dir DIR]                 one artifact per output\n"
         "      [--report FILE]\n"
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
@@ -841,6 +842,9 @@ typedef struct {
     const char *architecture;
     const char *staged;
     const char *output;
+    /* One canonically named artifact per declared output (ADR-0038).
+     * Mutually exclusive with `output`. */
+    const char *output_dir;
     const char *cache;
     const char *ca_file;
     const char *events;
@@ -1025,6 +1029,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 9;
         else if (strncmp(argument, "--output=", 9) == 0)
             value = argument + 9;
+        else if (strncmp(argument, "--output-dir=", 13) == 0)
+            value = argument + 13;
         else if (strncmp(argument, "--cache=", 8) == 0)
             value = argument + 8;
         else if (strncmp(argument, "--ca-file=", 10) == 0)
@@ -1050,6 +1056,7 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--arch") == 0 ||
                  strcmp(argument, "--staged") == 0 ||
                  strcmp(argument, "--output") == 0 ||
+                 strcmp(argument, "--output-dir") == 0 ||
                  strcmp(argument, "--cache") == 0 ||
                  strcmp(argument, "--ca-file") == 0 ||
                  strcmp(argument, "--events") == 0 ||
@@ -1092,6 +1099,9 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--output") == 0 ||
                  strncmp(argument, "--output=", 9) == 0)
             options->output = value;
+        else if (strcmp(argument, "--output-dir") == 0 ||
+                 strncmp(argument, "--output-dir=", 13) == 0)
+            options->output_dir = value;
         else if (strcmp(argument, "--cache") == 0 ||
                  strncmp(argument, "--cache=", 8) == 0)
             options->cache = value;
@@ -1128,6 +1138,11 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
     if (options->architecture == NULL || options->staged == NULL) {
         cli_errorf("build", "CBS-E1001", "cli", 2,
                    "--arch and --staged are required");
+        return 0;
+    }
+    if (options->output != NULL && options->output_dir != NULL) {
+        cli_errorf("build", "CBS-E1024", "cli", 2,
+                   "--output and --output-dir cannot be combined");
         return 0;
     }
     return 1;
@@ -1238,6 +1253,59 @@ static const CbsNode *explained_tools(const CbsNode *document) {
     return NULL;
 }
 
+/* Emit a `requires` object: role, then kind, then the names declared for it.
+ * One serializer for the package and for an output, because ADR-0038 4 asks a
+ * consumer iterating `outputs` to read the same shape it reads at the top
+ * level.  Always an object: absent requires is an empty one, not a null. */
+static void print_requires_object(const CbsNode *owner) {
+    size_t item_index;
+    size_t child_index;
+    int first_group = 1;
+    putchar('{');
+    for (item_index = 0; item_index < owner->child_count; ++item_index) {
+        const CbsNode *requires_node = owner->children[item_index];
+        if (requires_node->kind != CBS_NODE_REQUIRES)
+            continue;
+        for (child_index = 0; child_index < requires_node->child_count;
+             ++child_index) {
+            const CbsNode *group = requires_node->children[child_index];
+            size_t dep_index;
+            if (!first_group)
+                putchar(',');
+            first_group = 0;
+            print_json_string(group->name);
+            fputs(":{", stdout);
+            for (dep_index = 0; dep_index < group->child_count; ++dep_index) {
+                const CbsNode *dep = group->children[dep_index];
+                size_t later;
+                int first_value = 1;
+                /* One entry per kind: skip a kind an earlier item named. */
+                for (later = 0; later < dep_index; ++later)
+                    if (strcmp(group->children[later]->name, dep->name) == 0)
+                        break;
+                if (later != dep_index)
+                    continue;
+                if (dep_index != 0)
+                    putchar(',');
+                print_json_string(dep->name);
+                putchar(':');
+                putchar('[');
+                for (later = dep_index; later < group->child_count; ++later) {
+                    if (strcmp(group->children[later]->name, dep->name) != 0)
+                        continue;
+                    if (!first_value)
+                        putchar(',');
+                    first_value = 0;
+                    print_json_string(group->children[later]->value);
+                }
+                putchar(']');
+            }
+            putchar('}');
+        }
+    }
+    putchar('}');
+}
+
 /* Validate a recipe and print its execution metadata and plan. */
 static int explain_file(const char *path, int json) {
     char *source;
@@ -1336,60 +1404,9 @@ static int explain_file(const char *path, int json) {
                 }
             }
         }
-        fputs("],\"requires\":{", stdout);
-        {
-            int first_group = 1;
-            for (item_index = 0; item_index < package->child_count;
-                 ++item_index) {
-                const CbsNode *
-                    requires
-                = package->children[item_index];
-                if (requires->kind != CBS_NODE_REQUIRES)
-                    continue;
-                for (child_index = 0; child_index < requires->child_count;
-                     ++child_index) {
-                    const CbsNode *group =
-                        requires
-                        ->children[child_index];
-                    size_t dep_index;
-                    if (!first_group)
-                        putchar(',');
-                    first_group = 0;
-                    print_json_string(group->name);
-                    fputs(":{", stdout);
-                    for (dep_index = 0; dep_index < group->child_count;
-                         ++dep_index) {
-                        const CbsNode *dep = group->children[dep_index];
-                        size_t later;
-                        int first_value = 1;
-                        for (later = 0; later < dep_index; ++later)
-                            if (strcmp(group->children[later]->name,
-                                       dep->name) == 0)
-                                break;
-                        if (later != dep_index)
-                            continue;
-                        if (dep_index != 0)
-                            putchar(',');
-                        print_json_string(dep->name);
-                        putchar(':');
-                        fputs("[", stdout);
-                        for (later = dep_index; later < group->child_count;
-                             ++later) {
-                            if (strcmp(group->children[later]->name,
-                                       dep->name) != 0)
-                                continue;
-                            if (!first_value)
-                                putchar(',');
-                            first_value = 0;
-                            print_json_string(group->children[later]->value);
-                        }
-                        fputs("]", stdout);
-                    }
-                    fputs("}", stdout);
-                }
-            }
-        }
-        fputs("},\"replaces\":[", stdout);
+        fputs("],\"requires\":", stdout);
+        print_requires_object(package);
+        fputs(",\"replaces\":[", stdout);
         {
             int first_replacement = 1;
             for (item_index = 0; item_index < package->child_count;
@@ -1494,6 +1511,51 @@ static int explain_file(const char *path, int json) {
                     print_json_string(tool->value);
                     putchar('}');
                 }
+            }
+        }
+        /* ADR-0038: always an array, main first, so a consumer reads one
+         * shape whether or not the recipe declares an output. */
+        fputs("],\"outputs\":[", stdout);
+        {
+            size_t output_index = 0;
+            size_t item;
+            for (item = 0; item <= package->child_count; ++item) {
+                const CbsNode *node = NULL;
+                const CbsNode *files = NULL;
+                size_t child;
+                if (item > 0) {
+                    node = package->children[item - 1];
+                    if (node->kind != CBS_NODE_OUTPUT)
+                        continue;
+                }
+                if (output_index++ > 0)
+                    putchar(',');
+                fputs("{\"name\":", stdout);
+                print_json_string(node == NULL ? package->value
+                                               : node->value);
+                fprintf(stdout, ",\"main\":%s,\"files\":[",
+                        node == NULL ? "true" : "false");
+                if (node != NULL)
+                    for (child = 0; child < node->child_count; ++child)
+                        if (node->children[child]->kind == CBS_NODE_FILES)
+                            files = node->children[child];
+                if (files != NULL)
+                    for (child = 0; child < files->child_count; ++child) {
+                        if (child > 0)
+                            putchar(',');
+                        fputs("{\"pattern\":", stdout);
+                        print_json_string(files->children[child]->value);
+                        fprintf(stdout, ",\"glob\":%s}",
+                                files->children[child]->flag ? "true"
+                                                             : "false");
+                    }
+                /* The package declaration is the main output (ADR-0038 2),
+                 * so its own `requires` is the package's: a consumer that
+                 * iterates `outputs` must not read the main package as having
+                 * no dependencies. */
+                fputs("],\"requires\":", stdout);
+                print_requires_object(node == NULL ? package : node);
+                putchar('}');
             }
         }
         fputs("],\"command_path\":", stdout);
@@ -1652,7 +1714,8 @@ static int write_report_file(const char *path, const CbsBuildReport *report) {
 
 /* Build one recipe through the standalone package pipeline. */
 static int build_file(const char *recipe, const char *architecture,
-                      const char *staged, const char *output, const char *cache,
+                      const char *staged, const char *output,
+                      const char *output_dir, const char *cache,
                       const char *ca_file, const char *events,
                       const char *events_fd, const char *events_file,
                       const char *finalize_command,
@@ -1827,7 +1890,18 @@ static int build_file(const char *recipe, const char *architecture,
     /* Cache hits must work in a network-less image without libcurl. */
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
-    result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
+    if (output_dir != NULL)
+        result = cbs_build_standalone_outputs(
+            recipe, staged, output_dir, architecture, &service, cache,
+            finalize_command == NULL ? NULL : run_finalize_command,
+            finalize_command == NULL ? NULL : (void *)&finalize_policy,
+            firmware_root,
+            prune_policy_path == NULL ? NULL : &prune_policy, command_path,
+            library_path, inputs, input_count, tool_identities,
+            tool_identity_count, effective_event_sink, effective_event_user,
+            report_path == NULL ? NULL : report_state.report.fingerprint);
+    else
+        result = cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
@@ -1870,7 +1944,10 @@ static int build_file(const char *recipe, const char *architecture,
         return 3;
     }
     if (output == NULL)
-        printf("staged %s\n", staged);
+        if (output_dir != NULL)
+            printf("built into %s\n", output_dir);
+        else
+            printf("staged %s\n", staged);
     else
         printf("built %s\n", output);
     return 0;
@@ -2771,7 +2848,8 @@ int main(int argc, char **argv) {
         if (!parse_build_options(argc, argv, &options))
             return 2;
         result = build_file(options.recipe, options.architecture, options.staged,
-                          options.output, options.cache, options.ca_file,
+                          options.output, options.output_dir, options.cache,
+                      options.ca_file,
                       options.events, options.events_fd, options.events_file,
                       options.finalize_command,
                           options.prune_policy, options.firmware_root,

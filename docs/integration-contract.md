@@ -180,6 +180,35 @@ accepts only `CONFIG_*` assignments in `y`, `m`, or `n` form (including
 `# CONFIG_* is not set`), applies fragment overrides deterministically, and
 rejects arbitrary shell/configuration text.
 
+## Several packages from one recipe
+
+A recipe may declare `output` blocks and so emit several packages from one
+source and one build (ADR-0038). `cbs explain --json` reports an `outputs`
+array — always, main first, so there is one shape to read — giving each
+output's name, its file selectors and its own `requires`. An orchestrator
+therefore knows what a recipe provides before building it.
+
+`cbs build --output-dir DIR` writes one canonically named
+`name-version-release-arch.cixpkg` per output. `--output FILE` is refused when
+a recipe declares more than one, since one path cannot name several artifacts.
+Either every artifact is written or none is. A library embedder calls
+`cbs_build_standalone_outputs()`, which takes that directory where the
+single-artifact entry point takes a file; it is the same build, so the
+single-artifact entry point keeps its signature and is simply refused for a
+multi-output recipe.
+
+Every artifact records the same `build_fingerprint`, because there was one
+build action: that shared value is what says these artifacts came from one
+build and cannot have drifted from each other. Each carries its own identity
+and digest, and one `artifact-finalized` event is emitted per output. The
+report carries `output_count` and leaves `artifact`/`artifact_digest` empty
+when that exceeds 1, because one path cannot stand for N without looking
+complete — the stream enumerates them.
+
+Approval is the repository's concern. CBS's part is that the fingerprint is in
+every artifact's metadata and the digests are in `explain` and the events, so
+an approval naming the action can be checked against each artifact.
+
 ## Ownership
 
 cixd owns discovery, dependency/image composition, cache population, container

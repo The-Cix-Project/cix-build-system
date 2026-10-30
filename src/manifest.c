@@ -302,8 +302,11 @@ int cbs_manifest_write_outputs(const char *root,
         const CbsOutputSpec *spec = &outputs[output_index];
         size_t claimed = 0;
         FILE *file;
+        /* An unclaimed path belongs to the main output, which declares no
+         * selectors of its own: claiming_output reports -1 for those. */
         for (index = 0; index < count; ++index)
-            if (owner[index] == (int)output_index)
+            if (owner[index] == (int)output_index ||
+                (spec->is_main && owner[index] < 0))
                 ++claimed;
         if (claimed == 0 && !spec->is_main) {
             set_error(error, error_size,
@@ -326,7 +329,8 @@ int cbs_manifest_write_outputs(const char *root,
             goto done;
         }
         for (index = 0; index < count; ++index)
-            if (owner[index] == (int)output_index &&
+            if ((owner[index] == (int)output_index ||
+                 (spec->is_main && owner[index] < 0)) &&
                 !write_entry(file, &items[index])) {
                 fclose(file);
                 goto done;

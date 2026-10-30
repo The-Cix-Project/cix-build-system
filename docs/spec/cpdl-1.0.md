@@ -90,28 +90,29 @@ operation options, and assertion property names, because all of them are
 reserved in the positions this grammar gives them:
 
 ```text
-after          copy           install        package        stderr
-alias          count          into           parents        stdout
-allow_failure  directory      jobs           patch          strip
-any            each           key            prepare        symlink
-architecture   env            leaf           privileged     tag
-args           exactly        library        reason         target
-as             executable     license        release        test
-at             exists         line           remove         timeout
-before         exit           line_start     replace        to
-bootstrap      expect         links          replaces       tool
-build          extra          main           require        toolchain
-build_image    extract        materialize    requires       tools
-capability     file           member         resources      tree
-case           for            memory         run            truncate
-cd             forbids        metadata       runtime        until
-check          format         mkdir          same_as        upstream
-checksums      from           mode           sha256         url
-chmod          glob           move           signature      verify
-compiler       headers        needs          signed-tag     version
-config         in             nonempty       source         whitespace
-configure      input          on_fail        sources        write
-contains       insert         origin         stage
+after          count          into           parents        strip
+alias          directory      jobs           patch          symlink
+allow_failure  each           key            prepare        tag
+any            env            leaf           privileged     target
+architecture   exactly        library        reason         test
+args           executable     license        release        timeout
+as             exists         line           remove         to
+at             exit           line_start     replace        tool
+before         expect         links          replaces       toolchain
+bootstrap      extra          main           require        tools
+build          extract        materialize    requires       tree
+build_image    file           member         resources      truncate
+capability     files          memory         run            until
+case           for            metadata       runtime        upstream
+cd             forbids        mkdir          same_as        url
+check          format         mode           sha256         verify
+checksums      from           move           signature      version
+chmod          glob           needs          signed-tag     whitespace
+compiler       headers        nonempty       source         write
+config         in             on_fail        sources
+configure      input          origin         stage
+contains       insert         output         stderr
+copy           install        package        stdout
 ```
 
 Keywords reserved for later versions are not silently accepted. An unknown
@@ -253,6 +254,7 @@ package-item = version-declaration
              | upstream-declaration
              | metadata-declaration
              | privileged-declaration
+             | output-declaration
              | prepare-phase
              | configure-phase
              | build-phase
@@ -280,6 +282,12 @@ upstream-item            = "tag", string
                          | "checksums", string, "{", "url", string, "key", string, "}"
                          | "signed-tag", "{", "key", string, "}" ) ;
 metadata-declaration     = "metadata", "{", { string, string }, "}" ;
+output-declaration       = "output", string, "{", { output-item }, "}" ;
+output-item              = "files", "{", { file-selector }, "}"
+                         | requires-declaration
+                         | replaces-declaration
+                         | license-declaration ;
+file-selector            = [ "glob" ], string ;
 ```
 
 `build_image` and `capability` are execution metadata consumed by the build
@@ -304,6 +312,30 @@ with a binary `KiB`, `MiB`, or `GiB` suffix. CBS reports the normalized byte
 count to the orchestrator but does not enforce or grant memory. The value is
 the aggregate need of the complete build across all phases, not a per-process
 limit, and does not enter the artifact identity.
+
+`output` declares one additional package emitted from the same build, and may
+be repeated (ADR-0038). Its name obeys the package-name grammar, must differ
+from the package's and from every other output's, and shares the package's
+`version`, `release` and target architecture: those describe the source and the
+build, not a file set. Each output carries its own optional `requires`,
+`license` and `replaces`.
+
+`files` claims staged paths relative to the staged root; a selector is an exact
+path or, with `glob`, a pattern in the §4.7 glob syntax. An exact selector
+naming a directory claims that whole subtree. A pattern written without `glob`
+is a validation error rather than a literal path, and an output must claim at
+least one selector.
+
+A staged path claimed by two outputs is a runtime failure naming the path and
+both outputs; CBS does not resolve it by declaration order. A path no output
+claims belongs to the package declaration itself, which is the main output. The
+main output is emitted only when something is left for it: a recipe whose
+outputs claim every staged entry produces exactly the outputs it named. A
+directory is an entry, because it carries a mode.
+
+Every artifact from one build records the same build fingerprint, because there
+was one build action. Each is an ordinary CIXPKG with its own identity,
+manifest and digest; the artifact format is unchanged.
 
 A document contains exactly one package declaration and no trailing tokens.
 Semicolons and commas are not part of CPDL.

@@ -461,6 +461,15 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
     const char *, const CbsPrunePolicy *, const char *, const char *,
     const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
     CbsBuildEventSink, void *, char[65]);
+/* Build a recipe's outputs into `output_directory`, one canonically named
+ * CIXPKG per declared output (ADR-0038).  The single-artifact entry point
+ * above is refused when a recipe declares several. */
+int cbs_build_standalone_outputs(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const CbsPrunePolicy *, const char *, const char *,
+    const CbsInputBinding *, size_t, const CbsToolIdentity *, size_t,
+    CbsBuildEventSink, void *, char[65]);
 #define CBS_MAX_PHASES 5
 typedef struct {
     /* AST nodes for phases in their declared execution order. */
