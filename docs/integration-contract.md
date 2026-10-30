@@ -91,7 +91,12 @@ composer supplies the command-path policy.
 The build fingerprint records the resolved target digest for each declared
 alias, not the workspace-specific wrapper directory. Consequently,
 `cbs fingerprint` can compute the same key before materialisation, and the
-report and packaged provenance remain identical to that precomputed key.
+report and packaged provenance remain identical to that precomputed key, given
+the same `--arch`, `--command-path`, `--library-path`, `--input` and
+`--tool-identity`. The key binds each executable the recipe runs by digest,
+resolved through the approved command path; it does not hash the rest of the
+path. A finalizer is bound by its resolved path when CBS resolved one, and as
+an opaque marker when an embedder supplied a callback, which has none.
 
 Embedders can use `cbs_build_standalone_with_cache_policy()` to supply the
 finalizer. They can register `CbsBuildEventSink` to receive versioned,

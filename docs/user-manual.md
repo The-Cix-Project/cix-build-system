@@ -160,16 +160,26 @@ execution:
 ```
 
 The key includes the normalized recipe digest, CBS/CPDL/CIXPKG policy
-versions, architecture, approved command/library paths, and declared input
-digests. Workspace paths and timestamps are excluded. The embedding API also
-accepts named caller inputs; cixd owns cache storage and trust decisions.
+versions, architecture, the approved command and library paths, declared input
+digests, and a digest of **every executable the recipe runs**, each resolved
+through the approved command path. Workspace paths and timestamps are excluded.
+The embedding API also accepts named caller inputs; cixd owns cache storage and
+trust decisions.
+
+The contents of a search path are not otherwise material: CBS binds the
+commands a recipe actually invokes, not every file on the path. So a key is
+available for an ordinary recipe, and `build` and `fingerprint` agree on it
+given the same `--arch`, `--command-path`, `--library-path`, `--input` and
+`--tool-identity`. A recipe whose command name is interpolated or relative
+cannot be measured, and the artifact then records
+`build_fingerprint unavailable` with a `build_fingerprint_reason` naming the
+command.
 
 For reproducible composed environments, `build` and `fingerprint` also accept
-repeatable `--tool-identity NAME@VERSION=MANIFEST_SHA256` options. When these
-verified identities are supplied, they replace hashing of the command and
-library search roots. The identities must cover every file the build can reach
-under those roots; files outside the supplied identities are not represented
-in the fingerprint. Use the same complete identity set for a precomputed
+repeatable `--tool-identity NAME@VERSION=MANIFEST_SHA256` options, which bind
+the toolchain by verified manifest digest instead of resolving anything on the
+host. A recipe may also declare `tools { ... }`, which binds the resolved
+target of each alias. Use the same complete identity set for a precomputed
 fingerprint and its build.
 
 Use `doctor` to preflight an image and recipe without executing it:

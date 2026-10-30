@@ -168,10 +168,14 @@ static int fingerprint_unavailable_reason(const CbsNode *node, char *reason,
  * matter just as much as executable and shared-library files. */
 static int fingerprint_append_tree(unsigned char **buffer, size_t *length,
                                    size_t *capacity, const char *root,
-                                   const char *label) {
+                                   const char *label, char *reason,
+                                   size_t reason_size) {
     CbsManifestEntry *entries = NULL;
     size_t count = 0, index;
-    if (root == NULL || !cbs_manifest_collect(root, &entries, &count))
+    if (root == NULL)
+        return 0;
+    if (!cbs_manifest_collect_material(root, &entries, &count, reason,
+                                       reason_size))
         return 0;
     for (index = 0; index < count; ++index) {
         char field[4096], value[8192];
@@ -189,46 +193,6 @@ static int fingerprint_append_tree(unsigned char **buffer, size_t *length,
         }
     }
     cbs_manifest_entries_destroy(entries, count);
-    return 1;
-}
-
-static int fingerprint_append_search_paths(unsigned char **buffer,
-                                           size_t *length, size_t *capacity,
-                                           const char *paths, const char *label) {
-    const char *cursor = paths;
-    while (cursor != NULL && *cursor != '\0') {
-        const char *end = strchr(cursor, ':');
-        size_t size = end == NULL ? strlen(cursor) : (size_t)(end - cursor);
-        char root[4096];
-        if (size == 0 || size >= sizeof(root))
-            return 0;
-        memcpy(root, cursor, size);
-        root[size] = '\0';
-        {
-            struct stat status;
-            if (stat(root, &status) != 0) {
-                char field[128];
-                char value[4096];
-                if (errno != ENOENT ||
-                    snprintf(field, sizeof(field), "%s_root", label) >=
-                        (int)sizeof(field) ||
-                    snprintf(value, sizeof(value), "%s absent", root) >=
-                        (int)sizeof(value) ||
-                    !fingerprint_append(buffer, length, capacity, field, value)) {
-                    return 0;
-                }
-                cursor = end == NULL ? NULL : end + 1;
-                continue;
-            }
-            if (!S_ISDIR(status.st_mode)) {
-                return 0;
-            }
-        }
-        if (!fingerprint_append_tree(buffer, length, capacity, root, label)) {
-            return 0;
-        }
-        cursor = end == NULL ? NULL : end + 1;
-    }
     return 1;
 }
 
@@ -318,10 +282,15 @@ static int fingerprint_append_tool_policy(
     return 1;
 }
 
-int cbs_build_fingerprint_with_context(
+/* Compute the fingerprint, reporting in `reason` why material could not be
+ * observed.  The public entry point below passes NULL: a caller that only
+ * wants the key does not have to carry a buffer, and the build path does, so
+ * provenance can name the cause instead of a generic string. */
+static int build_fingerprint_with_reason(
     const char *recipe, const char *architecture, const char *command_path,
     const char *library_path, const CbsInputBinding *inputs, size_t input_count,
-    const CbsFingerprintContext *material_context, char output[65]) {
+    const CbsFingerprintContext *material_context, char *reason,
+    size_t reason_size, char output[65]) {
     FILE *file = NULL;
     long size;
     char *source = NULL;
@@ -334,6 +303,8 @@ int cbs_build_fingerprint_with_context(
     char digest[65];
     int ok = 0;
 
+    if (reason != NULL && reason_size > 0)
+        reason[0] = '\0';
     if (recipe == NULL || architecture == NULL || output == NULL ||
         !cbs_command_path_is_valid(command_path == NULL
                                         ? CBS_DEFAULT_COMMAND_PATH
@@ -408,12 +379,31 @@ int cbs_build_fingerprint_with_context(
             struct stat status;
             if (paths[material] == NULL)
                 continue;
-            if (stat(paths[material], &status) != 0)
+            /* The composer may supply a finalizer CBS cannot open: an embedder
+             * callback has no path.  Binding "a finalizer ran" is the material
+             * fact; refusing to measure it loses the whole key. */
+            if (paths[material][0] != '/') {
+                if (!fingerprint_append(&fingerprint, &fingerprint_length,
+                                        &fingerprint_capacity, names[material],
+                                        paths[material]))
+                    goto done;
+                continue;
+            }
+            if (stat(paths[material], &status) != 0) {
+                /* Name the material that could not be observed.  A finalizer
+                 * supplied as an embedder callback has no path, so this is
+                 * also how an opaque finalizer is reported rather than
+                 * silently collapsing into a generic reason. */
+                if (reason != NULL && reason_size > 0)
+                    snprintf(reason, reason_size, "%s unobservable: %s: %s",
+                             names[material], paths[material],
+                             strerror(errno));
                 goto done;
+            }
             if (S_ISDIR(status.st_mode)) {
                 if (!fingerprint_append_tree(
                         &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                        paths[material], names[material]))
+                        paths[material], names[material], reason, reason_size))
                     goto done;
                 continue;
             }
@@ -443,16 +433,7 @@ int cbs_build_fingerprint_with_context(
                     material_context->tool_identities,
                     material_context->tool_identity_count))
                 goto done;
-        } else if (declared_tools(document) == NULL &&
-                   (!fingerprint_append_search_paths(
-                       &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                       command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
-                       "command") ||
-                   !fingerprint_append_search_paths(
-                       &fingerprint, &fingerprint_length, &fingerprint_capacity,
-                       library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
-                       "library")))
-            goto done;
+        }
         if (declared_tools(document) == NULL ||
             material_context->tool_identity_count != 0) {
         if (!fingerprint_append(&fingerprint, &fingerprint_length,
@@ -535,6 +516,15 @@ done:
     cbs_token_list_destroy(&tokens);
     free(fingerprint);
     return ok;
+}
+
+int cbs_build_fingerprint_with_context(
+    const char *recipe, const char *architecture, const char *command_path,
+    const char *library_path, const CbsInputBinding *inputs, size_t input_count,
+    const CbsFingerprintContext *material_context, char output[65]) {
+    return build_fingerprint_with_reason(recipe, architecture, command_path,
+                                         library_path, inputs, input_count,
+                                         material_context, NULL, 0, output);
 }
 
 int cbs_build_fingerprint(const char *recipe, const char *architecture,
@@ -660,7 +650,8 @@ static int append_provenance(const char *manifest, const char *recipe,
                              const char *finalize_path,
                              const CbsPrunePolicy *prune_policy,
                              const char *fingerprint,
-                             int fingerprint_available) {
+                             int fingerprint_available,
+                             const char *material_reason) {
     FILE *file;
     char digest[65];
     char fingerprint_reason[256];
@@ -674,6 +665,13 @@ static int append_provenance(const char *manifest, const char *recipe,
     if (!fingerprint_available)
         fingerprint_unavailable_reason(document, fingerprint_reason,
                                        sizeof(fingerprint_reason));
+    /* Name what could not be observed.  A bare
+     * `fingerprint-material-unavailable` told an operator nothing, which is
+     * how a search path holding one escaping symlink went unnoticed. */
+    if (!fingerprint_available && fingerprint_reason[0] == '\0' &&
+        material_reason != NULL && material_reason[0] != '\0')
+        snprintf(fingerprint_reason, sizeof(fingerprint_reason),
+                 "material-unreadable:%s", material_reason);
     if (!fingerprint_available && fingerprint_reason[0] == '\0')
         snprintf(fingerprint_reason, sizeof(fingerprint_reason),
                  "fingerprint-material-unavailable");
@@ -1295,6 +1293,7 @@ static int run_build_pipeline(
     char fingerprint[65];
     CbsFingerprintContext fingerprint_context;
     int fingerprint_available = 0;
+    char material_reason[256] = {0};
     unsigned flags = 0;
     int ok;
     if (!recipe || !workspace || !architecture ||
@@ -1471,12 +1470,12 @@ static int run_build_pipeline(
             fingerprint_context.prune_drop_libtool_archives =
                 prune_policy->drop_libtool_archives;
         }
-        fingerprint_available = cbs_build_fingerprint_with_context(
+        fingerprint_available = build_fingerprint_with_reason(
             recipe, context.arch,
             command_path == NULL ? CBS_DEFAULT_COMMAND_PATH : command_path,
             library_path == NULL ? CBS_DEFAULT_LIBRARY_PATH : library_path,
             context.inputs, context.input_count, &fingerprint_context,
-            fingerprint);
+            material_reason, sizeof(material_reason), fingerprint);
     }
     if (build_fingerprint != NULL && fingerprint_available)
         memcpy(build_fingerprint, fingerprint, sizeof(fingerprint));
@@ -1521,7 +1520,7 @@ static int run_build_pipeline(
                                    document, &context,
                                    finalize == NULL ? NULL : "callback",
                                    prune_policy, fingerprint,
-                                   fingerprint_available)) {
+                                   fingerprint_available, material_reason)) {
                 pipeline_error(recipe, text, document->location, "provenance",
                                "cannot append build provenance");
                 ok = 0;

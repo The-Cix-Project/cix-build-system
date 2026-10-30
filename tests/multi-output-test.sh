@@ -84,9 +84,12 @@ done
 cmp -s "$root/l1.prov" "$root/l2.prov"
 cmp -s "$root/l1.prov" "$root/l3.prov"
 grep -q 'metadata recipe_sha256 ' "$root/l1.prov"
-# Whatever the fingerprint is, every output carries the same one: the cmp
-# above is the assertion.
-grep -q 'metadata build_fingerprint ' "$root/l1.prov"
+# The shared value is a real key, not "unavailable", and it is the one
+# `cbs fingerprint` precomputes without building.
+grep -qE 'metadata build_fingerprint [0-9a-f]{64}$' "$root/l1.prov"
+test "$("$absolute_cbs" fingerprint tests/fixtures/multi-output.cbs \
+        --arch x86_64)" = \
+    "fingerprint $(sed -n 's/^metadata build_fingerprint //p' "$root/l1.prov")"
 # The partition really split the tree: three different manifests.
 test "$(grep -h '^manifest-digest ' "$root/l1" "$root/l2" "$root/l3" |
         sort -u | wc -l)" -eq 3

@@ -143,6 +143,24 @@ changed_input=$("$cbs" fingerprint "$recipe" --arch x86_64 \
     --input first="$temporary_dir/input-one" \
     --input second="$temporary_dir/input-two")
 test "$ordered_one" != "$changed_input"
+# A recipe that declares no tools and is given no identities still gets a key,
+# and the precomputed one matches what the artifact records.  The build used to
+# refuse it: it tried to hash the whole command and library path, which no host
+# survives (one setuid binary, hard link, or symlink pointing out of the
+# directory refused the walk) and no build can afford.
+plain_workspace="$temporary_dir/plain-workspace"
+plain_artifact="$temporary_dir/plain.cixpkg"
+mkdir "$plain_workspace"
+plain_fingerprint=$($cbs fingerprint "$recipe" --arch x86_64)
+printf '%s\n' "$plain_fingerprint" | grep -Eq '^fingerprint [0-9a-f]{64}$'
+"$cbs" build "$recipe" --arch x86_64 --staged "$plain_workspace" \
+    --output "$plain_artifact" >"$temporary_dir/plain-build.out"
+"$cbs" list "$plain_artifact" --json >"$temporary_dir/plain-list.json"
+plain_artifact_digest=$(sed -n \
+    's/.*"key":"build_fingerprint","value":"\([^"]*\)".*/\1/p' \
+    "$temporary_dir/plain-list.json")
+test "$plain_fingerprint" = "fingerprint $plain_artifact_digest"
+
 tool_identity='gcc@14.2=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 identity_fingerprint=$($cbs fingerprint "$recipe" --arch x86_64 \
     --tool-identity "$tool_identity")

@@ -70,9 +70,10 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      const char *path, char type, mode_t mode,
                      const char *target,
                      const CbsPrivilegedAllowance *allowances,
-                     size_t allowance_count, char *error, size_t error_size) {
+                     size_t allowance_count, int material, char *error,
+                     size_t error_size) {
     CbsManifestEntry *entry;
-    if (unsafe_mode(mode) &&
+    if (!material && unsafe_mode(mode) &&
         !allowance_matches(path, mode, allowances, allowance_count)) {
         set_error(error, error_size,
                   "%s has mode %04o; CIXPKG refuses setuid and setgid",
@@ -106,7 +107,8 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
 static int collect(const char *root, const char *relative,
                    CbsManifestEntry **items, size_t *count, size_t *capacity,
                    const CbsPrivilegedAllowance *allowances,
-                   size_t allowance_count, char *error, size_t error_size) {
+                   size_t allowance_count, int material, char *error,
+                   size_t error_size) {
     char path[4096];
     DIR *directory;
     struct dirent *entry;
@@ -144,15 +146,17 @@ static int collect(const char *root, const char *relative,
         }
         if (S_ISDIR(status.st_mode)) {
             if (!add_entry(items, count, capacity, child, 'd', status.st_mode,
-                           NULL, allowances, allowance_count, error, error_size) ||
+                           NULL, allowances, allowance_count, material, error,
+                           error_size) ||
                 !collect(root, child, items, count, capacity, allowances,
-                         allowance_count, error, error_size)) {
+                         allowance_count, material, error, error_size)) {
                 closedir(directory);
                 return 0;
             }
         } else if (S_ISREG(status.st_mode)) {
             char digest[65];
-            if (status.st_nlink != 1) {
+            int digested;
+            if (!material && status.st_nlink != 1) {
                 set_error(error, error_size,
                           "%s is a hard link (link count %lu); CIXPKG "
                           "entries must have exactly one link",
@@ -161,8 +165,16 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'f', status.st_mode,
-                           NULL, allowances, allowance_count, error, error_size) ||
-                !cbs_digest_file(path, digest)) {
+                           NULL, allowances, allowance_count, material, error,
+                           error_size)) {
+                closedir(directory);
+                return 0;
+            }
+            digested = cbs_digest_file(path, digest);
+            /* A material root is observed, not staged: a file CBS may not read
+             * is recorded with no digest rather than aborting the walk, so the
+             * observation still binds its presence, mode and size. */
+            if (!digested && !material) {
                 if (error == NULL || error[0] == '\0')
                     set_error(error, error_size,
                               "%s: cannot read file for digest", child);
@@ -170,7 +182,8 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             (*items)[*count - 1].size = (unsigned long long)status.st_size;
-            (*items)[*count - 1].digest = cbs_duplicate(digest);
+            if (digested)
+                (*items)[*count - 1].digest = cbs_duplicate(digest);
         } else if (S_ISLNK(status.st_mode)) {
             char target[4096];
             ssize_t length = readlink(path, target, sizeof(target) - 1);
@@ -179,7 +192,7 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             target[length] = '\0';
-            if (!safe_link_target(child, target)) {
+            if (!material && !safe_link_target(child, target)) {
                 set_error(error, error_size,
                           "%s -> %s escapes the staged root; CIXPKG "
                           "symlink targets must be relative and contained",
@@ -188,7 +201,8 @@ static int collect(const char *root, const char *relative,
                 return 0;
             }
             if (!add_entry(items, count, capacity, child, 'l', status.st_mode,
-                           target, allowances, allowance_count, error, error_size)) {
+                           target, allowances, allowance_count, material, error,
+                           error_size)) {
                 closedir(directory);
                 return 0;
             }
@@ -288,7 +302,7 @@ int cbs_manifest_write_outputs(const char *root,
      * disagree about ordering or a digest, the reasoning ADR-0037 applied to
      * the payload index. */
     if (!collect(root, "", &items, &count, &capacity, allowances,
-                 allowance_count, error, error_size))
+                 allowance_count, 0, error, error_size))
         goto done;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     owner = cbs_allocate(count == 0 ? 1 : count * sizeof(*owner));
@@ -355,7 +369,7 @@ int cbs_manifest_write_with_license_policy_error(
     if (error != NULL && error_size > 0)
         error[0] = '\0';
     if (!collect(root, "", &items, &count, &capacity, allowances,
-                 allowance_count, error, error_size))
+                 allowance_count, 0, error, error_size))
         goto fail;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     file = fopen(output, "wb");
@@ -411,6 +425,32 @@ int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                                                   0, NULL, 0);
 }
 
+/* Observe a host directory as fingerprint material.  Same walk and same entry
+ * shape as a staged tree, with the CIXPKG packaging rules lifted: a search
+ * path legitimately holds setuid binaries, hard links and symlinks pointing
+ * outside it (`/usr/bin/corepack -> ../lib/...`), and refusing to observe one
+ * loses the whole fingerprint instead of recording the host as it is. */
+int cbs_manifest_collect_material(const char *root, CbsManifestEntry **entries,
+                                  size_t *count, char *error,
+                                  size_t error_size) {
+    size_t capacity = 0;
+    if (!root || !entries || !count)
+        return 0;
+    *entries = NULL;
+    *count = 0;
+    if (error != NULL && error_size > 0)
+        error[0] = '\0';
+    if (!collect(root, "", entries, count, &capacity, NULL, 0, 1, error,
+                 error_size)) {
+        cbs_manifest_entries_destroy(*entries, *count);
+        *entries = NULL;
+        *count = 0;
+        return 0;
+    }
+    qsort(*entries, *count, sizeof(**entries), cbs_manifest_compare);
+    return 1;
+}
+
 int cbs_manifest_collect_with_error(const char *root,
                                     CbsManifestEntry **entries,
                                     size_t *count, char *error,
@@ -431,7 +471,7 @@ int cbs_manifest_collect_with_policy_error(
     if (error != NULL && error_size > 0)
         error[0] = '\0';
     if (!collect(root, "", entries, count, &capacity, allowances,
-                 allowance_count, error, error_size)) {
+                 allowance_count, 0, error, error_size)) {
         cbs_manifest_entries_destroy(*entries, *count);
         *entries = NULL;
         *count = 0;

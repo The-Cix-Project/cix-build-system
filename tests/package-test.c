@@ -135,19 +135,25 @@ static int run_test(const char *root) {
                 NULL, 0, &materials, changed) || strcmp(baseline, changed) != 0)
             return 1;
     }
-    /* Search roots are complete, fail-closed material inputs.  Headers and
-     * static archives must perturb the key just like shared libraries. */
+    /* The command and library paths are declared policy, so the key records
+     * the paths themselves, and `fingerprint_append_tools` binds every
+     * executable the recipe runs by digest.  The contents of a search path are
+     * not material beyond that: hashing the whole path cost 56 s for
+     * /usr/bin alone and no real host survived it, because one legitimate
+     * setuid binary, hard link, or symlink pointing out of the directory
+     * refused the walk and silently cost the build its entire fingerprint. */
     {
         char command_root[4256], library_root[4256];
-        char header[4256], archive[4256], command[4256];
+        char header[4256], command[4256];
         char baseline[65], changed[65];
-        char command_path[4256];
+        char command_path[4256], other_path[4256];
         CbsFingerprintContext materials = {0};
         snprintf(command_root, sizeof(command_root), "%s/commands", root);
         snprintf(library_root, sizeof(library_root), "%s/libraries", root);
         snprintf(header, sizeof(header), "%s/tool.h", command_root);
-        snprintf(archive, sizeof(archive), "%s/libtool.a", library_root);
         snprintf(command_path, sizeof(command_path), "%s", command_root);
+        snprintf(other_path, sizeof(other_path), "%s:%s", command_root,
+                 library_root);
         snprintf(command, sizeof(command), "%s/true", command_root);
         if (mkdir(command_root, 0700) != 0 || mkdir(library_root, 0700) != 0)
             return 1;
@@ -163,16 +169,11 @@ static int run_test(const char *root) {
             return 1;
         fputs("#define TOOL 1\n", file);
         fclose(file);
-        file = fopen(archive, "wb");
-        if (file == NULL)
-            return 1;
-        fputs("archive-v1", file);
-        fclose(file);
         if (!cbs_build_fingerprint_with_context(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
-                library_root, NULL, 0, &materials, baseline)) {
+                library_root, NULL, 0, &materials, baseline))
             return 1;
-        }
+        /* Editing a file on the search path leaves the key alone. */
         file = fopen(header, "wb");
         if (file == NULL)
             return 1;
@@ -181,27 +182,22 @@ static int run_test(const char *root) {
         if (!cbs_build_fingerprint_with_context(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
                 library_root, NULL, 0, &materials, changed) ||
-            strcmp(baseline, changed) == 0) {
+            strcmp(baseline, changed) != 0)
             return 1;
-        }
-        file = fopen(archive, "wb");
-        if (file == NULL)
-            return 1;
-        fputs("archive-v2", file);
-        fclose(file);
+        /* Declaring a different search path does not. */
         if (!cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
-                library_root, NULL, 0, &materials, baseline) ||
-            !cbs_build_fingerprint_with_context(
-                "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
+                "tests/fixtures/standalone-smoke.cbs", "x86_64", other_path,
                 library_root, NULL, 0, &materials, changed) ||
-            strcmp(baseline, changed) != 0 ||
-            cbs_build_fingerprint_with_context(
+            strcmp(baseline, changed) == 0)
+            return 1;
+        /* A command path that resolves none of the recipe's commands still
+         * refuses a key: every executable the build runs is bound by digest,
+         * which is what the walk was redundantly duplicating. */
+        if (cbs_build_fingerprint_with_context(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64",
                 "/tmp/cbs-fingerprint-root-does-not-exist", library_root,
-                NULL, 0, &materials, changed)) {
+                NULL, 0, &materials, changed))
             return 1;
-        }
     }
     if (!flip_byte(build, 32) ||
         cbs_cixpkg_verify_tree(build, NULL, 0))
@@ -239,8 +235,9 @@ static int run_test(const char *root) {
                                   package, excessive))
             return 1;
     }
-    /* An absent search root is a stable, hashable fact; an embedder-supplied
-     * verified identity set avoids walking those roots altogether. */
+    /* Every executable the recipe runs is bound by digest, and an
+     * embedder-supplied verified identity set binds the toolchain without
+     * resolving anything on the host. */
     {
         char command_root[4256], absent_root[4256], command[4256];
         char command_path[4256], library_path[4256];
@@ -262,13 +259,19 @@ static int run_test(const char *root) {
             return 1;
         fputs("tool", file);
         fclose(file);
-        if (chmod(command, 0755) != 0 ||
+        if (chmod(command, 0755) != 0 || mkdir(absent_root, 0700) != 0 ||
             !cbs_build_fingerprint_with_context(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
                 library_path, NULL, 0, &materials, baseline))
             return 1;
-        if (mkdir(absent_root, 0700) != 0 ||
-            !cbs_build_fingerprint_with_context(
+        /* Replacing the resolved command changes the key: that is how the
+         * toolchain is bound, not by hashing the directory it sits in. */
+        file = fopen(command, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("different tool", file);
+        fclose(file);
+        if (!cbs_build_fingerprint_with_context(
                 "tests/fixtures/standalone-smoke.cbs", "x86_64", command_path,
                 library_path, NULL, 0, &materials, changed) ||
             strcmp(baseline, changed) == 0)

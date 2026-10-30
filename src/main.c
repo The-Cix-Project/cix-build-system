@@ -2516,15 +2516,13 @@ static int fingerprint_file(CbsFingerprintOptions *options) {
     CbsFingerprintContext context = {0};
     context.tool_identities = options->tool_identities;
     context.tool_identity_count = options->tool_identity_count;
-    if ((options->tool_identity_count == 0 && !cbs_build_fingerprint(
-             options->recipe, options->architecture, options->command_path,
-             options->library_path, options->inputs, options->input_count,
-             fingerprint)) ||
-        (options->tool_identity_count != 0 &&
-         !cbs_build_fingerprint_with_context(
-             options->recipe, options->architecture, options->command_path,
-             options->library_path, options->inputs, options->input_count,
-             &context, fingerprint))) {
+    /* Always with a context, even an empty one.  A build always supplies one,
+     * so measuring without one gave the verb a different key from the
+     * artifact it was supposed to predict. */
+    if (!cbs_build_fingerprint_with_context(
+            options->recipe, options->architecture, options->command_path,
+            options->library_path, options->inputs, options->input_count,
+            &context, fingerprint)) {
         cli_errorf(options->recipe, "CBS-E1021", "fingerprint", 3,
                    "cannot validate recipe or measure all build inputs");
         free_fingerprint_inputs(options);

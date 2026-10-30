@@ -373,6 +373,12 @@ int cbs_manifest_compare(const void *left, const void *right);
 /* Collect and sort every supported entry beneath a staged root. */
 int cbs_manifest_collect(const char *root, CbsManifestEntry **entries,
                          size_t *count);
+/* Observe a host directory as fingerprint material: the same walk, with the
+ * CIXPKG packaging rules lifted.  Private to the engine: material is never
+ * packaged, so no embedder needs it. */
+int cbs_manifest_collect_material(const char *root, CbsManifestEntry **entries,
+                                  size_t *count, char *error,
+                                  size_t error_size);
 int cbs_manifest_collect_with_error(const char *root,
                                     CbsManifestEntry **entries,
                                     size_t *count, char *error,
