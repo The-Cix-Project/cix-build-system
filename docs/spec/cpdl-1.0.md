@@ -928,6 +928,17 @@ must match byte-for-byte, with no fuzz or reject files; a failed digest,
 context check, or write leaves the source unchanged. `strip` removes that
 many leading path components from the patch's `+++` path.
 
+`links` asserts what a built object is linked against. It reads the `DT_NEEDED`
+entries of the confined file at its path and checks them against its
+properties: each `needs` names a library that must be present and each `forbids`
+one that must be absent, compared literally as sonames. A missing needed library
+or a present forbidden one fails with `CPDL-E4005`. A file that cannot be read
+as a dynamically linked little-endian ELF64 object, such as a script, a
+truncated file or a statically linked executable with no dynamic section, fails
+with `CPDL-E4004` instead of passing, because an assertion that cannot be
+evaluated is not satisfied. Each property must be `needs` or `forbids` and name
+a non-empty library; anything else is a validation error.
+
 `glob "NAME" = PATTERN` resolves a confined glob in sorted path order and
 binds its match as `${glob.NAME}` for later operations. It requires exactly
 one match by default; `exactly N` permits an explicit multi-match count but

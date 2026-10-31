@@ -30,15 +30,17 @@ checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
 split from `cix#505` on 2026-09-21), under `recipes/package/`,
 `recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-It moves fast: **2016 `.cbs` definitions across 246 distinct packages** at
-`origin/main` `802e05c` on 2026-10-31, up from 1969 the day before and from 1010
-and 181 three weeks earlier, with no shell recipes left. **All 2016 validate
-against this engine.** Three definitions, three versions of the `cix` package
-(`cix@0.2.57-639` to `-641`), declare an `output`, the `cixctl` split of cix#378,
-so the feature is in use by one package. None declares `tools`. The figure was
-quoted five times in one day, so re-measure rather than quoting it. The corpus
-is the fastest real-world regression check for any CPDL or validator change, far
-broader than the single `recipes/zstd.cbs` fixture shipped here:
+It is large and it moves fast: past two thousand definitions across a couple of
+hundred packages, with no shell recipes left, and all of it validates against
+this engine. **No exact count lives in this file**, because the figure changed
+five times in one day and every hand-written copy went stale; the dated figures
+are in `docs/release-notes.md` (Verification) and the native-helper review log,
+where being dated is the point. Two facts the design leans on were true when last
+measured (2026-10-31) and are worth re-checking before you rely on them: no
+recipe declares `tools` (#300), and one package, `cix`, declares an `output`
+(the `cixctl` split of cix#378). The corpus is the fastest real-world regression
+check for any CPDL or validator change, far broader than the single
+`recipes/zstd.cbs` fixture shipped here:
 
 Measure at `origin/main`, not in that working tree: cixd commits to it, so a
 `git pull` there can race a write-back, and the checkout can sit behind. Fetch
@@ -309,7 +311,9 @@ is part of the contract:
 fenced as ` ```cbs check ` and `tests/docs-examples-test.sh` validates it in the
 gate; fragments stay a bare ` ```cbs `. The first run found three of four
 complete examples invalid for want of `format "cixpkg"`, the manual's first
-recipe among them. Write the tag on any new complete example.
+recipe among them. Write the tag on any new complete example. The same gate
+requires every keyword the specification reserves to appear as code in the
+manual, so a new construct fails the build until the manual shows it.
 
 **Look before you allocate.** Pick the next free number from the table, not from
 memory: `CBS-E1013` was reached for as "the next one" while it was already the
@@ -346,7 +350,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 166 validation records. The records are
+   indexes of all 38 decisions and all 167 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

@@ -130,7 +130,7 @@ public header, and pkg-config metadata from the same tag.
 
    **A sentence reporting a measurement states the version it was measured
    at, and only re-measuring updates it.** "71 cases pass instrumented, re-run
-   at v0.1.127" is the form. Never let the sweep advance that version: re-run
+   at v0.1.128" is the form. Never let the sweep advance that version: re-run
    the measurement, or leave the older version standing. An un-run claim at
    the current version is worse than an honest one at an older version.
 
@@ -139,8 +139,14 @@ public header, and pkg-config metadata from the same tag.
    counts match the filesystem, that every relative link resolves, that
    ADR-0008's note names every verb `cbs --help` exposes, that every long option
    appears in the manual or the runbook, that every diagnostic code the source
-   can emit is listed in a document, and that the newest entry in the
-   native-helper review log names this release.
+   can emit is listed in a document, that the newest entry in the
+   native-helper review log names this release, and that every keyword the
+   specification reserves is shown as code in the manual. The last is how
+   absences are found: `patch`, `truncate`, `links`, `nonempty` and the
+   `checksums` and `signature` verify forms were all implemented, several used
+   by the corpus, and absent from the manual until it existed. A bare word does
+   not count, since the English "links against" once made the `links` operation
+   look documented.
 
    `tests/docs-examples-test.sh` runs the examples. A fenced block tagged
    ` ```cbs check ` is extracted and given to `cbs validate`; write it for any
@@ -187,8 +193,8 @@ public header, and pkg-config metadata from the same tag.
    and both trackers for a native helper, per `docs/native-helpers.md`; add a
    dated entry to its review log even when nothing matched.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.127 -m
-   "CBS v0.1.127"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.128 -m
+   "CBS v0.1.128"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

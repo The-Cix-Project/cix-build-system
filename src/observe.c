@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "cbs.h"
 #include <elf.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,7 @@ static int vaddr_file(const unsigned char *data, size_t size, uint64_t phoff,
 int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
                              void *user) {
     FILE *file;
-    long length;
+    long length = -1;
     unsigned char *data;
     const Elf64_Ehdr *header;
     const Elf64_Phdr *dynamic = NULL;
@@ -46,8 +47,14 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
         (file = fopen(path, "rb")) == NULL || fseek(file, 0, SEEK_END) != 0 ||
         (length = ftell(file)) < (long)EI_NIDENT ||
         fseek(file, 0, SEEK_SET) != 0) {
-        if (file)
+        /* A file shorter than an ELF identifier is not an ELF object; say so
+         * rather than leave whatever errno an earlier call set, which is what
+         * the diagnostic prints. */
+        if (file) {
             fclose(file);
+            if (length >= 0 && length < (long)EI_NIDENT)
+                errno = ENOEXEC;
+        }
         return 0;
     }
     data = malloc((size_t)length);
@@ -59,6 +66,7 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
     }
     if ((size_t)length < sizeof(Elf64_Ehdr)) {
         free(data);
+        errno = ENOEXEC;
         return 0;
     }
     header = (const Elf64_Ehdr *)data;
@@ -109,5 +117,10 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
     result = 1;
 done:
     free(data);
+    /* Every way here is a refusal of the file's format or an observer saying
+     * no, never a failed system call, so no real errno is being overwritten.
+     * Without this, `links` on a script printed `errno=17 (File exists)`. */
+    if (!result)
+        errno = ENOEXEC;
     return result;
 }

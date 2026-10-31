@@ -6,7 +6,7 @@ surroundings and who owned each part. A blocker here meant an integration input
 or an explicit product decision, not a defect in the standalone path. It is a
 planning document, not the repository's active issue queue.
 
-Baseline: CBS v0.1.127. The standalone suite and the process-level integration
+Baseline: CBS v0.1.128. The standalone suite and the process-level integration
 contract are shipped. Items below that concern cixd's own environment are
 cixd's to document and not this repository's: a claim about cixd's production
 state written here goes stale on the cix repository's release cadence, and
@@ -45,12 +45,12 @@ production format and treat CIXPKG v2 as the supported reader/writer contract.
 
 Measured on 2026-10-09, the Cix recipe corpus held 1010 CPDL definitions
 across 181 distinct packages and **no remaining shell recipes**; 1567 `.sh`
-package files exist in its history and none survive. It has grown since: 2016
-definitions across 246 packages at `origin/main` `802e05c` on 2026-10-31, all
-validating, with no recipe declaring `tools` and three versions of one package,
-`cix`, declaring an `output`. The conversion this register was written to track
-is therefore done, and the language gaps the corpus audit identified were closed
-on 2026-09-18.
+package files exist in its history and none survive. It has grown well past two
+thousand definitions since; the exact, dated figure is in the release notes
+because it changes within hours. All of it validates, and as of 2026-10-31 no
+recipe declares `tools` and one package, `cix`, declares an `output`. The
+conversion this register was written to track is therefore done, and the
+language gaps the corpus audit identified were closed on 2026-09-18.
 
 That corpus is not in this repository and should not be. It belongs to the
 recipe repository; CBS ships only the build-tested `zstd` qualification recipe,

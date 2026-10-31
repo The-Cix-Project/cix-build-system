@@ -113,6 +113,44 @@ case $newest in
     *) note "docs/native-helpers.md: newest review-log entry does not name v$release; ADR-0004 requires a review at every release" ;;
 esac
 
+# 8. Absences.  A construct the language has but the manual never shows is the
+#    one kind of gap a script can find: the specification lists every reserved
+#    keyword, so each must appear in the manual.  "Appears" means as code, in a
+#    fenced block or directly after a backtick; the bare word is not enough,
+#    because `links` matched the sentence "links against libarchive" and hid a
+#    whole undocumented operation, used by 14 corpus recipes.  Five keywords
+#    (patch, truncate, links, nonempty, checksums) had been missing this way.
+awk '/^The complete CPDL 1.0 keyword set/ { found = 1; next }
+     found && /^```text/ { listing = 1; next }
+     listing && /^```/ { exit }
+     listing' docs/spec/cpdl-1.0.md | tr -s ' ' '\n' |
+    grep -E '^[a-z_0-9]+$' | sort -u >"$root/keywords"
+# Failing closed: a renamed heading must not turn this into a pass over nothing.
+test "$(wc -l <"$root/keywords" | tr -d ' ')" -ge 50 ||
+    note "could not read the keyword list from docs/spec/cpdl-1.0.md section 2.4"
+# Code is the content of fenced blocks plus inline spans.  Spans are read per
+# line and only on lines with balanced backticks: pairing across an odd count
+# shifts every later span, which is how bare prose first passed as code.  A span
+# containing a parenthesis is skipped, since that is a quoted diagnostic such as
+# `errno=40 (Too many levels of symbolic links)`, whose English once made
+# `links` look documented.  Residual limit: a keyword used as an ordinary word
+# inside some other span can still satisfy this, so it finds wholesale absences
+# and not every thin explanation.
+{
+    awk '/^[[:space:]]*```/ { code = !code; next } code' docs/user-manual.md
+    awk '/^[[:space:]]*```/ { next }
+         { n = gsub(/`/, "`")
+           if (n % 2 == 0) {
+               k = split($0, part, "`")
+               for (i = 2; i <= k; i += 2)
+                   if (part[i] !~ /[(]/) print part[i]
+           } }' docs/user-manual.md
+} | tr -cs 'a-z_0-9' '\n' | sort -u >"$root/manual-code"
+while IFS= read -r keyword; do
+    grep -qxF -- "$keyword" "$root/manual-code" ||
+        note "the manual never shows \`$keyword\`, a keyword the specification reserves"
+done <"$root/keywords"
+
 test "$fail" -eq 0
 echo "docs contract tests: PASS (releases, counts, links, verbs, options," \
-    "codes, review log)"
+    "codes, review log, keywords)"

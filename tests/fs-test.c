@@ -127,6 +127,32 @@ static int expect_failure(const CbsNode *operation,
            (fragment == NULL || strstr(output, fragment) != NULL);
 }
 
+/* Run `links PATH { KIND "LIBRARY" }`, capturing the diagnostic it writes. */
+static int run_links(const CbsExecutionContext *context, const char *path,
+                     const char *kind, const char *library, char *output,
+                     size_t output_size) {
+    CbsNode property, links;
+    CbsNode *children[1];
+    TestCapture capture;
+    int result;
+
+    memset(&property, 0, sizeof(property));
+    property.kind = CBS_NODE_PROPERTY;
+    property.name = (char *)kind;
+    property.value = (char *)library;
+    children[0] = &property;
+    memset(&links, 0, sizeof(links));
+    links.kind = CBS_NODE_LINKS;
+    links.value = (char *)path;
+    links.children = children;
+    links.child_count = 1;
+    if (!test_capture_begin(&capture, capture_root))
+        return -1;
+    result = cbs_execute_links(&links, context);
+    test_capture_end(&capture, output, output_size);
+    return result;
+}
+
 static int expect_edit_failure(const CbsNode *operation,
                                const CbsExecutionContext *context) {
     return !cbs_execute_edit_assertion(operation, context);
@@ -280,6 +306,39 @@ static int run_test(const char *recipe_path) {
     links.child_count = 1;
     if (!cbs_execute_links(&links, &context))
         FS_FAIL();
+
+    /* Only that positive case was tested.  The failure paths are what a recipe
+     * relies on `links` to produce, and the manual now documents them, so each
+     * is asserted here: a missing needed library, a forbidden library that is
+     * present, a forbidden one that is absent, and a file that is not an ELF
+     * object, whose diagnostic used to print whatever errno an earlier call
+     * left behind ("File exists" for a shell script). */
+    {
+        char links_output[2048];
+
+        CHECK_FS(run_links(&context, "${src}/linked-cbs", "needs",
+                           "libnope.so.9", links_output,
+                           sizeof(links_output)) == 0 &&
+                 strstr(links_output, "CPDL-E4005") != NULL &&
+                 strstr(links_output,
+                        "missing required library `libnope.so.9`") != NULL);
+        CHECK_FS(run_links(&context, "${src}/linked-cbs", "forbids",
+                           "libc.so.6", links_output,
+                           sizeof(links_output)) == 0 &&
+                 strstr(links_output, "CPDL-E4005") != NULL &&
+                 strstr(links_output, "forbidden library `libc.so.6`") != NULL);
+        CHECK_FS(run_links(&context, "${src}/linked-cbs", "forbids",
+                           "libnope.so.9", links_output,
+                           sizeof(links_output)) == 1);
+        CHECK_FS(path_join(path, sizeof(path), src, "script.sh") &&
+                 write_regular(path, "#!/bin/sh\necho not an ELF object\n"));
+        CHECK_FS(run_links(&context, "${src}/script.sh", "needs",
+                           "libc.so.6", links_output,
+                           sizeof(links_output)) == 0 &&
+                 strstr(links_output,
+                        "cannot inspect ELF dynamic dependencies") != NULL &&
+                 strstr(links_output, "Exec format error") != NULL);
+    }
 
     path_join(path, sizeof(path), build, "input");
     if (lstat(path, &status) != 0 || (status.st_mode & 07777) != 0700)

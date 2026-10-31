@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.127, and the licence change
+# CBS v0.1.106 – v0.1.128, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-two releases of 2026-10-09 to
-2026-10-31, which closed twenty-eight tracker issues.
+licence decision of 2026-10-23 and the twenty-three releases of 2026-10-09 to
+2026-10-31, which closed twenty-nine tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -69,7 +69,7 @@ breaks no recipe that exists.
 ### 3. Every build gets a fingerprint, and every cixd build had none
 
 `cbs build` recorded `build_fingerprint unavailable` for **every recipe that
-declares no `tools`** — which is every definition in the corpus, 2016 of
+declares no `tools`** — which is every definition in the corpus, 2022 of
 them as of 2026-10-31; none
 declares one. Meanwhile `cbs fingerprint` printed a key for the same recipe and
 architecture, so the integration contract's promise that the two agree was
@@ -292,7 +292,7 @@ one path cannot name several artifacts.
 recipe stayed valid without edits. It is now in use: as of 2026-10-31
 `cix@0.2.57-639`, `-640` and `-641` declare `output "cixctl"`, splitting the
 client out of the `cix` package, which is the cix#378 case ADR-0038 was written
-for. One package uses it so far. All 2016 definitions validate.
+for. One package uses it so far. All 2022 definitions validate.
 
 Approval remains the repository's decision. CBS's part is that the fingerprint
 is in every artifact's metadata and the digests are in `explain` and the
@@ -476,6 +476,15 @@ already matched the documented meaning of the number it carried. If you matched
 the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
 matches neither prefix.
 
+**`links` on a file that is not an ELF object printed an unrelated cause
+(v0.1.128, #310).** The assertion correctly failed, but its diagnostic said
+`errno=17 (File exists)` for a shell script, and `errno=2 (No such file or
+directory)` on another run, because the observer returned without setting
+`errno` and the caller printed whatever an earlier call had left. It now reads
+`errno=8 (Exec format error)`. The same assertion had no test for any of its
+failure paths, only one positive case; a missing needed library, a present
+forbidden one, an absent forbidden one and a non-ELF file are now covered.
+
 **The command's diagnostic codes are now written down.** Twenty-two of the
 twenty-four `CBS-E1xxx` codes appeared in no document, so "codes are
 append-only" referred to a registry nobody could read. They are a table in the
@@ -508,13 +517,14 @@ implementation accepts.
 `make -j1 test` is the gate: 49 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 74 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.127.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.128.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2016 CPDL definitions across 246 distinct packages, all validating** against
-v0.1.127 at `origin/main` `802e05c` on 2026-10-31, up from 1010 and 181 three
-weeks earlier with no shell recipes remaining. That figure moved five times in
-one day — 1969, 1983, 2012, 2013, 2016 — so re-measure rather than quoting it.
+**2022 CPDL definitions across 248 distinct packages, all validating** against
+v0.1.128 at `origin/main` `2a86e7f` on 2026-10-31, up from 1010 and 181 three
+weeks earlier with no shell recipes remaining. That figure moved six times in
+one day — 1969, 1983, 2012, 2013, 2016, 2022 — which is why no living document
+carries it any more and it is quoted only here, in a dated record.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -562,6 +572,21 @@ unknown tag, or the `cpdl` spelling of the fence is an error. The gate also now
 fails if the native-helper review log's newest entry does not name the release,
 since that review went unlogged for thirteen releases when nothing looked.
 
+v0.1.128 closes the gap that was listed last: **absences** (#310). The
+specification reserves a set of keywords, so the gate now requires each to be
+shown as code in the manual. The first run found five implemented constructs the
+manual never mentioned: `links` with `needs` and `forbids` (used by 14 corpus
+recipes), `patch`, `truncate`, the `nonempty` property, and the `checksums` and
+`signature` forms of `upstream verify`. They are documented, and the
+specification gained the missing prose for `links`. Written as a rule, "the word
+appears" was wrong three ways before it was right: English words from the
+sentence above the list, a keyword that matched ordinary prose ("links against
+libarchive"), and a quoted error message in backticks. It now counts only code,
+and the residual limit is recorded in the test.
+
+Exact corpus counts were also removed from the living documents. Dating each
+copy had not stopped them going stale; they now appear only in dated records.
+
 What this does **not** do is read prose. "cixd always supplies a finalizer" or
 "no corpus recipe reads standard input" can only be re-measured by a person,
 and the corpus figures above went stale inside a day. Treat a statement here as
@@ -570,7 +595,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#309 cover this
+decision, its evidence, and the acceptance criteria met: #282–#310 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

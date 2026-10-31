@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.127 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.128 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -651,7 +651,10 @@ URL must include it. It does not
 replace the pinned source URL or digest in CPDL 1.0. CBS validates and reports
 the declaration but never performs discovery or network verification.
 `kernel.org`, `gitea-releases`, `gitea-tags`, `github-tags`, `github-releases`,
-and `gnu` are the registered provider names. `build_image` and `capability` describe what an orchestrator must
+and `gnu` are the registered provider names. The one `verify` policy is one of
+`origin`, `signed-tag { key "..." }`, `signature "NAME" { url "..." key "..." }`
+or `checksums "NAME" { url "..." key "..." }`; a `signature` URL must contain
+`{version}`, and a `checksums` URL may omit it when it names a per-directory list. `build_image` and `capability` describe what an orchestrator must
 provide; standalone CBS validates and reports them but cannot create an image
 or grant a Linux capability. A compiler other than TCC is rejected unless the
 recipe declares the matching `toolchain` exception with a non-empty reason.
@@ -938,6 +941,38 @@ case runs even if another case fails; the check phase fails if any case fails.
 
 An empty match and an unexpected count fail before mutation. Assertions include:
 
+`truncate` keeps the bytes before the one literal `from` match and discards the
+marker and everything after it, which is how to cut a generated tail off a file.
+`patch` applies a unified diff stored next to the recipe, and is pinned by the
+digest of the patch file, so a changed patch is refused rather than applied:
+
+```cbs check
+package "edit-demo" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    prepare {
+        truncate "${src}/project-1.0/Makefile" {
+            from "# generated below this line"
+            exactly 1
+        }
+        patch "fix-build.patch" {
+            sha256 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            strip 1
+        }
+    }
+    build { write "${dest}/stamp" "built\n" }
+}
+```
+
+Both are byte operations like `replace`: `truncate` takes the same `exactly N`
+cardinality and fails if the marker does not occur exactly that often, and
+`patch` matches context byte-for-byte with no fuzz and no reject files. A failed
+count, digest, context check or write leaves the original unchanged. `strip N`
+removes that many leading path components from the patch's `+++` path, as
+`patch -pN` does.
+
 ```cbs
 check {
     require file "${build}/output" {
@@ -957,8 +992,8 @@ check {
 }
 ```
 
-`contains` searches literal bytes. `same_as` compares two confined regular
-files byte-for-byte. `require file` matches regular files only, so assert on a
+`nonempty` requires a regular file with at least one byte. `contains` searches
+literal bytes. `same_as` compares two confined regular files byte-for-byte. `require file` matches regular files only, so assert on a
 shared library's soname link with `require symlink`, whose `target` compares
 the link text literally and does not require the target to exist. When an
 assertion fails, the message says what the path is (`is a symbolic link;
@@ -966,6 +1001,34 @@ require file matches regular files only`, `is a directory`, `points to
 `liblzma.so.5.8.3`, expected `liblzma.so.5``); `does not exist` means exactly
 that. Config assertions understand `y`, `m`, `n`, and `absent`,
 including Linux’s `# CONFIG_NAME is not set` spelling for `n`.
+
+`links` asserts what a built binary or library is linked against. It reads the
+ELF64 dynamic-dependency (`DT_NEEDED`) entries of the file, so it checks the
+staged result and not the recipe's intent. `needs` requires a library to be
+present and `forbids` requires it to be absent:
+
+```cbs check
+package "link-demo" {
+    version "1"
+    release 1
+    format "cixpkg"
+
+    install {
+        links "${dest}/usr/bin/tool" {
+            needs "libc.so.6"
+            forbids "libssl.so.3"
+        }
+    }
+}
+```
+
+The names are sonames, compared literally. A failure says `artifact is missing
+required library` or `artifact links forbidden library`, naming it. A file that
+cannot be read as a dynamically linked ELF64 object fails with `cannot inspect
+ELF dynamic dependencies` rather than passing, because an assertion that cannot
+be evaluated is not satisfied. That covers a script, a truncated file and a
+statically linked executable, so `forbids` on a static binary fails too. To
+assert the same of several files, put it inside an `each` block.
 
 ### 11.7 Several packages from one recipe
 
@@ -1050,8 +1113,10 @@ the governance in ADR-0004.
 ## 13. Build outputs and provenance
 
 The package identity is `(name, version, release, architecture)`. The
-architecture comes from `--arch`; it cannot be selected by a recipe. The usual
-artifact filename is `name-version-release-architecture.cixpkg`. A recipe that
+architecture comes from `--arch`; it cannot be selected by a recipe, and an
+`architecture` declaration is a validation error. `architecture` and `any` are
+reserved words held for a future decision about architecture-independent
+packages; they have no meaning in CPDL 1.0. The usual artifact filename is `name-version-release-architecture.cixpkg`. A recipe that
 declares `output` blocks emits one artifact per output into `--output-dir`
 instead; section 11.7 has the rules.
 

@@ -28,6 +28,8 @@ features must add focused success and failure assertions to this matrix.
 | The verb predicts a build using --firmware-root or --prune-policy, in both option forms, and refuses what a build refuses | fingerprint-parity-test.sh |
 | Documentation counts, links, verbs, options, diagnostic codes and the native-helper review log match the source and the filesystem | docs-contract-test.sh |
 | Every documentation example tagged `cbs check` validates; an unknown tag, a `cpdl` fence, or no tagged example at all is a failure | docs-examples-test.sh |
+| Every keyword the specification reserves is shown as code in the manual | docs-contract-test.sh |
+| `links`: a missing needed library, a present forbidden one, an absent forbidden one, and a non-ELF file with its `Exec format error` diagnostic | fs-test.c |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |
 | Several outputs from one recipe: the partition, per-output license and requires, canonical names, one shared fingerprint, per-output determinism, and the overlap and single-path refusals | multi-output-test.sh, multi-output.cbs, output-overlap.cbs, and the invalid output-* fixtures |
