@@ -69,7 +69,7 @@ breaks no recipe that exists.
 ### 3. Every build gets a fingerprint, and every cixd build had none
 
 `cbs build` recorded `build_fingerprint unavailable` for **every recipe that
-declares no `tools`** — which is every definition in the corpus, 1983 of
+declares no `tools`** — which is every definition in the corpus, 2012 of
 them as of 2026-10-31; none
 declares one. Meanwhile `cbs fingerprint` printed a key for the same recipe and
 architecture, so the integration contract's promise that the two agree was
@@ -288,8 +288,11 @@ drifted from each other.
 single-output form and is refused when a recipe declares more than one, since
 one path cannot name several artifacts.
 
-**The corpus is unaffected.** The grammar is additive and no existing recipe
-declares an output; all 1983 still validate.
+**The corpus was unaffected on arrival** — the grammar is additive, so every
+recipe stayed valid without edits. It is now in use: as of 2026-10-31
+`recipes/package/cix@0.2.57-639.cbs` declares `output "cixctl"`, splitting the
+client out of the `cix` package, which is the cix#378 case ADR-0038 was written
+for. All 2012 definitions validate.
 
 Approval remains the repository's decision. CBS's part is that the fingerprint
 is in every artifact's metadata and the digests are in `explain` and the
@@ -488,11 +491,11 @@ above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 71 cases, and they also pass under
 TCC bounds instrumentation (`tcc -b`), re-run at v0.1.125.
 
-The broader check is the recipe corpus, which is not in this repository: **1983
-CPDL definitions across 246 distinct packages, all validating** against
-v0.1.124 on 2026-10-31, up from 1010 and 181 three weeks earlier with no shell
-recipes remaining. It gained fourteen definitions in a day, so re-measure
-rather than quoting that figure.
+The broader check is the recipe corpus, which is not in this repository:
+**2012 CPDL definitions across 246 distinct packages, all validating** against
+v0.1.125 at `origin/main` `d1c6110` on 2026-10-31, up from 1010 and 181 three
+weeks earlier with no shell recipes remaining. That figure moved twice in one
+day — 1969, then 1983, then 2012 — so re-measure rather than quoting it.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs

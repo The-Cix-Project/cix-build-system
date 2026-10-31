@@ -30,16 +30,24 @@ checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
 split from `cix#505` on 2026-09-21), under `recipes/package/`,
 `recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-It moves fast — **1983 `.cbs` definitions across 246 distinct packages** on
-2026-10-31, up from 1969 and 245 the day before and from 1010 and 181 three
-weeks earlier, with no shell recipes left. **All 1983 validate against this
-engine**, re-measured the same day. Those figures went stale inside a day, so
-re-measure rather than quoting them, and treat the corpus as the
+It moves fast — **2012 `.cbs` definitions across 246 distinct packages** at
+`origin/main` `d1c6110` on 2026-10-31, up from 1983 earlier the same day, 1969
+the day before, and 1010 and 181 three weeks earlier, with no shell recipes
+left. **All 2012 validate against this engine.** One declares an `output`
+(`recipes/package/cix@0.2.57-639.cbs`, the `cixctl` split of cix#378), so the
+old "no recipe declares an output" line is no longer true. These figures went
+stale twice in one day, so re-measure rather than quoting them, and treat the corpus as the
 fastest real-world regression check for any CPDL or validator change — far
 broader than the single `recipes/zstd.cbs` fixture shipped here:
 
+Measure at `origin/main`, not in that working tree: cixd commits to it, so a
+`git pull` there can race a write-back, and the checkout can sit behind. Fetch
+and extract instead — read-only, and exact:
+
 ```sh
-cd /home/osakka/cix-recipes && for r in $(find recipes -name '*.cbs'); do
+d=$(mktemp -d) && git -C /home/osakka/cix-recipes fetch -q origin &&
+git -C /home/osakka/cix-recipes archive origin/main recipes | tar -x -C "$d" &&
+cd "$d" && for r in $(find recipes -name '*.cbs'); do
   /home/osakka/cix-build-system/cbs validate "$r" >/dev/null || echo "FAIL $r"
 done
 ```
