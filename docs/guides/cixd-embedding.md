@@ -49,9 +49,18 @@ cbs list ARTIFACT.cixpkg --json
 ```
 
 The artifact's `build_fingerprint` provenance is the value consumers should
-store with the cache record. A precomputed `cbs fingerprint` key must use the
-same architecture, command/library roots, input bindings, and complete tool
-identity set as the build.
+store with the cache record. A precomputed `cbs fingerprint` key must be given
+the same inputs as the build: `--arch`, `--command-path`, `--library-path`,
+`--input` bindings, the complete `--tool-identity` set, and — since v0.1.123
+and v0.1.124 — `--finalize-command`, `--prune-policy` and `--firmware-root`.
+Every input that enters the key can be given to the verb, so there is no
+option whose use makes a build unpredictable.
+
+A finalizer is bound by content: CBS digests the command it resolved, so two
+finalizer scripts at the same path produce different keys. An embedder that
+supplies a finalize callback without declaring an identity gets no key at all
+(`build_fingerprint unavailable`, reason `finalizer-unidentified`) rather than
+a key that silently omits it.
 
 ## In-process boundary: deliberate embedding
 

@@ -11,7 +11,11 @@ services.
 Implemented in this repository are the parser/validator, direct execution,
 workspace and source handling, typed CIXPKG v2 creation/verification/extraction,
 hostile-input tests, child resource limits and interrupt cleanup, ELF runtime
-dependency observation, and tested embedding seams. The CIXPKG format carries
+dependency observation, and tested embedding seams. Since v0.1.119 one recipe
+may emit several packages from one build, each an ordinary artifact sharing one
+build fingerprint (ADR-0038); and since v0.1.121 a recipe command's whole
+execution environment is constructed rather than inherited — argv, environment,
+and the descriptor table including standard input. The CIXPKG format carries
 integrity digests; detached signatures and approval/revocation policy belong to
 the repository/orchestrator.
 

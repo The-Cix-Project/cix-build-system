@@ -41,6 +41,11 @@ executing the recipe. It excludes workspace paths and timestamps, so cixd can
 use it for lookup decisions while retaining storage, authorization, and
 eviction ownership outside CBS.
 
+Give `fingerprint` and `build` the same inputs, or the key will not match:
+besides `--arch`, that means `--command-path`, `--library-path`, `--input`,
+`--tool-identity`, `--finalize-command`, `--prune-policy` and
+`--firmware-root`. The verb accepts every input that enters the key.
+
 For a recipe with `tools { ... }`, give `fingerprint` and `build` the same
 `--command-path` roots. CBS fingerprints each declared alias using the resolved
 target digest and alias name; it does not fingerprint the temporary

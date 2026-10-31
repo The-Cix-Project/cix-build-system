@@ -30,10 +30,11 @@ checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
 split from `cix#505` on 2026-09-21), under `recipes/package/`,
 `recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-It moves fast — **1969 `.cbs` definitions across 245 distinct packages** on
-2026-10-30, up from 1010 and 181 three weeks earlier, with no shell recipes
-left. **All 1969 validate against this engine**, re-measured the same day. So
-re-measure rather than quoting these figures, and treat the corpus as the
+It moves fast — **1983 `.cbs` definitions across 246 distinct packages** on
+2026-10-31, up from 1969 and 245 the day before and from 1010 and 181 three
+weeks earlier, with no shell recipes left. **All 1983 validate against this
+engine**, re-measured the same day. Those figures went stale inside a day, so
+re-measure rather than quoting them, and treat the corpus as the
 fastest real-world regression check for any CPDL or validator change — far
 broader than the single `recipes/zstd.cbs` fixture shipped here:
 
@@ -54,7 +55,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 45 test groups, offline-clean
+make -j1 test        # the full gate: 47 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -97,7 +98,7 @@ machine-readable version/ABI/verb manifest. Every failable verb accepts
 src/        the engine (~17k lines C11) and both headers
 tests/      *.c focused tests, *.sh contract tests, fixtures/
 recipes/    zstd.cbs — the one build-tested qualification recipe
-docs/       spec/ (normative), adr/ (37 decisions), guides/, reviews/ (closed-ticket evidence)
+docs/       spec/ (normative), adr/ (38 decisions), guides/, reviews/ (closed-ticket evidence)
 cbs.cbs     CBS's own self-hosting recipe (its pin necessarily lags a release)
 COPYING*    COPYING is GPLv3, COPYING.LESSER the LGPLv3: LGPL-3.0-or-later
 TRADEMARK   the Cix marks policy (TRADEMARK.md), separate from the licence
@@ -312,7 +313,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 37 decisions and all 153 validation records. The records are
+   indexes of all 38 decisions and all 162 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.
