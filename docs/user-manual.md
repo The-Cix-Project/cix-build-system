@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.126 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.127 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -62,10 +62,11 @@ Filesystem effects must use CBS-provided roots such as `$src`, `$build`, and
 
 Create `hello.cbs`:
 
-```cbs
+```cbs check
 package "hello" {
     version "1"
     release 1
+    format "cixpkg"
 
     build {
         mkdir "${dest}/usr/bin"
@@ -83,6 +84,8 @@ Important rules:
 - Recipe files must end in `.cbs`.
 - Package names use lowercase letters, digits, `+`, `.`, and `-`.
 - `version` is a non-empty string and `release` is greater than zero.
+- `format "cixpkg"` is required. It has no default, so a recipe without it is
+  rejected with `CPDL-E3001`.
 - At least one build phase is needed to produce a package.
 - Commands are argument vectors, not shell command lines.
 - Shell expansion, pipelines, command substitution, and ambient environment
@@ -259,10 +262,11 @@ paths; the listing uses `cbs.cixpkg-list/v2` and the diff uses
 
 Sources are declared with one or more URLs and a SHA-256 digest:
 
-```cbs
+```cbs check
 package "example" {
     version "1.2.3"
     release 1
+    format "cixpkg"
 
     sources {
         main "example" {

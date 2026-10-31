@@ -97,6 +97,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/finalizer-identity-test.sh ./$(TARGET)
 	./tests/fingerprint-parity-test.sh ./$(TARGET)
 	./tests/docs-contract-test.sh ./$(TARGET)
+	./tests/docs-examples-test.sh ./$(TARGET)
 	./tests/prune-test.sh ./$(TARGET)
 	./tests/context-contract-test.sh ./$(TARGET)
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)

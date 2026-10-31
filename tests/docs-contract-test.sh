@@ -101,5 +101,18 @@ while IFS= read -r code; do
         note "$code is emitted by the source and documented nowhere"
 done <"$root/codes"
 
+# 7. An attestation is only as good as the check that it was made.  ADR-0004
+#    requires a native-helper review at every release, and none was logged for
+#    thirteen releases because nothing looked at the log.  This does not judge
+#    the review, only that its newest entry names this release, so skipping the
+#    human step turns the gate red.
+newest=$(awk '/^## Review log/ { in_log = 1; next }
+              in_log && /^- / { print; exit }' docs/native-helpers.md)
+case $newest in
+    *"(v$release)"*) ;;
+    *) note "docs/native-helpers.md: newest review-log entry does not name v$release; ADR-0004 requires a review at every release" ;;
+esac
+
 test "$fail" -eq 0
-echo "docs contract tests: PASS (releases, counts, links, verbs, options, codes)"
+echo "docs contract tests: PASS (releases, counts, links, verbs, options," \
+    "codes, review log)"

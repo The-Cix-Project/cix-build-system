@@ -130,17 +130,32 @@ public header, and pkg-config metadata from the same tag.
 
    **A sentence reporting a measurement states the version it was measured
    at, and only re-measuring updates it.** "71 cases pass instrumented, re-run
-   at v0.1.126" is the form. Never let the sweep advance that version: re-run
+   at v0.1.127" is the form. Never let the sweep advance that version: re-run
    the measurement, or leave the older version standing. An un-run claim at
    the current version is worse than an honest one at an older version.
 
-   `tests/docs-contract-test.sh` enforces what can be enforced: that all eight
-   files name the release, that the ADR, record and test-group counts match
-   the filesystem, that every relative link resolves, that ADR-0008's note
-   names every verb `cbs --help` exposes, and that every long option appears
-   in the manual or the runbook. It does **not** read prose, so a green run
-   does not mean the documentation is correct — only that it is not provably
-   wrong.
+   `tests/docs-contract-test.sh` enforces what can be compared mechanically:
+   that all eight files name the release, that the ADR, record and test-group
+   counts match the filesystem, that every relative link resolves, that
+   ADR-0008's note names every verb `cbs --help` exposes, that every long option
+   appears in the manual or the runbook, that every diagnostic code the source
+   can emit is listed in a document, and that the newest entry in the
+   native-helper review log names this release.
+
+   `tests/docs-examples-test.sh` runs the examples. A fenced block tagged
+   ` ```cbs check ` is extracted and given to `cbs validate`; write it for any
+   example that is a complete recipe. Fragments (`build { ... }`) stay a bare
+   ` ```cbs ` and are illustrative by design, since a manual that could only
+   show runnable examples would be worse to read. The test fails closed: finding
+   no tagged block is a failure, and so is an unknown tag or the ` ```cpdl `
+   spelling, because a typo must not silently opt a block out. Before it
+   existed, three of
+   the four complete examples in the manual and the specification were invalid,
+   the manual's first recipe among them, for one missing line.
+
+   Neither reads prose, so a green run does not mean the documentation is
+   correct, only that what could be checked is not wrong. What is left is
+   absences (a section that was never written) and interpretation.
 2. Run `git diff --check`, then `make -o version-check test`. At a tagged
    checkout `version-check` refuses the bumped `VERSION` until the commit in
    step 4 moves `HEAD` off the previous tag, so the full `make -j1 test` runs
@@ -148,7 +163,8 @@ public header, and pkg-config metadata from the same tag.
 3. Confirm the upstream qualification result is either passed or explicitly
    skipped because `CBS_UPSTREAM_CACHE` is unset. Also validate the recipe
    corpus, which is far broader than the one fixture shipped here, and run the
-   native-helper review that ADR-0004 requires at every release.
+   native-helper review that ADR-0004 requires at every release; the gate fails
+   if the review log's newest entry does not name the release.
 
    Measure the corpus at `origin/main`, not in the working tree of
    `/home/osakka/cix-recipes`. cixd commits there, so the checkout can sit
@@ -171,8 +187,8 @@ public header, and pkg-config metadata from the same tag.
    and both trackers for a native helper, per `docs/native-helpers.md`; add a
    dated entry to its review log even when nothing matched.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.126 -m
-   "CBS v0.1.126"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.127 -m
+   "CBS v0.1.127"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

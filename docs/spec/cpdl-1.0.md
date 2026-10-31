@@ -695,7 +695,7 @@ Package declarations may explicitly authorize one privileged file with an
 exact mode. The declaration is placed in the package body before the first
 phase, alongside other package-level execution metadata:
 
-```cbs
+```cbs check
 package "openssh" {
     version "10.4"
     release 1
@@ -1311,10 +1311,11 @@ to a shell or ignored for compatibility.
 This example demonstrates the complete shape, not a final zlib recipe or a
 promise that the shown checksum is current:
 
-```cpdl
+```cbs check
 package "zlib" {
     version "1.3.1"
     release 1
+    format "cixpkg"
 
     sources {
         main "zlib" {

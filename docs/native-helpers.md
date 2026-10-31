@@ -12,6 +12,15 @@ the correct state until a helper has an approved exception record.
 ADR-0004 requires a review quarterly and at every release. Each entry records
 its date, the search scope, what matched, and the decision.
 
+- 2026-10-31 (v0.1.127): the same four searches as the entry below, re-run for
+  this release because the documentation gate now fails without an entry naming
+  it. `src/`: no `helper` node kind or keyword (0). Grammar: no `helper`
+  production (0). The recipe corpus at `origin/main` `802e05c`, 2016 definitions
+  across 246 packages: 0 with a `helper` operation; the word still appears in 65
+  recipes, as ordinary prose. Trackers: #142 and #151 as assessed below, plus
+  #308 and #309, which are this repository's own tickets *about* this review
+  process and not requests for a helper. No cix issue matches. Decision:
+  registry remains empty.
 - 2026-10-31 (v0.1.126): **a lapse, then a review.** ADR-0004 requires a
   review at every release, and none was logged for the thirteen releases from
   v0.1.113 to v0.1.125: the release checklist did not list it, so it was not

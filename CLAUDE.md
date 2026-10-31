@@ -30,14 +30,14 @@ checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
 split from `cix#505` on 2026-09-21), under `recipes/package/`,
 `recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-It moves fast — **2013 `.cbs` definitions across 246 distinct packages** at
-`origin/main` `5a6578f` on 2026-10-31, up from 1969 the day before and from 1010
-and 181 three weeks earlier, with no shell recipes left. **All 2013 validate
-against this engine.** Two definitions, both versions of the `cix` package
-(`cix@0.2.57-639` and `-640`), declare an `output` — the `cixctl` split of
-cix#378 — so the feature is in use by one package. None declares `tools`. These
-figures went stale three times in one day, so re-measure rather than quoting them, and treat the corpus as the
-fastest real-world regression check for any CPDL or validator change — far
+It moves fast: **2016 `.cbs` definitions across 246 distinct packages** at
+`origin/main` `802e05c` on 2026-10-31, up from 1969 the day before and from 1010
+and 181 three weeks earlier, with no shell recipes left. **All 2016 validate
+against this engine.** Three definitions, three versions of the `cix` package
+(`cix@0.2.57-639` to `-641`), declare an `output`, the `cixctl` split of cix#378,
+so the feature is in use by one package. None declares `tools`. The figure was
+quoted five times in one day, so re-measure rather than quoting it. The corpus
+is the fastest real-world regression check for any CPDL or validator change, far
 broader than the single `recipes/zstd.cbs` fixture shipped here:
 
 Measure at `origin/main`, not in that working tree: cixd commits to it, so a
@@ -63,7 +63,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 48 test groups, offline-clean
+make -j1 test        # the full gate: 49 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -305,6 +305,12 @@ is part of the contract:
   and `E4000` (a runtime failure relayed in machine-readable mode). The table is
   in `docs/user-manual.md` §8.1.
 
+**Complete recipes in the docs are tested.** An example that is a whole recipe is
+fenced as ` ```cbs check ` and `tests/docs-examples-test.sh` validates it in the
+gate; fragments stay a bare ` ```cbs `. The first run found three of four
+complete examples invalid for want of `format "cixpkg"`, the manual's first
+recipe among them. Write the tag on any new complete example.
+
 **Look before you allocate.** Pick the next free number from the table, not from
 memory: `CBS-E1013` was reached for as "the next one" while it was already the
 CA-file refusal. `CBS-E3xxx` does not exist — validation errors are
@@ -340,7 +346,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 165 validation records. The records are
+   indexes of all 38 decisions and all 166 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

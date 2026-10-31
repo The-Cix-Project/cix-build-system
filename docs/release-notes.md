@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.126, and the licence change
+# CBS v0.1.106 – v0.1.127, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-one releases of 2026-10-09 to
-2026-10-31, which closed twenty-seven tracker issues.
+licence decision of 2026-10-23 and the twenty-two releases of 2026-10-09 to
+2026-10-31, which closed twenty-eight tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -69,7 +69,7 @@ breaks no recipe that exists.
 ### 3. Every build gets a fingerprint, and every cixd build had none
 
 `cbs build` recorded `build_fingerprint unavailable` for **every recipe that
-declares no `tools`** — which is every definition in the corpus, 2013 of
+declares no `tools`** — which is every definition in the corpus, 2016 of
 them as of 2026-10-31; none
 declares one. Meanwhile `cbs fingerprint` printed a key for the same recipe and
 architecture, so the integration contract's promise that the two agree was
@@ -237,7 +237,7 @@ artifact said they came from the same compile.
 
 From v0.1.119 a recipe may declare `output` blocks (ADR-0038):
 
-```cpdl
+```cbs
 package "cix" {
     version "1.4.0"
     release 2
@@ -290,9 +290,9 @@ one path cannot name several artifacts.
 
 **The corpus was unaffected on arrival** — the grammar is additive, so every
 recipe stayed valid without edits. It is now in use: as of 2026-10-31
-`cix@0.2.57-639` and `-640` declare `output "cixctl"`, splitting the client out
-of the `cix` package, which is the cix#378 case ADR-0038 was written for. One
-package uses it so far. All 2013 definitions validate.
+`cix@0.2.57-639`, `-640` and `-641` declare `output "cixctl"`, splitting the
+client out of the `cix` package, which is the cix#378 case ADR-0038 was written
+for. One package uses it so far. All 2016 definitions validate.
 
 Approval remains the repository's decision. CBS's part is that the fingerprint
 is in every artifact's metadata and the digests are in `explain` and the
@@ -505,16 +505,16 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 48 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 49 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 74 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.126.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.127.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2013 CPDL definitions across 246 distinct packages, all validating** against
-v0.1.125 at `origin/main` `5a6578f` on 2026-10-31, up from 1010 and 181 three
-weeks earlier with no shell recipes remaining. That figure moved four times in
-one day — 1969, 1983, 2012, 2013 — so re-measure rather than quoting it.
+**2016 CPDL definitions across 246 distinct packages, all validating** against
+v0.1.127 at `origin/main` `802e05c` on 2026-10-31, up from 1010 and 181 three
+weeks earlier with no shell recipes remaining. That figure moved five times in
+one day — 1969, 1983, 2012, 2013, 2016 — so re-measure rather than quoting it.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -548,6 +548,20 @@ Where a claim concerned cixd rather than CBS, the cix maintainer was asked, and
 the blocker register now says only what CBS guarantees and points at their
 repository.
 
+v0.1.127 closes the cheapest gap that was still open (#309): **the examples are
+run.** A complete recipe in the manual or the specification is fenced
+` ```cbs check ` and the gate validates it. The first run found three of the four
+complete examples invalid, the manual's first recipe and the specification's own
+"complete shape" among them, all for one missing line: `format "cixpkg"` is
+mandatory and has no default, and each example omitted it. So the first thing a
+new user pasted from the manual was rejected with `CPDL-E3001`, and had been
+since it was written on 2026-09-10. Fixed, and the "Important rules" beside that
+recipe now say `format` is required. The check is opt-in because most `cbs`
+blocks are deliberate fragments, and it fails closed: no tagged block, an
+unknown tag, or the `cpdl` spelling of the fence is an error. The gate also now
+fails if the native-helper review log's newest entry does not name the release,
+since that review went unlogged for thirteen releases when nothing looked.
+
 What this does **not** do is read prose. "cixd always supplies a finalizer" or
 "no corpus recipe reads standard input" can only be re-measured by a person,
 and the corpus figures above went stale inside a day. Treat a statement here as
@@ -556,7 +570,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#308 cover this
+decision, its evidence, and the acceptance criteria met: #282–#309 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.
