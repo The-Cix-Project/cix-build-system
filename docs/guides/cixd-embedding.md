@@ -1,7 +1,13 @@
 # cixd embedding guide
 
 CBS has two supported integration shapes. Choose one deliberately for each
-deployment.
+deployment. They have different compatibility rules, and mixing them up costs
+effort for nothing: the **process boundary** is versioned by the `cbs` binary
+and its documented options, exit statuses, events and artifacts; the
+**in-process boundary** is additionally versioned by `CBS_ABI_VERSION`, because
+it links `libcbs.a` against `cbs/cbs.h` and bakes struct layouts into the
+consumer. A process-boundary consumer links no header, so an ABI bump does not
+affect it — rebuilding the `cbs` package is all it needs.
 
 ## Process boundary: the first slice
 
@@ -20,11 +26,38 @@ cbs build RECIPE.cbs \
     --report REPORT.json
 ```
 
+A recipe that declares `output` blocks emits several packages from one build,
+and then `--output ARTIFACT` is refused, because one path cannot name several
+artifacts. Pass `--output-dir DIR` instead; CBS writes one canonically named
+`name-version-release-arch.cixpkg` per output, and either every artifact is
+written or none is:
+
+```sh
+cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output-dir ARTIFACTS \
+    --cache CACHE --events-fd 3 --report REPORT.json
+```
+
+`explain --json` reports an `outputs` array — always, main package first, even
+for a recipe with a single output — giving each output's name, file selectors
+and `requires`, so you know what a recipe provides before building it. The
+`package` declaration is itself the main output and receives every staged path
+no `output` claimed. Because a selector naming a file does not claim the
+directories above it, the main package is still emitted whenever directory
+entries remain; it is omitted only when the outputs claim everything.
+`--output` remains the form for a recipe with one output. With several, the
+report's `output_count` is greater than 1 and its `artifact` and
+`artifact_digest` are empty rather than naming one of N; the
+`artifact-finalized` events enumerate them.
+
 Use `explain --json` before execution to select an image and compose the
 declared dependencies. Forward JSONL events to the interactive UI and retain
 the final report for build history. Use `--diagnostics=jsonl` on commands that
 can fail; diagnostics are machine-readable on stderr and do not replace the
-event stream.
+event stream. Every diagnostic carries a code whose prefix names its origin —
+`CPDL-` for a located recipe diagnostic, `CIXPKG-` for an artifact failure,
+`CBS-` for a failure of the command itself — and the user manual's section 8.1
+lists every `CBS-` code with its exit status. A code keeps its meaning once
+assigned, so matching on it is safe.
 
 The two event options above are independent, and a forking parent wants both.
 `--events` selects the reporter on standard error; `--events-fd N` (or
@@ -35,6 +68,13 @@ on descriptor 3, with no per-line disambiguation. Without a destination,
 `--events jsonl` puts machine records on the same descriptor as every child's
 output, which is why selecting `human` for the operator used to mean giving up
 the structured stream.
+
+A build command cannot reach any of this. Its environment is constructed, its
+standard input is `/dev/null`, and every descriptor above standard error is
+closed before `execve`, so the event channel, the events file and anything the
+parent left open are not inherited. Passing an event descriptor therefore does
+not make it writable by the build it reports on. The descriptor is validated
+against the parent's table before CBS opens anything of its own.
 
 CBS duplicates the descriptor, so closing its reporter never closes one the
 parent still owns. A descriptor that is closed or not open for writing is a
@@ -81,14 +121,22 @@ The current language contract is CPDL `1.0`. In capability JSON,
 numeric equivalent.
 
 Supply explicit fetch, finalization, prune, command-path, and library-path
-policy. Register `CbsBuildEventSink` for live progress and optionally consume
-those events with `CbsBuildReport`. Callback data is borrowed for the
-duration of each callback and event rejection fails the build closed.
+policy. Use `cbs_build_standalone_with_finalizer()`, or
+`cbs_build_standalone_outputs_with_finalizer()` for a recipe with several
+outputs, and pass the finalizer's identity: an absolute path is digested, and
+any other string is bound verbatim, which is how an in-process callback
+declares itself. A callback with no identity yields no key, as above.
+
+Register `CbsBuildEventSink` for live progress and optionally consume those
+events with `CbsBuildReport`. Callback data is borrowed for the duration of each
+callback and event rejection fails the build closed.
 
 For composed tool roots, pass `CbsToolIdentity` values through the same build
-and fingerprint context. Each identity must cover every reachable file in the
-declared command/library roots; files not covered by the supplied identities
-are not represented by that identity-based key.
+and fingerprint context. They bind the toolchain by verified manifest digest
+instead of resolving anything on the host. CBS does not hash the rest of the
+command or library path, so an identity set that omits a file the build can
+reach leaves that file out of the key; make the set as complete as the
+toolchain you mean to bind.
 
 ## Ownership boundary
 

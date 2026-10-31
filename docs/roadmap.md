@@ -1,6 +1,6 @@
 # CBS delivery roadmap
 
-Release baseline: **v0.1.125**. The complete standalone implementation and its
+Release baseline: **v0.1.126**. The complete standalone implementation and its
 regression gate are shipped and tagged. The improvement queue is tracked in
 the issue tracker; the workstreams below describe ownership boundaries and
 future qualification, not unclaimed defects in the current release.
@@ -54,8 +54,11 @@ cixd/repository-owned.
 Applicable issues: #64, #65, #77, #79, #81, #106.
 
 Hostile archive/package fixtures, mutation coverage, cancellation, resource
-limits, and reproducibility gates are implemented. Clean-host CI remains a
-qualification task.
+limits, and reproducibility gates are implemented. A clean-host CI image was
+assessed as useful qualification and **declined by the owner on 2026-10-09**:
+the gate is run by hand, on a checkout, for each release (see the
+[release guide](guides/ci-and-release.md)). It is recorded here as the
+engineering assessment it was, not as work to pick up.
 
 ## Workstream 5: production integration
 
@@ -70,14 +73,17 @@ repository, not here. See [the integration blocker register](integration-blocker
 
 The CPDL gaps the recipe-corpus audit recorded are closed: `each` iteration
 (ADR-0035), `replace ... until`, `stage library` (ADR-0036), `require
-symlink`, and portable-case environment names. What remains for the corpus is
-GCC's source layout and toolchain model, and declaring the executor
-capabilities a build image must provide.
+symlink`, and portable-case environment names. The audit is closed (see
+[the corpus audit](cpdl-corpus-audit.md)): `gcc` is converted and validates
+under an explicit `toolchain` exception, and 272 recipes declared `capability`
+as of 2026-10-09. `output` blocks (ADR-0038, v0.1.119) later let one recipe emit
+several packages from one build.
 
 ## Recommended order
 
 1. Harden CIXPKG and refresh stale validation records.
 2. Improve CLI diagnostics and machine-readable operation modes.
 3. Add dependency, provenance, and signature foundations.
-4. Add security, reproducibility, resource, and CI qualification.
+4. Add security, reproducibility, and resource qualification. (A clean-host CI
+   image, once listed here, was declined on 2026-10-09; see Workstream 4.)
 5. Integrate cixd.

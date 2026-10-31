@@ -5,8 +5,8 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.125 at time of writing;
-`main` may sit a docs commit ahead of the tag).
+Current release is the first line of `VERSION`; `main` may sit a docs commit
+ahead of the tag.
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
 ## Scope: what lives here and what does not
@@ -30,13 +30,13 @@ checked out on this machine at **`/home/osakka/cix-recipes`** (its own repo,
 split from `cix#505` on 2026-09-21), under `recipes/package/`,
 `recipes/image/`, `recipes/deployment/`, named `<name>@<version>.<ext>`.
 
-It moves fast — **2012 `.cbs` definitions across 246 distinct packages** at
-`origin/main` `d1c6110` on 2026-10-31, up from 1983 earlier the same day, 1969
-the day before, and 1010 and 181 three weeks earlier, with no shell recipes
-left. **All 2012 validate against this engine.** One declares an `output`
-(`recipes/package/cix@0.2.57-639.cbs`, the `cixctl` split of cix#378), so the
-old "no recipe declares an output" line is no longer true. These figures went
-stale twice in one day, so re-measure rather than quoting them, and treat the corpus as the
+It moves fast — **2013 `.cbs` definitions across 246 distinct packages** at
+`origin/main` `5a6578f` on 2026-10-31, up from 1969 the day before and from 1010
+and 181 three weeks earlier, with no shell recipes left. **All 2013 validate
+against this engine.** Two definitions, both versions of the `cix` package
+(`cix@0.2.57-639` and `-640`), declare an `output` — the `cixctl` split of
+cix#378 — so the feature is in use by one package. None declares `tools`. These
+figures went stale three times in one day, so re-measure rather than quoting them, and treat the corpus as the
 fastest real-world regression check for any CPDL or validator change — far
 broader than the single `recipes/zstd.cbs` fixture shipped here:
 
@@ -281,6 +281,8 @@ The trap is that `parse_build_options` ends with a bare
 list without its own assignment branch is silently parsed as `--events`
 instead. Always add the assignment branch, and test the flag end to end.
 
+A new refusal gets a new `CBS-E` code, listed in `docs/user-manual.md` §8.1.
+
 CLI behaviour is covered by the `tests/*.sh` contract tests
 (`observability-test.sh` for events, `cli-contract-test.sh` for verbs and exit
 statuses), not by the C tests. Document a new option in `docs/user-manual.md`,
@@ -288,15 +290,32 @@ in `docs/integration-contract.md` if an embedder would use it, and in the
 ADR-0008 implementation note — the command surface is ADR-0008's, not the
 CPDL spec's.
 
-**Diagnostic codes are append-only.** `CPDL-` ranges: `E1xxx` lex, `E2xxx`
-parse, `E3xxx` validation, `E4xxx` runtime/operation, `E5xxx` source
-preparation, `E9xxx` internal invariant, `W3xxx` warnings, `Nxxxx` notes.
-Artifact failures use a separate `CIXPKG-` namespace, all emitted from
-`main.c`: `E4001` corruption, `E4002` destination preparation, `E4003`
-destination exists, `E4004` missing destination parent. Never reuse or
-repurpose a code. Every diagnostic goes through `diag.c` and starts with
-`PATH:LINE:COLUMN: SEVERITY[CODE]: CATEGORY: MESSAGE`, one sentence, no trailing
-period.
+**Diagnostic codes are append-only.** There are three namespaces, and the prefix
+is part of the contract:
+
+- `CPDL-` is a *located recipe* diagnostic: `E1xxx` lex, `E2xxx` parse, `E3xxx`
+  validation, `E4xxx` runtime/operation, `E5xxx` source preparation, `E6xxx`
+  archive, `E9xxx` internal invariant, `W3xxx`/`W6xxx` warnings, `Nxxxx` notes.
+  Listed in `docs/spec/cpdl-1.0.md` §8.2.
+- `CIXPKG-` is an artifact failure (exit 4), all emitted from `main.c`:
+  `E4001` corruption, `E4002` destination preparation, `E4003` destination
+  exists, `E4004` missing destination parent.
+- `CBS-` is a failure of the *command itself* — usage, a rejected policy file,
+  an unreadable input — `E1001`–`E1024`, plus `E0000` (the emitter's fallback)
+  and `E4000` (a runtime failure relayed in machine-readable mode). The table is
+  in `docs/user-manual.md` §8.1.
+
+**Look before you allocate.** Pick the next free number from the table, not from
+memory: `CBS-E1013` was reached for as "the next one" while it was already the
+CA-file refusal. `CBS-E3xxx` does not exist — validation errors are
+`CPDL-E3xxx`, and a stray `CBS-E3` spelling survived four weeks in the upstream
+validation (#307) because nothing listed the codes. A new code goes in its table
+in the same change; `tests/docs-contract-test.sh` fails the gate if the source
+can emit a code that no document lists.
+
+Never reuse or repurpose a code. Every diagnostic goes through `diag.c` and
+starts with `PATH:LINE:COLUMN: SEVERITY[CODE]: CATEGORY: MESSAGE`, one sentence,
+no trailing period.
 
 ## Tests
 
@@ -321,7 +340,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 163 validation records. The records are
+   indexes of all 38 decisions and all 165 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.
@@ -399,7 +418,8 @@ Tickets live in a private Gitea at `https://git.home.arpa/itdlabs/cix-build-syst
 (use `curl -sk`; the cert is untrusted and anonymous requests get 404, never
 401). The per-ticket loop: fix + tests + `docs/reviews/issue-NNNN-validation.md`
 using the real ticket title + an entry in `docs/reviews/README.md` (regenerate
-it; see Documentation authority) + a commit saying `Resolves #N` + push + a
+it with the command in the release guide's "Closing a ticket", which is tested
+to reproduce the file byte for byte) + a commit saying `Resolves #N` + push + a
 Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
 ## Residual spec drift (verified 2026-10-31, v0.1.125)

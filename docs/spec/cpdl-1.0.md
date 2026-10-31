@@ -519,7 +519,7 @@ all other operations execute in source order.
 An `on_fail` block may occur only once and only as the final member of its phase
 or `cd` block. It executes only after an operation in its associated block
 fails. It never changes the original failure into success. A failing diagnostic
-is reported as a note attached to the original failure.
+is reported as a note, `CPDL-N4001`, attached to the original failure.
 
 The environment at package start is constructed by CBS policy, not inherited
 implicitly from the invoking process. A phase receives a copy of that environment.

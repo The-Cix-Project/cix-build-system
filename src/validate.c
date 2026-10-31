@@ -1034,7 +1034,7 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
              strcmp(item->value, "github-tags") != 0 &&
              strcmp(item->value, "github-releases") != 0 &&
              strcmp(item->value, "gnu") != 0)
-        validation_error(validator, item, "CBS-E3006",
+        validation_error(validator, item, "CPDL-E3006",
                          "unsupported upstream discovery provider");
     for (index = 0; index < validator->package->child_count; ++index) {
         const CbsNode *package_item = validator->package->children[index];
@@ -1054,7 +1054,7 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
             (strcmp(property->name, "tag") != 0 &&
              strcmp(property->name, "source") != 0 &&
              strcmp(property->name, "verify") != 0)) {
-            validation_error(validator, property, "CBS-E3006",
+            validation_error(validator, property, "CPDL-E3006",
                              "unknown upstream parameter");
             continue;
         }
@@ -1062,13 +1062,13 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
             ++tag_count;
             if (property->value == NULL ||
                 !valid_upstream_template(property->value, 1))
-                validation_error(validator, property, "CBS-E3004",
+                validation_error(validator, property, "CPDL-E3004",
                                  "upstream tag template must contain {version} and only known placeholders");
         } else if (strcmp(property->name, "source") == 0) {
             ++source_count;
             if (property->value == NULL ||
                 !valid_upstream_template(property->value, 1))
-                validation_error(validator, property, "CBS-E3004",
+                validation_error(validator, property, "CPDL-E3004",
                                  "upstream source template must contain {version} and only known placeholders");
         } else {
             size_t field_count = 0;
@@ -1079,18 +1079,18 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
                  strcmp(property->value, "signature") != 0 &&
                  strcmp(property->value, "checksums") != 0 &&
                  strcmp(property->value, "signed-tag") != 0))
-                validation_error(validator, property, "CBS-E3006",
+                validation_error(validator, property, "CPDL-E3006",
                                  "unsupported upstream verification method");
             if (property->value == NULL)
                 continue;
             if (strcmp(property->value, "origin") == 0) {
                 if (property->child_count != 0 || property->second_value != NULL)
-                    validation_error(validator, property, "CBS-E3004",
+                    validation_error(validator, property, "CPDL-E3004",
                                      "origin verification takes no parameters");
             } else if (strcmp(property->value, "signed-tag") == 0) {
                 if (property->child_count != 0 || property->second_value == NULL ||
                     property->second_value[0] == '\0')
-                    validation_error(validator, property, "CBS-E3004",
+                    validation_error(validator, property, "CPDL-E3004",
                                      "signed-tag verification requires a key");
             } else {
                 for (field_index = 0; field_index < property->child_count;
@@ -1098,7 +1098,7 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
                     const CbsNode *field = property->children[field_index];
                     if (strcmp(field->name, "url") != 0 &&
                         strcmp(field->name, "key") != 0)
-                        validation_error(validator, field, "CBS-E3006",
+                        validation_error(validator, field, "CPDL-E3006",
                                          "unknown upstream verification parameter");
                     if (strcmp(field->name, "url") == 0) {
                         ++field_count;
@@ -1106,23 +1106,23 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
                             !valid_upstream_template(
                                 field->value,
                                 strcmp(property->value, "checksums") != 0))
-                        validation_error(validator, field, "CBS-E3004",
+                        validation_error(validator, field, "CPDL-E3004",
                                          strcmp(property->value, "checksums") == 0
                                              ? "verification URL contains an unknown placeholder"
                                              : "verification URL must contain {version} and only known placeholders");
                     } else if (field->value == NULL || field->value[0] == '\0') {
-                        validation_error(validator, field, "CBS-E3004",
+                        validation_error(validator, field, "CPDL-E3004",
                                          "verification key must not be empty");
                     }
                 }
                 if (field_count != 1 || property->child_count != 2)
-                    validation_error(validator, property, "CBS-E3004",
+                    validation_error(validator, property, "CPDL-E3004",
                                      "verification requires exactly one url and one key");
             }
         }
     }
     if (tag_count > 1 || source_count > 1 || verify_count != 1)
-        validation_error(validator, item, "CBS-E3002",
+        validation_error(validator, item, "CPDL-E3002",
                          "upstream parameters must contain at most one tag and source and exactly one verify");
     if (source_count == 1 && source != NULL && version != NULL) {
         const CbsNode *source_template = NULL;
@@ -1169,7 +1169,7 @@ static void validate_upstream(Validator *validator, const CbsNode *item) {
             expanded[output] = '\0';
             if (source->child_count == 0 ||
                 strcmp(source->children[0]->value, expanded) != 0)
-                validation_error(validator, source_template, "CBS-E3004",
+                validation_error(validator, source_template, "CPDL-E3004",
                                  "upstream source template does not match the main source URL at the current version");
         }
     }

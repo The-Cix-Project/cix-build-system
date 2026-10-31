@@ -32,12 +32,19 @@ cc $(pkg-config --cflags --libs --static cbs) consumer.c -o consumer
 cbs --capabilities
 ```
 
-`CBS_ABI_VERSION` is 6 as of v0.1.124. It was raised from 3 to 4 when
-`CbsExecutionContext` gained the build-wide event counter that makes event
+`CBS_ABI_VERSION` is 6, and has been since v0.1.119. It was raised from 3 to 4
+when `CbsExecutionContext` gained the build-wide event counter that makes event
 sequence numbers monotonic, from 4 to 5 when `CbsBuildEvent` gained
 `exit_status` and `signal` on `command-end`, and from 5 to 6 when
-`CbsBuildReport` gained `output_count`. A consumer built against an earlier ABI
-must be rebuilt; the guard below is what catches it.
+`CbsBuildReport` gained `output_count`. A consumer that links `libcbs.a` and was
+built against an earlier ABI must be rebuilt; the guard below is what catches
+it.
+
+The number governs only consumers that link the static archive against
+`cbs/cbs.h`, where struct layouts are compiled into the consumer. A consumer
+that runs the `cbs` binary as a child process, which is how cixd integrates,
+links no header and is unaffected by a bump: it needs the new `cbs` package and
+nothing else.
 
 `cbs_build_standalone_with_finalizer()` and
 `cbs_build_standalone_outputs_with_finalizer()` are the current

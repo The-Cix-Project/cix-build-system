@@ -13,7 +13,7 @@ the language as of 2026-09-18.
 Its measurements are from the audit: 134 package revisions and 2,077
 imperative shell lines, mean 15.5 lines per package. Whether 134 counted
 distinct packages or versioned files is not recoverable from the figure, so it
-cannot be compared directly with the 181 packages measured today. The table
+cannot be compared directly with the 181 packages measured on 2026-10-09. The table
 records the observed construct, its measured frequency where available, and the
 CPDL disposition.
 
@@ -52,7 +52,7 @@ escape hatch, which was the point of writing it down.
   validates, declaring `toolchain "gcc"` with a reason and handling the private
   `COMPILER_PATH` explicitly, which is that model in use.
 - **Executor capability declaration** — recorded as open. 272 recipes in the
-  corpus now declare `capability`.
+  corpus declared `capability` as of 2026-10-09.
 - **Kernel firmware and configuration** — `${firmware}` with `--firmware-root`
   and `require config`; the converted `kernel` recipe asserts `y`/`m`/`absent`
   states directly.
@@ -66,4 +66,5 @@ ambient host behaviour. Judged against the outcome it succeeded: the two
 constructs it named as genuinely unsupported — general `find`/`-exec` and
 ambient mtime manipulation — never acquired a shell escape hatch, and no native
 helper was approved to serve them (see the
-[native helper registry](native-helpers.md), still empty).
+[native helper registry](native-helpers.md), empty as of its 2026-10-31
+review).

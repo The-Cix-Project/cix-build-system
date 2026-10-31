@@ -57,7 +57,11 @@ test "$(sed -n 's/.*the full gate: \([0-9]*\) test groups.*/\1/p' CLAUDE.md |
 find . -name '*.md' -not -path './.git/*' >"$root/md"
 while IFS= read -r f; do
     dir=$(dirname "$f")
-    grep -oE '\]\([^)#]+\)' "$f" |
+    # Code is not prose: fenced blocks and inline spans can quote link syntax,
+    # as the release guide does when it shows how the reviews index is built.
+    awk '/^[[:space:]]*```/ { code = !code; next } !code' "$f" |
+        sed 's/`[^`]*`//g' |
+        grep -oE '\]\([^)#]+\)' |
         sed -e 's/^](//' -e 's/)$//' |
         grep -vE '^(https?|mailto):' >"$root/links" || true
     while IFS= read -r target; do
@@ -84,5 +88,18 @@ while IFS= read -r option; do
         note "$option is in --help but in neither the manual nor the runbook"
 done <"$root/options"
 
+# 6. Diagnostic codes are append-only, which only means something if the
+#    registry is written down.  Every code the source can emit appears in a
+#    document: the CBS- codes in the manual's table, the others in the spec.
+#    Twenty-two of the twenty-four CBS- codes were in no document before this,
+#    and the author reached for one that was already taken.
+cat docs/user-manual.md docs/spec/cpdl-1.0.md docs/spec/cixpkg-1.0.md \
+    >"$root/registry"
+cat src/*.c | grep -oE '(CBS|CPDL|CIXPKG)-[EWN][0-9]{4}' | sort -u >"$root/codes"
+while IFS= read -r code; do
+    grep -qF "$code" "$root/registry" ||
+        note "$code is emitted by the source and documented nowhere"
+done <"$root/codes"
+
 test "$fail" -eq 0
-echo "docs contract tests: PASS (release refs, counts, links, verbs, options)"
+echo "docs contract tests: PASS (releases, counts, links, verbs, options, codes)"

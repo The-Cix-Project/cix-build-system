@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.125, and the licence change
+# CBS v0.1.106 – v0.1.126, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty releases of 2026-10-09 to
-2026-10-31, which closed twenty-five tracker issues.
+licence decision of 2026-10-23 and the twenty-one releases of 2026-10-09 to
+2026-10-31, which closed twenty-seven tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -69,7 +69,7 @@ breaks no recipe that exists.
 ### 3. Every build gets a fingerprint, and every cixd build had none
 
 `cbs build` recorded `build_fingerprint unavailable` for **every recipe that
-declares no `tools`** — which is every definition in the corpus, 2012 of
+declares no `tools`** — which is every definition in the corpus, 2013 of
 them as of 2026-10-31; none
 declares one. Meanwhile `cbs fingerprint` printed a key for the same recipe and
 architecture, so the integration contract's promise that the two agree was
@@ -290,9 +290,9 @@ one path cannot name several artifacts.
 
 **The corpus was unaffected on arrival** — the grammar is additive, so every
 recipe stayed valid without edits. It is now in use: as of 2026-10-31
-`recipes/package/cix@0.2.57-639.cbs` declares `output "cixctl"`, splitting the
-client out of the `cix` package, which is the cix#378 case ADR-0038 was written
-for. All 2012 definitions validate.
+`cix@0.2.57-639` and `-640` declare `output "cixctl"`, splitting the client out
+of the `cix` package, which is the cix#378 case ADR-0038 was written for. One
+package uses it so far. All 2013 definitions validate.
 
 Approval remains the repository's decision. CBS's part is that the fingerprint
 is in every artifact's metadata and the digests are in `explain` and the
@@ -465,6 +465,25 @@ New codes, both appended rather than reused: `CPDL-W6001` (archive member
 skipped) and `CPDL-E2002` (unexpected token, which §8.2 had allocated and
 nothing emitted). The `E6xxx` and `W6xxx` ranges are now specified.
 
+**A validation error was emitted under the wrong prefix (v0.1.126, #307).**
+Thirteen errors in the `upstream` validation were emitted as `CBS-E3002`,
+`CBS-E3004` and `CBS-E3006` — a validation code in the namespace reserved for
+the command's own diagnostics, defined in no document — instead of the
+documented `CPDL-E3002`, `-E3004` and `-E3006`. They arrived in one commit on
+2026-10-02 and went unnoticed for four weeks because nothing listed the codes.
+They are now `CPDL-E3xxx`. This is a normalisation, not a repurposing: each site
+already matched the documented meaning of the number it carried. If you matched
+the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
+matches neither prefix.
+
+**The command's diagnostic codes are now written down.** Twenty-two of the
+twenty-four `CBS-E1xxx` codes appeared in no document, so "codes are
+append-only" referred to a registry nobody could read. They are a table in the
+user manual (section 8.1), together with `CBS-E0000` (the emitter's fallback)
+and `CBS-E4000` (a runtime failure relayed under `--diagnostics=jsonl`), and the
+documentation gate now fails if the source can emit a code that no document
+lists.
+
 ## Specification corrections
 
 No behaviour change; the specification was describing less than the
@@ -488,14 +507,14 @@ implementation accepts.
 
 `make -j1 test` is the gate: 48 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
-checkout. The parser and validation suite is 71 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.125.
+checkout. The parser and validation suite is 74 cases, and they also pass under
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.126.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2012 CPDL definitions across 246 distinct packages, all validating** against
-v0.1.125 at `origin/main` `d1c6110` on 2026-10-31, up from 1010 and 181 three
-weeks earlier with no shell recipes remaining. That figure moved twice in one
-day — 1969, then 1983, then 2012 — so re-measure rather than quoting it.
+**2013 CPDL definitions across 246 distinct packages, all validating** against
+v0.1.125 at `origin/main` `5a6578f` on 2026-10-31, up from 1010 and 181 three
+weeks earlier with no shell recipes remaining. That figure moved four times in
+one day — 1969, 1983, 2012, 2013 — so re-measure rather than quoting it.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -518,6 +537,17 @@ matched nothing where a count's wording had drifted. The sweep now reports its
 match count per file, and a sentence reporting a measurement states the version
 it was measured at, updated only by re-measuring.
 
+v0.1.126 is the pass the gate cannot do, the prose (#308): every guide and
+most reference documents were read against the code. It found a recipe-author
+manual that never explained how to write an `output` block or what a command
+receives, an embedding guide that omitted multi-output, a determinism contract
+claiming the host's compilers never reach a build, a roadmap still listing
+declined CI as pending, and a native-helper review that ADR-0004 requires at
+every release and that had not run for thirteen. The last is done and logged.
+Where a claim concerned cixd rather than CBS, the cix maintainer was asked, and
+the blocker register now says only what CBS guarantees and points at their
+repository.
+
 What this does **not** do is read prose. "cixd always supplies a finalizer" or
 "no corpus recipe reads standard input" can only be re-measured by a person,
 and the corpus figures above went stale inside a day. Treat a statement here as
@@ -526,7 +556,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#306 cover this
+decision, its evidence, and the acceptance criteria met: #282–#308 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

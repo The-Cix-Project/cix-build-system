@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.125 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.126 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -512,9 +512,54 @@ The CIXPKG format is documented in the [CIXPKG specification](spec/cixpkg-1.0.md
 4  artifact verification or extraction failure
 ```
 
-The most useful first diagnostic is the located `CPDL-E####` or
-`CIXPKG-E####` message. For a runtime failure, inspect the reported phase and
-the command's expected versus actual exit status.
+Every failure carries a code, and the code's prefix says where to look:
+
+- `CPDL-E####`, `CPDL-W####` and `CPDL-N####` are located recipe diagnostics:
+  lexing, parsing, validation, runtime, source and archive failures, with their
+  warnings and related notes. The specification's section 8.2 lists them.
+- `CIXPKG-E####` is an artifact failure and exits 4.
+- `CBS-E####` is a failure of the command itself rather than of a recipe: a
+  usage error, a rejected policy file, an input that cannot be read. Section
+  8.1 lists every one.
+
+The most useful first diagnostic for a recipe is the located `CPDL-E####`
+message. For a runtime failure, inspect the reported phase and the command's
+expected versus actual exit status.
+
+### 8.1 Command diagnostic codes
+
+| Code | Exit | Meaning |
+| --- | --- | --- |
+| `CBS-E0000` | 3 | Reserved. The emitter substitutes it when a diagnostic is raised with no code at all, so seeing it is a defect in CBS worth reporting. |
+| `CBS-E1001` | 2 | A usage error: a missing, unknown, malformed or conflicting option or argument. The message names it. |
+| `CBS-E1002` | 2 | A repeated `--tool-identity` or `--input` name. |
+| `CBS-E1003` | 2 | `build` was given no recipe. |
+| `CBS-E1004` | 2 | `--command-path` is not a list of absolute directories free of `.` and `..` components. |
+| `CBS-E1005` | 2 | `--library-path`, by the same rule. |
+| `CBS-E1006` | 2 | `--finalize-command` is not executable under the approved command path, or cannot be read to identify it. |
+| `CBS-E1007` | 2 | The `--prune-policy` file was rejected; the message names the rule. |
+| `CBS-E1008` | 3 | `--firmware-root` is not an accessible directory. |
+| `CBS-E1009` | 3 | An `--input` file is not an accessible regular file. |
+| `CBS-E1010` | 2 | `--events` is neither `human` nor `jsonl`. |
+| `CBS-E1011` | 3 | The event reporter could not be initialised. |
+| `CBS-E1012` | 3 | The `--cache` directory is not accessible. |
+| `CBS-E1013` | 3 | The `--ca-file` is not an accessible regular file. |
+| `CBS-E1014` | 3 | `build` rejected the recipe, staged tree or package output. A located `CPDL-` diagnostic printed before it says why. |
+| `CBS-E1015` | 2 | `package` was given no staged tree. |
+| `CBS-E1016` | 2 | `package --release` is not a positive integer. |
+| `CBS-E1017` | 2 | `package` needs `--name`, `--version`, `--release`, `--arch` and `--output`. |
+| `CBS-E1018` | 3 | The tree given to `package` is not an accessible directory. |
+| `CBS-E1019` | 3 | `package` rejected the tree or could not write the artifact. |
+| `CBS-E1020` | 3 | The `--report` file could not be written atomically. |
+| `CBS-E1021` | 3 | `fingerprint` could not validate the recipe or measure every build input. |
+| `CBS-E1022` | 2 | `--events-fd` is not a non-negative number, is not an open descriptor, or is not open for writing. |
+| `CBS-E1023` | 3 | The `--events-file` destination could not be opened or initialised. |
+| `CBS-E1024` | 2 | `--output` and `--output-dir` were both given. |
+| `CBS-E4000` | 3 | A runtime operation or `check` case failed while diagnostics are machine-readable (`--diagnostics=jsonl`). The captured text of the underlying located failure is this envelope's message. |
+
+Codes are append-only: once assigned, a code keeps its meaning, and a new
+diagnostic receives a new code. `tests/docs-contract-test.sh` fails if a code in
+the source is missing from this table.
 
 ## 9. Reproducibility and security
 
@@ -563,6 +608,9 @@ package "name" {
     tools {                                  # optional CBS-owned aliases
         compiler alias "cc"
     }
+    output "name-client" {                  # optional, repeatable extra package
+        files { "usr/bin/client" }
+    }
 
     prepare { ... }
     configure { ... }
@@ -575,7 +623,7 @@ package "name" {
 Package items must appear in this order: identity (`version`, `release`,
 `format`, optional `license`), `upstream`, `sources`, `requires`, execution
 metadata (`build_image`, `capability`, `toolchain`, `metadata`, `tools`), then
-phases.
+`privileged` declarations and `output` blocks, then phases.
 Each phase is optional and may appear once. Empty phases are allowed
 syntactically but are rarely useful. Declaration order is always `prepare`,
 `configure`, `build`, `check`, `install`; CBS executes `check` after `install`
@@ -753,6 +801,16 @@ implicit `PATH` expansion. A verified upstream script such as `configure` may
 be run directly because its own shebang is interpreted by the kernel. Recipe
 logic must be expressed with CPDL operations, not a shell wrapper.
 
+What a command receives is constructed, never inherited. Its environment is
+exactly `PATH` (the approved command path), `SOURCE_DATE_EPOCH=0`, `CC` when the
+recipe declares a compiler, and the recipe's own `env` entries; there is no
+`HOME`, `LANG` or `TMPDIR`. Its standard input is `/dev/null`, so a command that
+reads it sees end-of-file at once rather than blocking on whatever terminal or
+console `cbs` was started from. Every descriptor above standard error is closed,
+so the event channel, the events file and anything the caller left open are not
+reachable from a build command. Its working directory is `$build` unless a
+`cd` block says otherwise.
+
 Each command may have one `jobs`, `timeout`, and `expect exit N` option. The
 default expected status is zero. `allow_failure` is permitted only inside an
 `on_fail` block and does not turn the original operation into a success.
@@ -905,6 +963,59 @@ require file matches regular files only`, `is a directory`, `points to
 that. Config assertions understand `y`, `m`, `n`, and `absent`,
 including Linux’s `# CONFIG_NAME is not set` spelling for `n`.
 
+### 11.7 Several packages from one recipe
+
+A split package — a client carved out of a larger package, or a development
+set — used to need a second recipe pinning the same source and running the same
+build, so the two could drift. An `output` block names part of the staged tree
+as its own package instead:
+
+```cbs
+package "cix" {
+    version "0.2.57"
+    release 1
+    format "cixpkg"
+    requires { runtime { package "glibc" } }
+
+    output "cixctl" {
+        files { "usr/bin/cixctl" }
+        requires { runtime { package "glibc" } }
+        license "LGPL-3.0-or-later"
+    }
+
+    build { ... }
+}
+```
+
+The `package` declaration is itself the main output and receives every staged
+path no `output` claimed, so carving one binary out of a large package does not
+mean listing the rest. An output shares the package's `version`, `release` and
+architecture and carries its own optional `requires`, `license` and `replaces`.
+
+`files` takes exact paths, or patterns written with `glob`. A pattern without
+`glob` is a validation error, and an output must claim at least one selector. An
+exact path naming a directory claims that whole subtree, but a selector naming a
+file does not claim the directories above it. Those directory entries stay with
+the main package, because a directory entry is the only record of a
+non-default mode, so carving `usr/bin/cixctl` out yields three artifacts rather
+than two when the recipe also holds other files. To emit only the outputs you
+named, claim everything including the directories with `files { glob "**" }`;
+the main package is then not emitted.
+
+Two outputs claiming one path is a runtime failure naming the path and both
+outputs. CBS does not resolve it by declaration order, because a package's
+contents should not depend on the order its outputs happen to appear in.
+
+Build with `--output-dir DIR`, which writes one canonically named
+`name-version-release-architecture.cixpkg` per output, and either every artifact
+is written or none is. `--output FILE` is refused for a recipe that declares
+several outputs, since one path cannot name several artifacts. Every artifact
+from one build records the same `build_fingerprint`, because there was one build
+action, and each is an ordinary CIXPKG that verifies and extracts on its own.
+`cbs explain --json` reports an `outputs` array, main package first, before
+anything is built. The reasoning is in
+[ADR-0038](adr/0038-multiple-package-outputs.md).
+
 ## 12. The complete authoring workflow
 
 When porting a shell recipe, use this order:
@@ -936,7 +1047,15 @@ the governance in ADR-0004.
 
 The package identity is `(name, version, release, architecture)`. The
 architecture comes from `--arch`; it cannot be selected by a recipe. The usual
-artifact filename is `name-version-release-architecture.cixpkg`.
+artifact filename is `name-version-release-architecture.cixpkg`. A recipe that
+declares `output` blocks emits one artifact per output into `--output-dir`
+instead; section 11.7 has the rules.
+
+`cbs list ARTIFACT` shows the provenance CBS records as `metadata` lines:
+`recipe` and `recipe_sha256`, `build_fingerprint` (or `unavailable` with a
+`build_fingerprint_reason`), `cbs_version`, `architecture`, `toolchain`,
+`finalizer` when one ran, the `license`, and for a recipe with `tools` the
+resolved `tool_policy_target`.
 
 The artifact contains a sorted typed manifest and a compressed regular-file
 payload. CIXPKG v2 represents regular files, directories (including empty
