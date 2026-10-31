@@ -5,7 +5,7 @@ recipes (`.cbs` files) and emits verified **CIXPKG v2** artifacts. It is built
 with TCC, links only libarchive/libzstd/libdl, and never hands recipe text to a
 shell.
 
-Current release is the first line of `VERSION` (0.1.124 at time of writing;
+Current release is the first line of `VERSION` (0.1.125 at time of writing;
 `main` may sit a docs commit ahead of the tag).
 Language contract: CPDL 1.0. Artifact contract: CIXPKG v2.
 
@@ -55,7 +55,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 47 test groups, offline-clean
+make -j1 test        # the full gate: 48 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -313,7 +313,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 162 validation records. The records are
+   indexes of all 38 decisions and all 163 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.
@@ -352,6 +352,12 @@ deliberately **not** in the sweep: its heading carries the span, and versioning
 its filename or its link text broke the `docs/README.md` link three releases
 running (see the guide).
 
+The sweep is a blunt `sed` and has twice rewritten a number inside a sentence
+that was only true of the old version. Run it counting matches per file and
+read the output; `tests/docs-contract-test.sh` fails the gate on a stale count,
+a broken link, an unnamed verb or an undocumented option. The guide has the
+loop and the rule for measurement sentences.
+
 Step 1's reference sweep is **required policy**, not churn. Every release bumps
 `VERSION` and rewrites the release string in all eight files that name it:
 `README.md`, `docs/README.md`, `docs/repository-status.md`, `docs/roadmap.md`,
@@ -388,7 +394,7 @@ using the real ticket title + an entry in `docs/reviews/README.md` (regenerate
 it; see Documentation authority) + a commit saying `Resolves #N` + push + a
 Gitea comment with before/after evidence + close via `PATCH state=closed`.
 
-## Residual spec drift (verified 2026-10-30, v0.1.124)
+## Residual spec drift (verified 2026-10-31, v0.1.125)
 
 **Closed, with no known gap.** Re-verified by reading the spec, not by trusting
 this section: `for` now has a full production — `for-list` at §4.7, and

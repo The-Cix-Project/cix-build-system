@@ -49,7 +49,7 @@ keeps it correct without maintaining a second copy.
 
 A bounds violation aborts with a TCC diagnostic rather than failing an
 assertion, so treat any abort as a defect in the code under test. Verified
-against v0.1.124: 71 parser and validation cases pass instrumented.
+against v0.1.125: 71 parser and validation cases pass instrumented.
 
 Useful focused checks while developing are:
 
@@ -87,6 +87,42 @@ public header, and pkg-config metadata from the same tag.
    or not the note was extended. Its `# ` heading is the one place the covered
    span lives. Cix cites this path from its own append-only ADRs, where a
    stale link cannot be quietly fixed.
+
+   Run the reference sweep so it **reports what it changed**. A bare `sed -i`
+   that matches nothing exits 0, which is how `CLAUDE.md`'s test-group count
+   drifted for three releases once its wording stopped matching the pattern;
+   and a `sed` that matches a line it had no business touching is how this
+   guide came to claim a bounds-check measurement at a version it had never
+   been run at. Count per file, and read the output:
+
+   ```sh
+   previous=$(sed -n 1p VERSION)   # capture before editing VERSION
+   for f in README.md docs/README.md docs/repository-status.md \
+            docs/roadmap.md docs/user-manual.md \
+            docs/integration-blockers.md docs/guides/ci-and-release.md \
+            docs/adr/0008-cbs-command-surface.md; do
+       printf '%s: %s\n' "$f" "$(grep -c "$previous" "$f" || true)"
+       sed -i "s/$previous/$NEW/g" "$f"
+   done
+   ```
+
+   A file reporting `0` means the sweep did nothing there, so the reference is
+   missing or reworded. A file reporting more occurrences than expected means
+   the sweep reached a sentence that is not a current-release reference.
+
+   **A sentence reporting a measurement states the version it was measured
+   at, and only re-measuring updates it.** "71 cases pass instrumented, re-run
+   at v0.1.125" is the form. Never let the sweep advance that version: re-run
+   the measurement, or leave the older version standing. An un-run claim at
+   the current version is worse than an honest one at an older version.
+
+   `tests/docs-contract-test.sh` enforces what can be enforced: that all eight
+   files name the release, that the ADR, record and test-group counts match
+   the filesystem, that every relative link resolves, that ADR-0008's note
+   names every verb `cbs --help` exposes, and that every long option appears
+   in the manual or the runbook. It does **not** read prose, so a green run
+   does not mean the documentation is correct — only that it is not provably
+   wrong.
 2. Run `git diff --check`, then `make -o version-check test`. At a tagged
    checkout `version-check` refuses the bumped `VERSION` until the commit in
    step 4 moves `HEAD` off the previous tag, so the full `make -j1 test` runs
@@ -94,8 +130,8 @@ public header, and pkg-config metadata from the same tag.
 3. Confirm the upstream qualification result is either passed or explicitly
    skipped because `CBS_UPSTREAM_CACHE` is unset.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.124 -m
-   "CBS v0.1.124"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.125 -m
+   "CBS v0.1.125"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

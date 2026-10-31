@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.124 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.125 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -173,9 +173,10 @@ given the same `--arch`, `--command-path`, `--library-path`, `--input` and
 `--tool-identity`, `--finalize-command`, `--prune-policy` and
 `--firmware-root`. Every input that enters the key can be given to the verb,
 so a key is knowable before a build. `--prune-policy` is loaded rather than
-named, because the key binds the three rules it resolves to and not the file. A recipe whose command name is
-interpolated or relative
-cannot be measured, and the artifact then records
+named, because the key binds the three rules it resolves to and not the file.
+
+A recipe whose command name is interpolated or relative cannot be measured,
+and the artifact then records
 `build_fingerprint unavailable` with a `build_fingerprint_reason` naming the
 command.
 
@@ -191,6 +192,12 @@ the toolchain by verified manifest digest instead of resolving anything on the
 host. A recipe may also declare `tools { ... }`, which binds the resolved
 target of each alias. Use the same complete identity set for a precomputed
 fingerprint and its build.
+
+`cbs --help` is the complete verb and option list, and `cbs --capabilities`
+emits the same surface as machine-readable JSON — the version, the API and ABI
+numbers, the CPDL and CIXPKG contract versions, and every verb. A caller that
+needs to know whether a feature exists reads that rather than parsing help
+text.
 
 Use `doctor` to preflight an image and recipe without executing it:
 

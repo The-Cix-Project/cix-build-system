@@ -58,8 +58,11 @@ the same CBS CIXPKG writer directly:
 ```sh
 ./cbs package /path/to/staged-tree \
     --name hostbuild --version 1 --release 1 --arch x86_64 \
-    --output hostbuild.cixpkg
+    --output hostbuild.cixpkg --license LGPL-3.0-or-later
 ```
+
+`--license SPDX` is optional and records the identifier in the artifact's
+metadata, the same line a recipe's `license` declaration produces.
 
 The command applies the same manifest policy and canonical ordering as a
 recipe build, and records staged-tree provenance in the artifact metadata.

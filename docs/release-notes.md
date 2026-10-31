@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.124, and the licence change
+# CBS v0.1.106 – v0.1.125, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the nineteen releases of 2026-10-09 and
-2026-10-30, which closed twenty-four tracker issues.
+licence decision of 2026-10-23 and the twenty releases of 2026-10-09 to
+2026-10-31, which closed twenty-five tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -483,10 +483,10 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 47 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 48 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 71 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.124.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.125.
 
 The broader check is the recipe corpus, which is not in this repository: **1983
 CPDL definitions across 246 distinct packages, all validating** against
@@ -498,10 +498,32 @@ The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
 `CBS_UPSTREAM_CACHE` pointing at a digest-keyed source cache.
 
+## A note on trusting this document
+
+From v0.1.125 the claims in CBS's documentation that *can* be checked are
+checked by the gate: that every file the release guide names contains the
+release string, that the ADR, validation-record and test-group counts match the
+filesystem, that every relative link resolves, that ADR-0008's note names every
+verb `cbs --help` exposes, and that every long option appears in the user
+manual or the standalone runbook (#306).
+
+This was not pedantry. Three times in two days a release sweep made the
+documentation wrong and nothing noticed: it broke the link to this note on
+three consecutive releases, it rewrote the version inside a measurement
+sentence so the claim named a version it had never been run at, and it silently
+matched nothing where a count's wording had drifted. The sweep now reports its
+match count per file, and a sentence reporting a measurement states the version
+it was measured at, updated only by re-measuring.
+
+What this does **not** do is read prose. "cixd always supplies a finalizer" or
+"no corpus recipe reads standard input" can only be re-measured by a person,
+and the corpus figures above went stale inside a day. Treat a statement here as
+dated, and re-measure anything you are about to depend on.
+
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#305 cover this
+decision, its evidence, and the acceptance criteria met: #282–#306 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.
