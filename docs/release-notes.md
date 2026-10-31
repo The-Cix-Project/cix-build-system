@@ -559,8 +559,9 @@ the blocker register now says only what CBS guarantees and points at their
 repository.
 
 v0.1.127 closes the cheapest gap that was still open (#309): **the examples are
-run.** A complete recipe in the manual or the specification is fenced
-` ```cbs check ` and the gate validates it. The first run found three of the four
+checked.** A complete recipe in the manual or the specification is fenced
+` ```cbs check ` and the gate validates it (`cbs validate`, which parses and
+checks a recipe and executes nothing). The first run found three of the four
 complete examples invalid, the manual's first recipe and the specification's own
 "complete shape" among them, all for one missing line: `format "cixpkg"` is
 mandatory and has no default, and each example omitted it. So the first thing a

@@ -40,19 +40,13 @@ measured (2026-10-31) and are worth re-checking before you rely on them: no
 recipe declares `tools` (#300), and one package, `cix`, declares an `output`
 (the `cixctl` split of cix#378). The corpus is the fastest real-world regression
 check for any CPDL or validator change, far broader than the single
-`recipes/zstd.cbs` fixture shipped here:
+`recipes/zstd.cbs` fixture shipped here.
 
 Measure at `origin/main`, not in that working tree: cixd commits to it, so a
-`git pull` there can race a write-back, and the checkout can sit behind. Fetch
-and extract instead — read-only, and exact:
-
-```sh
-d=$(mktemp -d) && git -C /home/osakka/cix-recipes fetch -q origin &&
-git -C /home/osakka/cix-recipes archive origin/main recipes | tar -x -C "$d" &&
-cd "$d" && for r in $(find recipes -name '*.cbs'); do
-  /home/osakka/cix-build-system/cbs validate "$r" >/dev/null || echo "FAIL $r"
-done
-```
+`git pull` there can race a write-back, and the checkout can sit behind. The
+procedure is the release guide's step 3, which is the one copy and the one that
+has been extracted and run; it fetches and extracts read-only rather than
+pulling. Don't keep a second spelling of it here.
 
 When grepping the corpus for an operation keyword, anchor it: `remove` contains
 `move`, so `grep "move.*allow_failure"` returns every `remove … allow_failure`
@@ -350,7 +344,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 167 validation records. The records are
+   indexes of all 38 decisions and all 168 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

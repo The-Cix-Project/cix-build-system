@@ -1,14 +1,15 @@
 #!/bin/sh
 set -eu
 
-# A documentation example that can be run is run (#309).  A fenced block tagged
+# A documentation example that can be checked is checked (#309).  A fenced block
+# tagged
 #
 #     ```cbs check
 #
-# is extracted and given to `cbs validate`.  Tagging is opt-in: most `cbs`
-# blocks are deliberate fragments (`build { ... }`), and a manual that could
-# only show runnable examples would be worse for its readers.  An untagged
-# block is illustrative and skipped on purpose.
+# is extracted and given to `cbs validate`, which executes nothing.  Tagging is
+# opt-in: most `cbs` blocks are deliberate fragments (`build { ... }`), and a
+# manual that could only show complete recipes would be worse for its readers.
+# An untagged block is illustrative and skipped on purpose.
 #
 # The first measurement of this found three of the four complete examples
 # invalid -- the manual's first recipe among them -- all for one missing line.

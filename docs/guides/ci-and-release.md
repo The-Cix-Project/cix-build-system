@@ -148,16 +148,19 @@ public header, and pkg-config metadata from the same tag.
    not count, since the English "links against" once made the `links` operation
    look documented.
 
-   `tests/docs-examples-test.sh` runs the examples. A fenced block tagged
-   ` ```cbs check ` is extracted and given to `cbs validate`; write it for any
-   example that is a complete recipe. Fragments (`build { ... }`) stay a bare
-   ` ```cbs ` and are illustrative by design, since a manual that could only
-   show runnable examples would be worse to read. The test fails closed: finding
-   no tagged block is a failure, and so is an unknown tag or the ` ```cpdl `
-   spelling, because a typo must not silently opt a block out. Before it
-   existed, three of
-   the four complete examples in the manual and the specification were invalid,
-   the manual's first recipe among them, for one missing line.
+   `tests/docs-examples-test.sh` checks the examples. A fenced block whose info
+   string is `cbs check` is extracted and given to `cbs validate`, which parses
+   and validates a recipe and executes nothing; use that info string for any
+   example that is a complete recipe. Validating is not building: the manual's
+   first recipe was also built by hand (it has no sources, so it can be) and
+   builds, but no other tagged example is buildable, so the gate does not claim
+   to build any. Fragments (`build { ... }`) keep the bare info string `cbs` and
+   are illustrative by design, since a manual that could only show complete
+   recipes would be worse to read. The test fails closed: finding no tagged
+   block is a failure, and so is an unknown tag or the `cpdl` spelling, because
+   a typo must not silently opt a block out. Before it existed, three of the
+   four complete examples in the manual and the specification were invalid, the
+   manual's first recipe among them, for one missing line.
 
    Neither reads prose, so a green run does not mean the documentation is
    correct, only that what could be checked is not wrong. What is left is

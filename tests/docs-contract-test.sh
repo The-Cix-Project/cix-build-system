@@ -151,6 +151,25 @@ while IFS= read -r keyword; do
         note "the manual never shows \`$keyword\`, a keyword the specification reserves"
 done <"$root/keywords"
 
+# 9. The keyword list is itself a copy.  Section 2.4 is maintained by hand from
+#    what parser.c accepts, and "Adding a language construct" step 7 says to
+#    update it, but nothing checked that step happened.  Without this, a keyword
+#    added to the parser and forgotten in the spec is silent twice: the spec is
+#    stale, and check 8 above never asks the manual about it.  So close the loop
+#    to src/, which is the authority.  The reverse direction is not asserted:
+#    `after`, `config`, `directory`, `forbids` and `needs` are in the spec and
+#    matched by the parser some other way (a ternary, or a comparison on text).
+grep -oE '(is_word|consume_word|word_is)\([a-z_>.-]*, *"[a-z_0-9]+"' src/parser.c |
+    grep -oE '"[a-z_0-9]+"' | tr -d '"' | sort -u >"$root/parser-words"
+# Failing closed: a refactor of the matching helpers must not leave this
+# comparing nothing and passing.
+test "$(wc -l <"$root/parser-words" | tr -d ' ')" -ge 90 ||
+    note "src/parser.c yielded fewer than 90 keywords; the extraction no longer matches how the parser tests words"
+comm -23 "$root/parser-words" "$root/keywords" >"$root/unlisted"
+while IFS= read -r word; do
+    note "src/parser.c accepts \`$word\` but the specification section 2.4 does not list it"
+done <"$root/unlisted"
+
 test "$fail" -eq 0
 echo "docs contract tests: PASS (releases, counts, links, verbs, options," \
-    "codes, review log, keywords)"
+    "codes, review log, keywords, parser)"
