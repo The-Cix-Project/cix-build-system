@@ -1,0 +1,11 @@
+package "p" {
+    version "1"
+    release 1
+    format "cixpkg"
+    output "a" {
+        files { "usr/bin/a" }
+        replaces { package "old" }
+        replaces { package "older" }
+    }
+    build { write "${dest}/x" "x\n" chmod 0644 }
+}

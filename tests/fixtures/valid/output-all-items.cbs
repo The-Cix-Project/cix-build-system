@@ -1,0 +1,12 @@
+package "p" {
+    version "1"
+    release 1
+    format "cixpkg"
+    output "a" {
+        files { "usr/bin/a" }
+        license "MIT"
+        requires { runtime { library "libc" } }
+        replaces { package "old" }
+    }
+    build { write "${dest}/x" "x\n" chmod 0644 }
+}

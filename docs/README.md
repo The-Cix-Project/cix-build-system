@@ -76,7 +76,7 @@ Open work is tracked in the issue tracker, not in these documents.
 
 - [Architecture decision records](adr/README.md) — all 38, with the rule that a
   decision is superseded rather than rewritten
-- [Validation records](reviews/README.md) — all 168, one per closed issue,
+- [Validation records](reviews/README.md) — all 169, one per closed issue,
   describing the implementation at that issue's close date rather than today
 
 ## Release notes

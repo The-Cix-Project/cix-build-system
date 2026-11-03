@@ -1202,6 +1202,54 @@ static int has_toolchain_exception(const Validator *validator,
 }
 
 /* Validate dependency groups, names, roles, and ordering. */
+/* A license is recorded in the artifact manifest as one `m license VALUE`
+ * line, so it must be non-empty and must not contain a line break: a newline
+ * would write a second manifest line that the author chose the key of.  One
+ * rule, applied to a package and to each of its outputs. */
+static int valid_license_text(const char *value) {
+    return value != NULL && value[0] != '\0' &&
+           strpbrk(value, "\r\n") == NULL;
+}
+
+/* An output may carry at most one of each optional item.  One message shape
+ * for all of them, so the next item added to an output gets the rule by
+ * calling this and not by copying a block. */
+static void output_item_seen(Validator *validator, const CbsNode *part,
+                             size_t *count, const char *what) {
+    char message[96];
+
+    if (++*count > 1) {
+        snprintf(message, sizeof(message),
+                 "duplicate %s declaration in output", what);
+        validation_error(validator, part, "CPDL-E3002", message);
+    }
+}
+
+/* The `replaces` block rules, shared by a package and its outputs. */
+static void validate_replaces(Validator *validator, const CbsNode *item) {
+    size_t prior;
+
+    if (item->child_count == 0)
+        validation_error(validator, item, "CPDL-E3001",
+                         "replaces block must not be empty");
+    for (prior = 0; prior < item->child_count; ++prior) {
+        const CbsNode *replacement = item->children[prior];
+        size_t earlier;
+        if (replacement->name == NULL ||
+            strcmp(replacement->name, "package") != 0 ||
+            !valid_package_name(replacement->value))
+            validation_error(validator, replacement, "CPDL-E3004",
+                             "invalid replacement package name");
+        for (earlier = 0; earlier < prior; ++earlier)
+            if (item->children[earlier]->value != NULL &&
+                replacement->value != NULL &&
+                strcmp(item->children[earlier]->value,
+                       replacement->value) == 0)
+                validation_error(validator, replacement, "CPDL-E3002",
+                                 "duplicate replacement package");
+    }
+}
+
 static void validate_requires(Validator *validator, const CbsNode *requires) {
     size_t index;
     size_t prior;
@@ -1341,8 +1389,7 @@ static void validate_package(Validator *validator) {
                                  "artifact format must be cixpkg");
             break;
         case CBS_NODE_LICENSE:
-            if (item->value == NULL || item->value[0] == '\0' ||
-                strpbrk(item->value, "\r\n") != NULL)
+            if (!valid_license_text(item->value))
                 validation_error(validator, item, "CPDL-E3004",
                                  "license must be a non-empty string");
             break;
@@ -1357,25 +1404,7 @@ static void validate_package(Validator *validator) {
             validate_requires(validator, item);
             break;
         case CBS_NODE_REPLACES:
-            if (item->child_count == 0)
-                validation_error(validator, item, "CPDL-E3001",
-                                 "replaces block must not be empty");
-            for (prior = 0; prior < item->child_count; ++prior) {
-                const CbsNode *replacement = item->children[prior];
-                size_t earlier;
-                if (replacement->name == NULL ||
-                    strcmp(replacement->name, "package") != 0 ||
-                    !valid_package_name(replacement->value))
-                    validation_error(validator, replacement, "CPDL-E3004",
-                                     "invalid replacement package name");
-                for (earlier = 0; earlier < prior; ++earlier)
-                    if (item->children[earlier]->value != NULL &&
-                        replacement->value != NULL &&
-                        strcmp(item->children[earlier]->value,
-                               replacement->value) == 0)
-                        validation_error(validator, replacement, "CPDL-E3002",
-                                         "duplicate replacement package");
-            }
+            validate_replaces(validator, item);
             break;
         case CBS_NODE_RESOURCES:
             if (item->child_count == 0)
@@ -1460,6 +1489,7 @@ static void validate_package(Validator *validator) {
             size_t earlier;
             const CbsNode *files = NULL;
             size_t child;
+            size_t licenses = 0, requires_blocks = 0, replaces_blocks = 0;
             if (item->value == NULL || !valid_package_name(item->value))
                 validation_error(validator, item, "CPDL-E3004",
                                  "output name must be a package name");
@@ -1477,6 +1507,30 @@ static void validate_package(Validator *validator) {
             }
             for (child = 0; child < item->child_count; ++child) {
                 const CbsNode *part = item->children[child];
+                /* An output's own license, requires and replaces get the
+                 * rules a package's get, from the same functions.  They were
+                 * never visited here, so an empty license was accepted and a
+                 * license holding a newline wrote an extra manifest line whose
+                 * key the author chose (#313). */
+                if (part->kind == CBS_NODE_LICENSE) {
+                    output_item_seen(validator, part, &licenses, "license");
+                    if (!valid_license_text(part->value))
+                        validation_error(validator, part, "CPDL-E3004",
+                                         "license must be a non-empty string");
+                    continue;
+                }
+                if (part->kind == CBS_NODE_REQUIRES) {
+                    output_item_seen(validator, part, &requires_blocks,
+                                     "requires");
+                    validate_requires(validator, part);
+                    continue;
+                }
+                if (part->kind == CBS_NODE_REPLACES) {
+                    output_item_seen(validator, part, &replaces_blocks,
+                                     "replaces");
+                    validate_replaces(validator, part);
+                    continue;
+                }
                 if (part->kind != CBS_NODE_FILES)
                     continue;
                 if (files != NULL)

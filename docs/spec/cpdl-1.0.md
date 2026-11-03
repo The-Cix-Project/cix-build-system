@@ -318,7 +318,10 @@ be repeated (ADR-0038). Its name obeys the package-name grammar, must differ
 from the package's and from every other output's, and shares the package's
 `version`, `release` and target architecture: those describe the source and the
 build, not a file set. Each output carries its own optional `requires`,
-`license` and `replaces`.
+`license` and `replaces`, each at most once, and each is validated by the rules
+that apply to the same item on the package: a `license` must be non-empty and
+contain no line break, since it is written as one manifest line, and the names
+in `requires` and `replaces` must be valid package names.
 
 `files` claims staged paths relative to the staged root; a selector is an exact
 path or, with `glob`, a pattern in the §4.7 glob syntax. An exact selector

@@ -344,7 +344,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 168 validation records. The records are
+   indexes of all 38 decisions and all 169 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

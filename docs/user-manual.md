@@ -1057,7 +1057,10 @@ package "cix" {
 The `package` declaration is itself the main output and receives every staged
 path no `output` claimed, so carving one binary out of a large package does not
 mean listing the rest. An output shares the package's `version`, `release` and
-architecture and carries its own optional `requires`, `license` and `replaces`.
+architecture and carries its own optional `requires`, `license` and `replaces`,
+each at most once and checked by the same rules as on the package. A `license`
+that is empty or contains a line break is rejected with `CPDL-E3004`, because it
+is written into the artifact as one manifest line.
 
 `files` takes exact paths, or patterns written with `glob`. A pattern without
 `glob` is a validation error, and an output must claim at least one selector. An
