@@ -29,6 +29,9 @@ features must add focused success and failure assertions to this matrix.
 | Documentation counts, links, verbs, options, diagnostic codes and the native-helper review log match the source and the filesystem | docs-contract-test.sh |
 | Every documentation example tagged `cbs check` validates; an unknown tag, a `cpdl` fence, or no tagged example at all is a failure | docs-examples-test.sh |
 | Every keyword the specification reserves is shown as code in the manual | docs-contract-test.sh |
+| Every word the parser accepts is listed in the specification's section 2.4 | docs-contract-test.sh |
+| `abi`: validated (empty, whitespace, newline, duplicate, out of order, in an output), reported by `explain` at the top level and per output, null when absent and never inherited by an output, recorded as `metadata abi` per artifact through both manifest writers | parser-validation.sh, cli-contract-test.sh, multi-output-test.sh and package-test.c |
+| An output's own `license`, `requires` and `replaces`: empty, newline, duplicate and invalid names are refused | parser-validation.sh |
 | `links`: a missing needed library, a present forbidden one, an absent forbidden one, and a non-ELF file with its `Exec format error` diagnostic | fs-test.c |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |
 | Workspace preparation, format rejection, and relative/absolute workspace equivalence | workspace-diagnostic-test.sh |

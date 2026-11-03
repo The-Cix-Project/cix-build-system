@@ -18,6 +18,7 @@ package "cli-contract" {
     release 1
     format "cixpkg"
     license "GPL-3.0-or-later"
+    abi "7"
     upstream "gitea-tags" {
         tag "v{version}"
         source "https://example.invalid/cli-contract-{version}.tar.gz"
@@ -70,6 +71,15 @@ grep -q '"capabilities":\["CAP_ONE","CAP_TWO"\]' "$temporary_dir/explain.json"
 grep -q '"metadata":{"artifact_sha256":"deadbeef","changelog":"contract metadata"}' \
     "$temporary_dir/explain.json"
 grep -q '"license":"GPL-3.0-or-later"' "$temporary_dir/explain.json"
+# The ABI the package offers its dependents (#312): the main entry reports the
+# package's own, and a recipe that declares none reports null, not an absent key,
+# so a consumer reads one shape.  Not CBS_ABI_VERSION.
+grep -q '"abi":"7"' "$temporary_dir/explain.json"
+grep -q '"name":"cli-contract","main":true,.*"abi":"7"}' \
+    "$temporary_dir/explain.json"
+"$cbs" explain tests/fixtures/standalone-smoke.cbs --json \
+    >"$temporary_dir/explain-no-abi.json"
+grep -q '"abi":null' "$temporary_dir/explain-no-abi.json"
 grep -q '"upstream":{"provider":"gitea-tags","tag":"v{version}","source":"https://example.invalid/cli-contract-{version}.tar.gz","verify":{"method":"origin"}}' "$temporary_dir/explain.json"
 grep -q '"resources":{"memory":4294967296}' "$temporary_dir/explain.json"
 grep -q '"format":"cixpkg"' "$temporary_dir/explain.json"

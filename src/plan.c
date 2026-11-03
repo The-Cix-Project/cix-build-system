@@ -65,6 +65,8 @@ int cbs_build_metadata(const CbsNode *document, CbsBuildMetadata *metadata) {
             ++metadata->capability_count;
         else if (item->kind == CBS_NODE_LICENSE)
             metadata->license = item->value;
+        else if (item->kind == CBS_NODE_ABI)
+            metadata->abi = item->value;
         else if (item->kind == CBS_NODE_RESOURCES) {
             size_t resource_index;
             for (resource_index = 0; resource_index < item->child_count;

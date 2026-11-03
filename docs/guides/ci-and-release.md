@@ -130,7 +130,7 @@ public header, and pkg-config metadata from the same tag.
 
    **A sentence reporting a measurement states the version it was measured
    at, and only re-measuring updates it.** "71 cases pass instrumented, re-run
-   at v0.1.128" is the form. Never let the sweep advance that version: re-run
+   at v0.1.129" is the form. Never let the sweep advance that version: re-run
    the measurement, or leave the older version standing. An un-run claim at
    the current version is worse than an honest one at an older version.
 
@@ -196,8 +196,8 @@ public header, and pkg-config metadata from the same tag.
    and both trackers for a native helper, per `docs/native-helpers.md`; add a
    dated entry to its review log even when nothing matched.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.128 -m
-   "CBS v0.1.128"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.129 -m
+   "CBS v0.1.129"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any

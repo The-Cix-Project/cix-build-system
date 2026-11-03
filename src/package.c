@@ -653,7 +653,7 @@ static int append_provenance(const char *manifest, const char *recipe,
                              const CbsPrunePolicy *prune_policy,
                              const char *fingerprint,
                              int fingerprint_available,
-                             const char *material_reason) {
+                             const char *material_reason, const char *abi) {
     FILE *file;
     char digest[65];
     char fingerprint_reason[256];
@@ -695,6 +695,7 @@ static int append_provenance(const char *manifest, const char *recipe,
                  fingerprint_reason) < 0) ||
         (finalize_path != NULL &&
          fprintf(file, "m finalizer %s\n", finalize_path) < 0) ||
+        (abi != NULL && fprintf(file, "m abi %s\n", abi) < 0) ||
         fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
         fprintf(file, "m architecture %s\n", context->arch) < 0 ||
         fprintf(file, "m toolchain %s\n", context->compiler == NULL
@@ -751,6 +752,18 @@ static const char *declared_license(const CbsNode *document) {
     return NULL;
 }
 
+static const char *declared_abi(const CbsNode *document) {
+    const CbsNode *package;
+    size_t index;
+    if (document == NULL || document->child_count != 1)
+        return NULL;
+    package = document->children[0];
+    for (index = 0; index < package->child_count; ++index)
+        if (package->children[index]->kind == CBS_NODE_ABI)
+            return package->children[index]->value;
+    return NULL;
+}
+
 /* One output the build will emit: the main package first, then each declared
  * `output` in source order (ADR-0038). */
 typedef struct {
@@ -759,6 +772,9 @@ typedef struct {
     char *manifest_path;
     char *artifact_path;
     char *identity;
+    /* The ABI this output offers, or NULL.  Its own, never inherited from the
+     * package: an output with none reports none, as its license does. */
+    const char *abi;
     int written;
 } PipelineOutput;
 
@@ -815,12 +831,16 @@ static PipelineOutput *build_pipeline_outputs(
         output_identity.name = out->spec.name;
         out->identity = cbs_identity_string(&output_identity);
         out->spec.license = NULL;
-        if (node == NULL)
+        out->abi = NULL;
+        if (node == NULL) {
             out->spec.license = declared_license(document);
-        else
+            out->abi = declared_abi(document);
+        } else
             for (child = 0; child < node->child_count; ++child) {
                 if (node->children[child]->kind == CBS_NODE_LICENSE)
                     out->spec.license = node->children[child]->value;
+                else if (node->children[child]->kind == CBS_NODE_ABI)
+                    out->abi = node->children[child]->value;
                 else if (node->children[child]->kind == CBS_NODE_FILES)
                     files = node->children[child];
             }
@@ -1125,6 +1145,22 @@ int cbs_compare_files(const char *left, const char *right) {
 }
 
 /* Validate a recipe and package an already staged tree. */
+/* Append the declared ABI to a manifest the legacy path wrote without it.  The
+ * build pipeline writes the same line through append_provenance; this keeps the
+ * two entry points from producing artifacts that disagree about one recipe. */
+static int append_abi_line(const char *manifest, const char *abi) {
+    FILE *file;
+    int ok;
+
+    if (abi == NULL)
+        return 1;
+    file = fopen(manifest, "ab");
+    if (file == NULL)
+        return 0;
+    ok = fprintf(file, "m abi %s\n", abi) >= 0;
+    return fclose(file) == 0 && ok;
+}
+
 int cbs_build_package(const char *recipe, const char *staged_root,
                       const char *package_path) {
     FILE *f;
@@ -1175,6 +1211,8 @@ int cbs_build_package(const char *recipe, const char *staged_root,
         ok = cbs_manifest_write_with_license_policy_error(
             staged_root, manifest, declared_license(document), allowances,
             allowance_count, NULL, 0);
+    if (ok)
+        ok = append_abi_line(manifest, declared_abi(document));
     if (ok)
         ok = cbs_cixpkg_write_tree(manifest, staged_root, package_path, "cbs");
     if (manifest[0] != '\0')
@@ -1543,7 +1581,8 @@ static int run_build_pipeline(
                                    document, &context,
                                    finalize == NULL ? NULL : finalize_identity,
                                    prune_policy, fingerprint,
-                                   fingerprint_available, material_reason)) {
+                                   fingerprint_available, material_reason,
+                                   out->abi)) {
                 pipeline_error(recipe, text, document->location, "provenance",
                                "cannot append build provenance");
                 ok = 0;

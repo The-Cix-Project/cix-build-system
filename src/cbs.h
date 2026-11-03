@@ -66,6 +66,7 @@ typedef enum {
     CBS_NODE_RELEASE,
     CBS_NODE_FORMAT,
     CBS_NODE_LICENSE,
+    CBS_NODE_ABI,
     CBS_NODE_ARCHITECTURE,
     CBS_NODE_SOURCES,
     CBS_NODE_SOURCE,
@@ -508,6 +509,10 @@ typedef struct {
 typedef struct {
     /* Build image selected for the recipe, if one was declared. */
     const char *build_image;
+    /* The ABI this package offers the packages that build against it, if it
+     * declared one.  Unrelated to CBS_ABI_VERSION, which versions this
+     * library's own structs. */
+    const char *abi;
     /* Upstream discovery source selected by the recipe. */
     const char *upstream;
     /* Toolchain policy selected by the recipe. */

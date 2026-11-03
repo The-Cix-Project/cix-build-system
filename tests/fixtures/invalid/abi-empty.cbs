@@ -1,0 +1,7 @@
+package "p" {
+    version "1"
+    release 1
+    format "cixpkg"
+    abi ""
+    build { write "${dest}/x" "x\n" chmod 0644 }
+}

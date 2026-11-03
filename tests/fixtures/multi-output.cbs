@@ -5,6 +5,7 @@ package "cix" {
     version "1.4.0"
     release 2
     format "cixpkg"
+    abi "17"
 
     requires { runtime { library "libarchive" } }
 
@@ -12,6 +13,7 @@ package "cix" {
         files { "usr/bin/cixctl" }
         requires { runtime { library "libcurl" } }
         license "LGPL-3.0-or-later"
+        abi "2"
     }
 
     output "cix-tools" {

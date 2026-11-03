@@ -1431,6 +1431,10 @@ static int explain_file(const char *path, int json) {
             fputs("null", stdout);
         fputs(",\"license\":", stdout);
         print_json_string(metadata.license);
+        /* The ABI this package offers its dependents (#312); null when absent.
+         * Not CBS_ABI_VERSION, which versions this library's own structs. */
+        fputs(",\"abi\":", stdout);
+        print_json_string(metadata.abi);
         fputs(",\"build_image\":", stdout);
         print_json_string(metadata.build_image);
         fputs(",\"upstream\":", stdout);
@@ -1556,6 +1560,21 @@ static int explain_file(const char *path, int json) {
                  * no dependencies. */
                 fputs("],\"requires\":", stdout);
                 print_requires_object(node == NULL ? package : node);
+                /* The main entry reports the package's own ABI; an output
+                 * reports its own, or null.  Never inherited, so a consumer
+                 * reading the exact entry it composed gets that entry's
+                 * declaration and no other's. */
+                fputs(",\"abi\":", stdout);
+                {
+                    const char *entry_abi = NULL;
+                    if (node == NULL)
+                        entry_abi = metadata.abi;
+                    else
+                        for (child = 0; child < node->child_count; ++child)
+                            if (node->children[child]->kind == CBS_NODE_ABI)
+                                entry_abi = node->children[child]->value;
+                    print_json_string(entry_abi);
+                }
                 putchar('}');
             }
         }
@@ -2740,6 +2759,7 @@ static int inspect_file(const char *path, const char *artifact) {
     printf("recipe-digest %s\n", recipe_digest);
     if (metadata.license != NULL)
         printf("license %s\n", metadata.license);
+
     for (i = 0; i < sources.count; ++i)
         printf("source-digest %s %s\n", sources.items[i].name,
                sources.items[i].sha256);

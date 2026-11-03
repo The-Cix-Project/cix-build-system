@@ -45,21 +45,36 @@ then
     echo "multi-output tests: an output's license leaked into another" >&2
     exit 1
 fi
+# An ABI follows the license's rule (#312): an output's own `abi` lands in that
+# output's manifest and nowhere else, the main package's is the package's, and
+# an output that declares none has none.  It is never inherited, so the output
+# that says nothing must not report the package's 17 as if it were its own.
+grep -q '^metadata abi 2$' "$root/l1"
+grep -q '^metadata abi 17$' "$root/l3"
+if grep -q '^metadata abi ' "$root/l2" ||
+    grep -q '^metadata abi 17$' "$root/l1" ||
+    grep -q '^metadata abi 2$' "$root/l3"; then
+    echo 'multi-output tests: an abi reached an undeclaring artifact' >&2
+    exit 1
+fi
 # Each output carries its own requires and no other's, in the same shape the
 # top-level `requires` uses (ADR-0038 4).  The artifact does not record
 # requires, so read the plan.  `explain --json` is one line, so count
 # occurrences with grep -o rather than matching lines.
 "$absolute_cbs" explain tests/fixtures/multi-output.cbs --json >"$root/explain"
-grep -q '"name":"cixctl","main":false,"files":\[{"pattern":"usr/bin/cixctl","glob":false}\],"requires":{"runtime":{"library":\["libcurl"\]}}}' \
+grep -q '"name":"cixctl","main":false,"files":\[{"pattern":"usr/bin/cixctl","glob":false}\],"requires":{"runtime":{"library":\["libcurl"\]}},"abi":"2"}' \
     "$root/explain"
 # The main package reports the package-level requires: a consumer iterating
 # `outputs` must not read it as having no dependencies.
-grep -q '"name":"cix","main":true,"files":\[\],"requires":{"runtime":{"library":\["libarchive"\]}}}' \
+grep -q '"name":"cix","main":true,"files":\[\],"requires":{"runtime":{"library":\["libarchive"\]}},"abi":"17"}' \
     "$root/explain"
 # libcurl belongs to one output and no other.
 test "$(grep -o '"libcurl"' "$root/explain" | wc -l)" -eq 1
 # An output that declares none gets an empty object, not a null: one shape.
-grep -q '"name":"cix-tools","main":false,.*"requires":{}}' "$root/explain"
+grep -q '"name":"cix-tools","main":false,.*"requires":{},"abi":null}' \
+    "$root/explain"
+# The package-level field is the main package's, null when a recipe has none.
+grep -q '"abi":"17"' "$root/explain"
 
 # Every artifact verifies on its own, and a carved one extracts standalone:
 # CIXPKG creates implicit parents, so directory entries are not duplicated.
@@ -77,9 +92,10 @@ grep -q '"output_count":3' "$root/report.json"
 grep -q '"artifact":""' "$root/report.json"
 # One build action, so every artifact carries the same provenance: the same
 # recipe digest, the same engine and target, and the same fingerprint line.
-# Only the per-output license and the manifest digest may differ.
+# Only the per-output license and abi and the manifest digest may differ.
 for list in "$root/l1" "$root/l2" "$root/l3"; do
-    grep '^metadata ' "$list" | grep -v '^metadata license ' >"$list.prov"
+    grep '^metadata ' "$list" | grep -v '^metadata license ' |
+        grep -v '^metadata abi ' >"$list.prov"
 done
 cmp -s "$root/l1.prov" "$root/l2.prov"
 cmp -s "$root/l1.prov" "$root/l3.prov"
@@ -126,4 +142,4 @@ fi
 grep -q 'claimed by outputs a and b' "$root/err4"
 test "$(ls "$root/artifacts4" | wc -l)" -eq 0
 
-echo 'multi-output tests: PASS (partition, per-output license and requires, canonical names, shared provenance, determinism, and the overlap and single-path refusals)'
+echo 'multi-output tests: PASS (partition, license, abi, requires)'

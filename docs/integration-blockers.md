@@ -6,7 +6,7 @@ surroundings and who owned each part. A blocker here meant an integration input
 or an explicit product decision, not a defect in the standalone path. It is a
 planning document, not the repository's active issue queue.
 
-Baseline: CBS v0.1.128. The standalone suite and the process-level integration
+Baseline: CBS v0.1.129. The standalone suite and the process-level integration
 contract are shipped. Items below that concern cixd's own environment are
 cixd's to document and not this repository's: a claim about cixd's production
 state written here goes stale on the cix repository's release cadence, and

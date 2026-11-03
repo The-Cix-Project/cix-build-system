@@ -1,0 +1,11 @@
+package "p" {
+    version "1"
+    release 1
+    format "cixpkg"
+    output "a" {
+        files { "usr/bin/a" }
+        abi "1"
+        abi "2"
+    }
+    build { write "${dest}/x" "x\n" chmod 0644 }
+}

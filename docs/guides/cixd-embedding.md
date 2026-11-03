@@ -39,11 +39,19 @@ cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output-dir ARTIFACTS \
 
 `explain --json` reports an `outputs` array — always, main package first, even
 for a recipe with a single output — giving each output's name, file selectors
-and `requires`, so you know what a recipe provides before building it. The
+`requires` and `abi`, so you know what a recipe provides before building it. The
 `package` declaration is itself the main output and receives every staged path
 no `output` claimed. Because a selector naming a file does not claim the
 directories above it, the main package is still emitted whenever directory
 entries remain; it is omitted only when the outputs claim everything.
+
+A package may also declare the ABI it offers its dependents (`abi "17"`), and
+`explain --json` carries it on the top level and on each `outputs` entry, null
+when undeclared and never inherited by an output. Read it from `explain`: it is
+available before the provider's artifact is fetched, which is when a decision
+about a provider's roll has to be made, and the installed artifact repeats it as
+`metadata abi`. This is the ABI a package offers its dependents, and has nothing
+to do with `CBS_ABI_VERSION` above.
 `--output` remains the form for a recipe with one output. With several, the
 report's `output_count` is greater than 1 and its `artifact` and
 `artifact_digest` are empty rather than naming one of N; the

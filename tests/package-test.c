@@ -61,6 +61,42 @@ static int run_test(const char *root) {
         access(extracted_file, F_OK) != 0)
         return 1;
 
+    /* The legacy `cbs_build_package` entry point writes the manifest through a
+     * different function from the build pipeline.  A recipe's declared ABI
+     * (#312) must reach its artifact through both, or an embedder using this
+     * path gets an artifact that disagrees with the CLI's about one recipe. */
+    {
+        char staged[4160], recipe[4160], package[4160], line[4096];
+        FILE *listing;
+        int saw_abi = 0;
+
+        snprintf(staged, sizeof(staged), "%s/abi-staged", root);
+        snprintf(recipe, sizeof(recipe), "%s/abi.cbs", root);
+        snprintf(package, sizeof(package), "%s/abi.cixpkg", root);
+        if (mkdir(staged, 0700) != 0)
+            return 1;
+        file = fopen(recipe, "wb");
+        if (file == NULL)
+            return 1;
+        fputs("package \"abi-demo\" {\n    version \"1\"\n    release 1\n"
+              "    format \"cixpkg\"\n    abi \"17\"\n"
+              "    build { }\n}\n", file);
+        fclose(file);
+        if (!cbs_build_package(recipe, staged, package) ||
+            !cbs_cixpkg_verify_tree(package, identity, sizeof(identity)))
+            return 1;
+        listing = tmpfile();
+        if (listing == NULL || !cbs_cixpkg_list(package, listing, 0))
+            return 1;
+        rewind(listing);
+        while (fgets(line, sizeof(line), listing) != NULL)
+            if (strcmp(line, "metadata abi 17\n") == 0)
+                saw_abi = 1;
+        fclose(listing);
+        if (!saw_abi)
+            return 1;
+    }
+
     /* Every embedder material that participates in execution must perturb the
      * key, while environment ordering remains canonical. */
     {

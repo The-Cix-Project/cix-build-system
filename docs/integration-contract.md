@@ -225,8 +225,8 @@ rejects arbitrary shell/configuration text.
 A recipe may declare `output` blocks and so emit several packages from one
 source and one build (ADR-0038). `cbs explain --json` reports an `outputs`
 array — always, main first, so there is one shape to read — giving each
-output's name, its file selectors and its own `requires`. An orchestrator
-therefore knows what a recipe provides before building it.
+output's name, its file selectors, its own `requires` and its own `abi`. An
+orchestrator therefore knows what a recipe provides before building it.
 
 `cbs build --output-dir DIR` writes one canonically named
 `name-version-release-arch.cixpkg` per output. `--output FILE` is refused when
@@ -248,6 +248,25 @@ complete — the stream enumerates them.
 Approval is the repository's concern. CBS's part is that the fingerprint is in
 every artifact's metadata and the digests are in `explain` and the events, so
 an approval naming the action can be checked against each artifact.
+
+## The ABI a package offers
+
+A package may declare the ABI it offers to the packages that build against it
+(`abi "17"`, #312), because only the provider knows when it changes.
+`cbs explain --json` reports it as a top-level `"abi"` and as `"abi"` on each
+`outputs` entry, and an installed artifact records it as `metadata abi`. It is
+null when a recipe declares none. The main entry reports the package's own
+value, and an output reports its own or null, never the package's: an output
+with no declaration has none, so reading the entry you composed cannot return
+another entry's ABI.
+
+CBS validates the string (a non-empty token with no whitespace and no `/`) and
+reports it. It does not compare, constrain or solve: whether a consumer built
+against 16 is stale now that its provider offers 17, and what to do about it, is
+the orchestrator's decision. Read it from `explain`, which is available before a
+provider's artifact is fetched or installed, and so before the decision that
+depends on it. Do not confuse it with `CBS_ABI_VERSION`, which governs consumers
+that link `libcbs.a`.
 
 ## Ownership
 

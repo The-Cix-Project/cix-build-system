@@ -188,6 +188,15 @@ guessing: `${name}`, `${version}`,
   claimed; two outputs claiming one path is a refusal naming both; writing is
   all-or-nothing. `--output-dir` derives canonical filenames and `--output
   FILE` is refused for a multi-output recipe.
+- A package may declare `abi "N"`, the ABI it offers the packages that build
+  against it (#312); a typed field, not a `metadata` pair, validated by the same
+  token rule as `version`. It goes `explain --json` (top level and each
+  `outputs` entry, null when absent) and the manifest (`m abi`), and an output's
+  is its own and **never inherited**, as `license`'s is not. Not
+  `CBS_ABI_VERSION`, which versions this library's structs. cixd reads it from
+  `explain` only. An `output`'s own `license`, `requires`, `replaces` and `abi`
+  are validated by the same functions as the package's (#313), and an output
+  with a `license` containing a newline used to inject a manifest line.
 - The build fingerprint binds **each executable the recipe runs**, resolved
   through the approved command path, not the contents of the search path
   (#300, v0.1.119). Don't re-add a search-path walk: it was removed because it
@@ -344,7 +353,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 169 validation records. The records are
+   indexes of all 38 decisions and all 170 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

@@ -12,6 +12,14 @@ the correct state until a helper has an approved exception record.
 ADR-0004 requires a review quarterly and at every release. Each entry records
 its date, the search scope, what matched, and the decision.
 
+- 2026-11-03 (v0.1.129): the same searches again. `src/`: no `helper` node kind
+  or keyword (0). Grammar: no `helper` production (0). The corpus at
+  `origin/main` `3cb1b15`, 2138 definitions across 249 packages: 0 with a
+  `helper` operation, and the word in 80 recipes as ordinary prose. This release
+  adds a language keyword, `abi`, so the parser was searched too: it matches no
+  native-helper construct. Trackers: #142 and #151 as assessed below, and #308,
+  #309 and #312, this repository's own tickets, none a helper request. No open
+  CBS issue and no cix issue matches. Decision: registry remains empty.
 - 2026-10-31 (v0.1.128): the same searches again. `src/`: no `helper` node kind
   or keyword (0). Grammar: no `helper` production (0). The corpus at
   `origin/main` `2a86e7f`, 2022 definitions across 248 packages: 0 with a

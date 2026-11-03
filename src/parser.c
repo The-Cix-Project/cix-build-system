@@ -1613,7 +1613,16 @@ static CbsNode *parse_output(CbsParser *parser) {
             cbs_node_add(node, license);
             continue;
         }
-        expected(parser, "files, requires, license, replaces or }");
+        if (is_word(parser, "abi")) {
+            CbsToken *abi_keyword = advance(parser);
+            CbsToken *value = consume_kind(parser, CBS_TOKEN_STRING, "abi string");
+            CbsNode *abi = cbs_node_create(CBS_NODE_ABI, abi_keyword->location);
+            if (value != NULL)
+                abi->value = cbs_duplicate(value->text);
+            cbs_node_add(node, abi);
+            continue;
+        }
+        expected(parser, "files, requires, license, abi, replaces or }");
         break;
     }
     consume_kind(parser, CBS_TOKEN_RBRACE, "}");
@@ -1670,6 +1679,11 @@ static CbsNode *parse_package_item(CbsParser *parser) {
         advance(parser);
         value = consume_kind(parser, CBS_TOKEN_STRING, "license string");
         return value == NULL ? NULL : node_from_token(CBS_NODE_LICENSE, value);
+    }
+    if (is_word(parser, "abi")) {
+        advance(parser);
+        value = consume_kind(parser, CBS_TOKEN_STRING, "abi string");
+        return value == NULL ? NULL : node_from_token(CBS_NODE_ABI, value);
     }
     if (is_word(parser, "architecture")) {
         advance(parser);

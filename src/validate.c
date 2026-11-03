@@ -895,6 +895,7 @@ static int package_item_rank(CbsNodeKind kind, const char *name) {
     case CBS_NODE_FORMAT:
         return 3;
     case CBS_NODE_LICENSE:
+    case CBS_NODE_ABI:
         return 4;
     case CBS_NODE_UPSTREAM:
         return 4;
@@ -1202,6 +1203,15 @@ static int has_toolchain_exception(const Validator *validator,
 }
 
 /* Validate dependency groups, names, roles, and ordering. */
+/* What a package version, and the ABI a package offers, may be: a non-empty
+ * token with no path separator and no whitespace.  One predicate for both, so
+ * they cannot drift, and so a value written into a manifest line cannot carry
+ * a line break (whitespace includes \r and \n). */
+static int valid_version_text(const char *value) {
+    return value != NULL && value[0] != '\0' && strchr(value, '/') == NULL &&
+           strpbrk(value, " \t\r\n") == NULL;
+}
+
 /* A license is recorded in the artifact manifest as one `m license VALUE`
  * line, so it must be non-empty and must not contain a line break: a newline
  * would write a second manifest line that the author chose the key of.  One
@@ -1370,9 +1380,7 @@ static void validate_package(Validator *validator) {
             break;
         case CBS_NODE_VERSION:
             ++versions;
-            if (item->value == NULL || item->value[0] == '\0' ||
-                strchr(item->value, '/') != NULL ||
-                strpbrk(item->value, " \t\r\n") != NULL)
+            if (!valid_version_text(item->value))
                 validation_error(validator, item, "CPDL-E3004",
                                  "invalid package version");
             break;
@@ -1392,6 +1400,12 @@ static void validate_package(Validator *validator) {
             if (!valid_license_text(item->value))
                 validation_error(validator, item, "CPDL-E3004",
                                  "license must be a non-empty string");
+            break;
+        case CBS_NODE_ABI:
+            if (!valid_version_text(item->value))
+                validation_error(validator, item, "CPDL-E3004",
+                                 "abi must be a non-empty token without "
+                                 "whitespace or /");
             break;
         case CBS_NODE_ARCHITECTURE:
             validation_error(validator, item, "CPDL-E3006",
@@ -1489,7 +1503,7 @@ static void validate_package(Validator *validator) {
             size_t earlier;
             const CbsNode *files = NULL;
             size_t child;
-            size_t licenses = 0, requires_blocks = 0, replaces_blocks = 0;
+            size_t licenses = 0, abis = 0, requires_blocks = 0, replaces_blocks = 0;
             if (item->value == NULL || !valid_package_name(item->value))
                 validation_error(validator, item, "CPDL-E3004",
                                  "output name must be a package name");
@@ -1517,6 +1531,14 @@ static void validate_package(Validator *validator) {
                     if (!valid_license_text(part->value))
                         validation_error(validator, part, "CPDL-E3004",
                                          "license must be a non-empty string");
+                    continue;
+                }
+                if (part->kind == CBS_NODE_ABI) {
+                    output_item_seen(validator, part, &abis, "abi");
+                    if (!valid_version_text(part->value))
+                        validation_error(validator, part, "CPDL-E3004",
+                                         "abi must be a non-empty token "
+                                         "without whitespace or /");
                     continue;
                 }
                 if (part->kind == CBS_NODE_REQUIRES) {

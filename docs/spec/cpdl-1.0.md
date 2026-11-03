@@ -90,6 +90,7 @@ operation options, and assertion property names, because all of them are
 reserved in the positions this grammar gives them:
 
 ```text
+abi            copy           install        package        stdout
 after          count          into           parents        strip
 alias          directory      jobs           patch          symlink
 allow_failure  each           key            prepare        tag
@@ -112,7 +113,6 @@ compiler       headers        nonempty       source         write
 config         in             on_fail        sources
 configure      input          origin         stage
 contains       insert         output         stderr
-copy           install        package        stdout
 ```
 
 Keywords reserved for later versions are not silently accepted. An unknown
@@ -243,6 +243,7 @@ package-item = version-declaration
              | release-declaration
              | format-declaration
              | license-declaration
+             | abi-declaration
              | sources-declaration
              | requires-declaration
              | replaces-declaration
@@ -265,6 +266,7 @@ version-declaration      = "version", string ;
 release-declaration      = "release", integer ;
 format-declaration       = "format", string ;
 license-declaration      = "license", string ;
+abi-declaration          = "abi", string ;
 build-image-declaration  = "build_image", string ;
 capability-declaration   = "capability", string ;
 toolchain-declaration    = "toolchain", string, "{", "reason", string, "}" ;
@@ -286,7 +288,8 @@ output-declaration       = "output", string, "{", { output-item }, "}" ;
 output-item              = "files", "{", { file-selector }, "}"
                          | requires-declaration
                          | replaces-declaration
-                         | license-declaration ;
+                         | license-declaration
+                         | abi-declaration ;
 file-selector            = [ "glob" ], string ;
 ```
 
@@ -318,10 +321,10 @@ be repeated (ADR-0038). Its name obeys the package-name grammar, must differ
 from the package's and from every other output's, and shares the package's
 `version`, `release` and target architecture: those describe the source and the
 build, not a file set. Each output carries its own optional `requires`,
-`license` and `replaces`, each at most once, and each is validated by the rules
-that apply to the same item on the package: a `license` must be non-empty and
-contain no line break, since it is written as one manifest line, and the names
-in `requires` and `replaces` must be valid package names.
+`license`, `abi` and `replaces`, each at most once, and each is validated by the
+rules that apply to the same item on the package: a `license` must be non-empty
+and contain no line break, since it is written as one manifest line, and the
+names in `requires` and `replaces` must be valid package names.
 
 `files` claims staged paths relative to the staged root; a selector is an exact
 path or, with `glob`, a pattern in the §4.7 glob syntax. An exact selector
@@ -363,6 +366,21 @@ phase. Recipes may not override `PATH`; they must use `tools`.
 
 `license` is an optional SPDX expression carried into the artifact manifest as
 an `m license <expression>` line; it must be a non-empty single-line string.
+`abi` is an optional string naming the ABI this package offers to the packages
+that build against it, for example `abi "17"`. Only the provider knows when it
+changes, so it is the provider that declares it. CBS validates the string and
+reports it and does nothing else with it: there is no constraint language and no
+comparison, which belong to the orchestrator. It must be a non-empty token with
+no whitespace and no `/` — the rule `version` follows, since both are
+version-like — and it is carried as `"abi"` in `explain --json`, at the top
+level and on each entry of `outputs`, and into the artifact manifest as an
+`m abi <string>` line. An `output` may declare its own `abi` and the main
+package's is the package's; an output that declares none has none, exactly as
+with `license`, so an output never reports another's value. It is unrelated to
+`CBS_ABI_VERSION`, which versions this library's own structures. It is a typed
+declaration and not a `metadata` pair because an author's declaration of a fact
+that other software depends on should be checked, not carried blind.
+
 `metadata { "key" "value" ... }` is an optional block of opaque string pairs
 that CBS carries but never interprets: no key is reserved and no value affects
 validation, execution, or identity.

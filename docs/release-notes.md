@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.128, and the licence change
+# CBS v0.1.106 – v0.1.129, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-three releases of 2026-10-09 to
-2026-10-31, which closed twenty-nine tracker issues.
+licence decision of 2026-10-23 and the twenty-four releases of 2026-10-09 to
+2026-11-03, which closed thirty-two tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -299,6 +299,42 @@ is in every artifact's metadata and the digests are in `explain` and the
 events, so an approval naming the build action can be checked against each
 artifact.
 
+## New capability: a package declares the ABI it offers
+
+A package may now declare `abi "N"`, the ABI it offers to the packages that
+build against it (#312, from cix ADR-0373). Only the provider knows when that
+changes. On 2026-11-03 hibr moved its module ABI from 16 to 17, longwire's
+installed build was still ABI 16, nothing rebuilt it, and a container
+crash-looped on `abi 16, shell expects 17`. Software that composes builds can
+now notice that from the provider's own declaration instead of from a crash.
+
+```cbs
+package "hibr" {
+    version "0.99.432"
+    release 1
+    format "cixpkg"
+    abi "17"
+    ...
+}
+```
+
+It is a typed field and not a `metadata` pair, so it is validated: a non-empty
+token with no whitespace and no `/`, the rule `version` follows, at most one per
+package. It is reported in `cbs explain --json` as a top-level `"abi"` and on
+each `outputs` entry, null when absent, and recorded in the artifact manifest as
+`metadata abi`, so an installed provider says what it offers.
+
+An `output` may declare its own. **An output's is never inherited**: one that
+declares none reports null even when the package declares 17, so a consumer
+reading the exact entry it composed never gets another entry's value. cixd reads
+it from `explain` only, because a hold has to be decided before the provider's
+artifact is fetched, and confirmed per-output was the shape it wanted.
+
+CBS validates and reports; there is no constraint language and no comparison,
+and deciding what a change means is the orchestrator's. **It is not
+`CBS_ABI_VERSION`**, which versions this library's own structures and is
+unchanged at 6: the installed header is untouched, and a process-boundary
+consumer is unaffected either way. No new diagnostic code was needed.
 ## Unblocked
 
 ### edk2, OVMF and qemu are extractable
@@ -476,6 +512,19 @@ already matched the documented meaning of the number it carried. If you matched
 the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
 matches neither prefix.
 
+**An output's own `license`, `requires` and `replaces` were never validated
+(v0.1.129, #313).** The validator checked an output's name and `files` and
+nothing else, so an empty license, a `requires` naming an empty library, and a
+second `license` were all accepted where the package-level equivalent is
+rejected. The one that mattered was a `license` containing a newline: the
+manifest is line-oriented, so `license "MIT\nm injected value"` inside an output
+wrote `metadata injected value` into an artifact that still verified, letting a
+recipe author forge any key in that output's manifest, `build_fingerprint`
+included. Outputs now get the package's rules, from the same functions, with at
+most one of each item, reported as `CPDL-E3001`, `E3002` or `E3004`. No corpus
+definition was affected. The manifest writer itself still writes whatever it is
+handed; that is recorded in the issue as a larger decision, not fixed here.
+
 **`links` on a file that is not an ELF object printed an unrelated cause
 (v0.1.128, #310).** The assertion correctly failed, but its diagnostic said
 `errno=17 (File exists)` for a shell script, and `errno=2 (No such file or
@@ -516,15 +565,19 @@ implementation accepts.
 
 `make -j1 test` is the gate: 49 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
-checkout. The parser and validation suite is 74 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.128.
+checkout. The parser and validation suite is 88 cases, and they also pass under
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.129.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2022 CPDL definitions across 248 distinct packages, all validating** against
-v0.1.128 at `origin/main` `2a86e7f` on 2026-10-31, up from 1010 and 181 three
-weeks earlier with no shell recipes remaining. That figure moved six times in
-one day — 1969, 1983, 2012, 2013, 2016, 2022 — which is why no living document
-carries it any more and it is quoted only here, in a dated record.
+**2138 CPDL definitions across 249 distinct packages, all validating** against
+v0.1.129 at `origin/main` `3cb1b15` on 2026-11-03, up from 1010 and 181 three
+weeks earlier with no shell recipes remaining. The figure moved six times in one
+day on 2026-10-31 (1969, 1983, 2012, 2013, 2016, 2022) and has kept climbing,
+which is why no living document carries it and it is quoted only here, in a
+dated record. This release added a language keyword, so the corpus check was the
+one that mattered: nothing in it uses `abi` as a word the grammar could now
+misread (the one recipe containing it, `longwire@0.5.39-2`, uses it in a
+changelog string).
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -596,7 +649,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#310 cover this
+decision, its evidence, and the acceptance criteria met: #282–#313 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

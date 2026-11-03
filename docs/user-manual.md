@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.128 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.129 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -594,6 +594,7 @@ package has this shape:
 package "name" {
     version "upstream-version"
     release 1
+    abi "17"                                # optional ABI offered to dependents
     upstream "kernel.org" {                # optional discovery parameters
         tag "v{version}"
         source "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{version}.tar.xz"
@@ -625,7 +626,8 @@ package "name" {
 ```
 
 Package items must appear in this order: identity (`version`, `release`,
-`format`, optional `license`), `upstream`, `sources`, `requires`, execution
+`format`, optional `license` and `abi`), `upstream`, `sources`, `requires`,
+execution
 metadata (`build_image`, `capability`, `toolchain`, `metadata`, `tools`), then
 `privileged` declarations and `output` blocks, then phases.
 Each phase is optional and may appear once. Empty phases are allowed
@@ -636,6 +638,37 @@ so it can verify the staged artifact.
 `license` is an optional SPDX expression recorded in the artifact manifest.
 `metadata { "key" "value" }` carries opaque string pairs that CBS never
 interprets; both appear in `explain --json`.
+
+`abi` declares the ABI this package offers to the packages that build against
+it. It is the provider's to declare, because only the provider knows when it
+changes: a library or tool whose module interface moves from 16 to 17 says so
+here, and software that composes builds can then notice that something built
+against 16 is now stale. It is **not** `CBS_ABI_VERSION`, which versions this
+library's own structures and has nothing to do with any package:
+
+```cbs check
+package "hibr" {
+    version "0.99.432"
+    release 1
+    format "cixpkg"
+    abi "17"
+
+    build {
+        mkdir "${dest}/usr/include"
+        write "${dest}/usr/include/hibr.h" "/* ABI 17 */\n"
+    }
+}
+```
+
+CBS only validates and reports it. The value must be a non-empty token with no
+whitespace and no `/`, the same rule as `version`, and a recipe may declare at
+most one. There is no constraint language and no comparison; deciding what a
+change means belongs to whatever composes the builds. It appears in
+`cbs explain --json` as a top-level `"abi"` and on each entry of `outputs`, and
+in the artifact manifest as `metadata abi`. It is null when a recipe declares
+none, so a consumer reads one shape. It is a declaration of its own rather than
+a `metadata` pair because a fact that other software depends on should be
+checked, not carried blind.
 
 `resources { memory "4GiB" }` declares the aggregate memory need of the whole
 build. The value must use a positive binary unit (`KiB`, `MiB`, or `GiB`), and
@@ -1057,10 +1090,13 @@ package "cix" {
 The `package` declaration is itself the main output and receives every staged
 path no `output` claimed, so carving one binary out of a large package does not
 mean listing the rest. An output shares the package's `version`, `release` and
-architecture and carries its own optional `requires`, `license` and `replaces`,
-each at most once and checked by the same rules as on the package. A `license`
-that is empty or contains a line break is rejected with `CPDL-E3004`, because it
-is written into the artifact as one manifest line.
+architecture and carries its own optional `requires`, `license`, `abi` and
+`replaces`, each at most once and checked by the same rules as on the package. A
+`license` or `abi` that is empty or contains a line break is rejected with
+`CPDL-E3004`, because each is written into the artifact as one manifest line. An
+output's `abi` is its own and is never inherited: an output that declares none
+reports null in `explain`, even when the package declares one, so a consumer
+reading the entry it composed never gets another entry's value.
 
 `files` takes exact paths, or patterns written with `glob`. A pattern without
 `glob` is a validation error, and an output must claim at least one selector. An
@@ -1126,8 +1162,8 @@ instead; section 11.7 has the rules.
 `cbs list ARTIFACT` shows the provenance CBS records as `metadata` lines:
 `recipe` and `recipe_sha256`, `build_fingerprint` (or `unavailable` with a
 `build_fingerprint_reason`), `cbs_version`, `architecture`, `toolchain`,
-`finalizer` when one ran, the `license`, and for a recipe with `tools` the
-resolved `tool_policy_target`.
+`finalizer` when one ran, the `license` and `abi` when declared, and for a
+recipe with `tools` the resolved `tool_policy_target`.
 
 The artifact contains a sorted typed manifest and a compressed regular-file
 payload. CIXPKG v2 represents regular files, directories (including empty
