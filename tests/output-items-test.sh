@@ -30,7 +30,7 @@ esac
 
 cat >"$root/rows" <<'ROWS'
 abi|abi "9"|"abi":"9"}|^metadata abi 9$|abi ""|
-license|license "MIT"|-|^metadata license MIT$|license ""|explain: an output's license is not reported in outputs[]; not requested, awaiting the cix maintainer's answer (#314)
+license|license "MIT"|-|^metadata license MIT$|license ""|explain: an output's license is not reported in outputs[]; cixd reads no license from explain at any level, the main package's included (cix maintainer, 2026-11-16); if licences are ever shown it will be a cix feature at package and output level together
 replaces|replaces { package "old" }|"replaces":\["old"\]|-|replaces { package "" }|manifest: replaces is explain-only at every level; no artifact records it
 requires|requires { runtime { library "libz" } }|"requires":{"runtime":{"library":\["libz"\]}}|-|requires { runtime { library "" } }|manifest: requires is explain-only at every level; no artifact records it
 ROWS
