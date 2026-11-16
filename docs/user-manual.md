@@ -1119,7 +1119,10 @@ several outputs, since one path cannot name several artifacts. Every artifact
 from one build records the same `build_fingerprint`, because there was one build
 action, and each is an ordinary CIXPKG that verifies and extracts on its own.
 `cbs explain --json` reports an `outputs` array, main package first, before
-anything is built. The reasoning is in
+anything is built, giving each entry's name, file selectors, `requires`,
+`replaces` and `abi`. An output's `replaces` is its own and is reported on its
+entry, since the files an output owns are taken over under that output's
+authorization and not the main package's. The reasoning is in
 [ADR-0038](adr/0038-multiple-package-outputs.md).
 
 ## 12. The complete authoring workflow

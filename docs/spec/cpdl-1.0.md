@@ -476,7 +476,14 @@ packages. It contains one or more `package` entries, each named with the
 package-name grammar; entries must be unique. The declaration is authorization
 metadata only: CBS does not resolve packages or decide whether a takeover is
 needed. An embedder such as cixd reads the names from `cbs explain --json` and
-applies the policy when composing or installing packages.
+applies the policy when composing or installing packages. `explain` reports them
+as a `"replaces"` array at the top level and on each entry of `outputs`: the
+main entry carries the package's, and an output carries its own, so a takeover
+declared on an output is visible on that output and not only on the package. An
+entry that declares none reports an empty array, never another entry's names.
+The authorization belongs to the entry whose files are taken over: a path owned
+by an output is authorized by that output's `replaces`, not by the main
+package's.
 
 The meanings are:
 

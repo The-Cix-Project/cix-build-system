@@ -225,8 +225,11 @@ rejects arbitrary shell/configuration text.
 A recipe may declare `output` blocks and so emit several packages from one
 source and one build (ADR-0038). `cbs explain --json` reports an `outputs`
 array — always, main first, so there is one shape to read — giving each
-output's name, its file selectors, its own `requires` and its own `abi`. An
-orchestrator therefore knows what a recipe provides before building it.
+output's name, its file selectors, its own `requires`, its own `replaces` and
+its own `abi`. An orchestrator therefore knows what a recipe provides before
+building it, and which packages' files each output is authorized to take over:
+a path an output owns is authorized by that output's `replaces`, not the main
+package's, and an output that declares none reports an empty array.
 
 `cbs build --output-dir DIR` writes one canonically named
 `name-version-release-arch.cixpkg` per output. `--output FILE` is refused when

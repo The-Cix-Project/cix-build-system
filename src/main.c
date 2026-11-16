@@ -1307,6 +1307,31 @@ static void print_requires_object(const CbsNode *owner) {
     putchar('}');
 }
 
+/* Emit a `replaces` array: the package names the owner takes files over from.
+ * One serializer for the package and for each of its outputs (#314), as
+ * print_requires_object is, so an orchestrator reading `outputs` reads the same
+ * shape it reads at the top level.  Always an array: none declared is `[]`. */
+static void print_replaces_array(const CbsNode *owner) {
+    size_t item_index;
+    size_t child_index;
+    int first = 1;
+
+    putchar('[');
+    for (item_index = 0; item_index < owner->child_count; ++item_index) {
+        const CbsNode *replaces = owner->children[item_index];
+        if (replaces->kind != CBS_NODE_REPLACES)
+            continue;
+        for (child_index = 0; child_index < replaces->child_count;
+             ++child_index) {
+            if (!first)
+                putchar(',');
+            first = 0;
+            print_json_string(replaces->children[child_index]->value);
+        }
+    }
+    putchar(']');
+}
+
 /* Validate a recipe and print its execution metadata and plan. */
 static int explain_file(const char *path, int json) {
     char *source;
@@ -1407,24 +1432,9 @@ static int explain_file(const char *path, int json) {
         }
         fputs("],\"requires\":", stdout);
         print_requires_object(package);
-        fputs(",\"replaces\":[", stdout);
-        {
-            int first_replacement = 1;
-            for (item_index = 0; item_index < package->child_count;
-                 ++item_index) {
-                const CbsNode *replaces = package->children[item_index];
-                if (replaces->kind != CBS_NODE_REPLACES)
-                    continue;
-                for (child_index = 0; child_index < replaces->child_count;
-                     ++child_index) {
-                    if (!first_replacement)
-                        putchar(',');
-                    first_replacement = 0;
-                    print_json_string(replaces->children[child_index]->value);
-                }
-            }
-        }
-        fputs("],\"resources\":", stdout);
+        fputs(",\"replaces\":", stdout);
+        print_replaces_array(package);
+        fputs(",\"resources\":", stdout);
         if (metadata.memory_declared)
             printf("{\"memory\":%llu}", metadata.memory_bytes);
         else
@@ -1560,6 +1570,12 @@ static int explain_file(const char *path, int json) {
                  * no dependencies. */
                 fputs("],\"requires\":", stdout);
                 print_requires_object(node == NULL ? package : node);
+                /* An entry's own `replaces`, from the same serializer as the
+                 * top level.  The main entry reports the package's and an
+                 * output its own, so a transfer of files to an output is
+                 * visible on that output and not only on the package (#314). */
+                fputs(",\"replaces\":", stdout);
+                print_replaces_array(node == NULL ? package : node);
                 /* The main entry reports the package's own ABI; an output
                  * reports its own, or null.  Never inherited, so a consumer
                  * reading the exact entry it composed gets that entry's

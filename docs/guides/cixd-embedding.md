@@ -38,12 +38,12 @@ cbs build RECIPE.cbs --arch ARCH --staged WORKSPACE --output-dir ARTIFACTS \
 ```
 
 `explain --json` reports an `outputs` array — always, main package first, even
-for a recipe with a single output — giving each output's name, file selectors
-`requires` and `abi`, so you know what a recipe provides before building it. The
-`package` declaration is itself the main output and receives every staged path
-no `output` claimed. Because a selector naming a file does not claim the
-directories above it, the main package is still emitted whenever directory
-entries remain; it is omitted only when the outputs claim everything.
+for a recipe with a single output — giving each output's name, file selectors,
+`requires`, `replaces` and `abi`, so you know what a recipe provides before
+building it. The `package` declaration is itself the main output and receives
+every staged path no `output` claimed. Because a selector naming a file does not
+claim the directories above it, the main package is still emitted whenever
+directory entries remain; it is omitted only when the outputs claim everything.
 
 A package may also declare the ABI it offers its dependents (`abi "17"`), and
 `explain --json` carries it on the top level and on each `outputs` entry, null

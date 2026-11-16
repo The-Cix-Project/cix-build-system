@@ -62,17 +62,24 @@ fi
 # requires, so read the plan.  `explain --json` is one line, so count
 # occurrences with grep -o rather than matching lines.
 "$absolute_cbs" explain tests/fixtures/multi-output.cbs --json >"$root/explain"
-grep -q '"name":"cixctl","main":false,"files":\[{"pattern":"usr/bin/cixctl","glob":false}\],"requires":{"runtime":{"library":\["libcurl"\]}},"abi":"2"}' \
+grep -q '"name":"cixctl","main":false,"files":\[{"pattern":"usr/bin/cixctl","glob":false}\],"requires":{"runtime":{"library":\["libcurl"\]}},"replaces":\["cix-old-client"\],"abi":"2"}' \
     "$root/explain"
 # The main package reports the package-level requires: a consumer iterating
 # `outputs` must not read it as having no dependencies.
-grep -q '"name":"cix","main":true,"files":\[\],"requires":{"runtime":{"library":\["libarchive"\]}},"abi":"17"}' \
+grep -q '"name":"cix","main":true,"files":\[\],"requires":{"runtime":{"library":\["libarchive"\]}},"replaces":\["cix-legacy"\],"abi":"17"}' \
     "$root/explain"
 # libcurl belongs to one output and no other.
 test "$(grep -o '"libcurl"' "$root/explain" | wc -l)" -eq 1
 # An output that declares none gets an empty object, not a null: one shape.
-grep -q '"name":"cix-tools","main":false,.*"requires":{},"abi":null}' \
+grep -q '"name":"cix-tools","main":false,.*"requires":{},"replaces":\[\],"abi":null}' \
     "$root/explain"
+# An output's own `replaces` is on its own entry, and an output that declares
+# none reports an empty array rather than the package's (#314): the transfer of
+# files to cixctl must be readable on cixctl, since cixd reads replaces from
+# explain only and acts on the entry it composed.  The count catches an entry
+# inheriting another's value, as the three distinct names appear once each.
+test "$(grep -o '"cix-old-client"' "$root/explain" | wc -l)" -eq 1
+test "$(grep -o '"cix-legacy"' "$root/explain" | wc -l)" -eq 2
 # The package-level field is the main package's, null when a recipe has none.
 grep -q '"abi":"17"' "$root/explain"
 

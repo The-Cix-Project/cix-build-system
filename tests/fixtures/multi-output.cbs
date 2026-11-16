@@ -8,10 +8,12 @@ package "cix" {
     abi "17"
 
     requires { runtime { library "libarchive" } }
+    replaces { package "cix-legacy" }
 
     output "cixctl" {
         files { "usr/bin/cixctl" }
         requires { runtime { library "libcurl" } }
+        replaces { package "cix-old-client" }
         license "LGPL-3.0-or-later"
         abi "2"
     }
