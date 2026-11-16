@@ -35,12 +35,13 @@ hundred packages, with no shell recipes left, and all of it validates against
 this engine. **No exact count lives in this file**, because the figure changed
 five times in one day and every hand-written copy went stale; the dated figures
 are in `docs/release-notes.md` (Verification) and the native-helper review log,
-where being dated is the point. Two facts the design leans on were true when last
-measured (2026-10-31) and are worth re-checking before you rely on them: no
-recipe declares `tools` (#300), and one package, `cix`, declares an `output`
-(the `cixctl` split of cix#378). The corpus is the fastest real-world regression
-check for any CPDL or validator change, far broader than the single
-`recipes/zstd.cbs` fixture shipped here.
+where being dated is the point. Two facts the design leans on were true when
+last measured (2026-11-16) and are worth re-checking before you rely on them: no
+recipe declares `tools` (#300), and `output` is in real use, no longer a single
+package's: 17 packages and 80 definitions declared one, `cix` the most, and
+`requires` inside an output was the item in practical use. The corpus is the
+fastest real-world regression check for any CPDL or validator change, far
+broader than the single `recipes/zstd.cbs` fixture shipped here.
 
 Measure at `origin/main`, not in that working tree: cixd commits to it, so a
 `git pull` there can race a write-back, and the checkout can sit behind. The
@@ -59,7 +60,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 49 test groups, offline-clean
+make -j1 test        # the full gate: 50 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -250,8 +251,14 @@ Touch the chain in order, or validation and execution drift apart:
 6. A focused test, wired into the `test:` target in the `Makefile` with its exact
    object list, run, then `rm -f`.
 7. `docs/spec/cpdl-1.0.md` (§2.4 keyword set, §3.1 grammar, §8.2 codes) and
-   `docs/cpdl-test-coverage.md`. An architectural change needs a new ADR first —
-   ADRs are never rewritten, only superseded (ADR-0029).
+   `docs/cpdl-test-coverage.md`. **If the item goes inside an `output`**, add a
+   row to `tests/output-items-test.sh`: an output's items have four independent
+   consumers (parser, validator, `explain`, manifest) and no single list, so an
+   omission recurred three times (#313, #314, and `license` missing from
+   `explain`). The test derives the item list from `parse_output`, fails until
+   the new item has a row, and makes every "this consumer does not carry it" a
+   written decision with a reason. An architectural change needs a new ADR first
+   — ADRs are never rewritten, only superseded (ADR-0029).
 
 ## AST field conventions
 
@@ -353,7 +360,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 171 validation records. The records are
+   indexes of all 38 decisions and all 172 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

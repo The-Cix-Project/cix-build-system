@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.129, and the licence change
+# CBS v0.1.106 – v0.1.130, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-four releases of 2026-10-09 to
-2026-11-03, which closed thirty-two tracker issues.
+licence decision of 2026-10-23 and the twenty-five releases of 2026-10-09 to
+2026-11-16, which closed thirty-four tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -512,6 +512,17 @@ already matched the documented meaning of the number it carried. If you matched
 the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
 matches neither prefix.
 
+**`explain` dropped an output's own `replaces` (v0.1.130, #314).** Each
+`outputs[]` entry now carries a `"replaces"` array, empty when it declares none,
+so an orchestrator reads a takeover declared on an output from that output's own
+entry. The main entry reports the package's and an output its own, never
+inherited, the rule `license` and `abi` already follow. cix measured the
+consequence: a `replaces` on an output was accepted by `explain` and reported
+nothing, so the install that needed it was refused by cix's one-owner rule, and
+moving `libgcc_s.so.1` into a `gcc-libs` output (cix#680) depends on it. No
+artifact records `replaces` at any level, so this is `explain`-only. The one
+serializer now serves the package and every output.
+
 **An output's own `license`, `requires` and `replaces` were never validated
 (v0.1.129, #313).** The validator checked an output's name and `files` and
 nothing else, so an empty license, a `requires` naming an empty library, and a
@@ -563,21 +574,23 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 49 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 50 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 88 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.129.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.130.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2138 CPDL definitions across 249 distinct packages, all validating** against
-v0.1.129 at `origin/main` `3cb1b15` on 2026-11-03, up from 1010 and 181 three
+**2471 CPDL definitions across 256 distinct packages, all validating** against
+v0.1.130 at `origin/main` `2da18172` on 2026-11-16, up from 1010 and 181 three
 weeks earlier with no shell recipes remaining. The figure moved six times in one
-day on 2026-10-31 (1969, 1983, 2012, 2013, 2016, 2022) and has kept climbing,
-which is why no living document carries it and it is quoted only here, in a
-dated record. This release added a language keyword, so the corpus check was the
-one that mattered: nothing in it uses `abi` as a word the grammar could now
-misread (the one recipe containing it, `longwire@0.5.39-2`, uses it in a
-changelog string).
+day on 2026-10-31 and has not stopped, which is why no living document carries
+it and it is quoted only here, in a dated record. The facts the design leans on
+were re-measured: still no definition declares `tools`, and `output`, which was
+in three definitions of one package on 2026-11-03, is now in 80 definitions of
+17 packages, `cix` the most. Real recipes put `requires` in an output in about
+70 definitions and `replaces` in 3, and none puts `license` or `abi` there yet.
+All 80 were also run through `explain`, and each reports `replaces` on every
+entry.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -626,6 +639,21 @@ unknown tag, or the `cpdl` spelling of the fence is an error. The gate also now
 fails if the native-helper review log's newest entry does not name the release,
 since that review went unlogged for thirteen releases when nothing looked.
 
+v0.1.130 answers a question the owner asked after the third omission in two
+weeks: *why do we keep discovering omissions that are so simple?* (#315). An
+output's items (`files`, `requires`, `replaces`, `license`, `abi`) are read by
+four independent consumers, the parser, the validator, `explain` and the
+artifact manifest, with no single list between them. #313 was the validator
+never visiting them, #314 was `explain` dropping `replaces`, and `license` is
+also absent from `explain`'s `outputs[]`. Nothing kept them aligned except
+someone remembering. The fix is a gate: `tests/output-items-test.sh` derives the
+item list from the parser and requires a row per item stating what each consumer
+does, and a consumer that deliberately does not carry an item has to say why. It
+is checked against behaviour (declare, build, explain, list, and try an invalid
+value), not against source text, and it fails on the engines from `v0.1.129` and
+`v0.1.128` exactly where the defects were. Adding an item to `output` without a
+row now fails the build.
+
 v0.1.128 closes the gap that was listed last: **absences** (#310). The
 specification reserves a set of keywords, so the gate now requires each to be
 shown as code in the manual. The first run found five implemented constructs the
@@ -649,7 +677,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#313 cover this
+decision, its evidence, and the acceptance criteria met: #282–#315 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

@@ -32,6 +32,7 @@ features must add focused success and failure assertions to this matrix.
 | Every word the parser accepts is listed in the specification's section 2.4 | docs-contract-test.sh |
 | `abi`: validated (empty, whitespace, newline, duplicate, out of order, in an output), reported by `explain` at the top level and per output, null when absent and never inherited by an output, recorded as `metadata abi` per artifact through both manifest writers | parser-validation.sh, cli-contract-test.sh, multi-output-test.sh and package-test.c |
 | An output's own `license`, `requires` and `replaces`: empty, newline, duplicate and invalid names are refused | parser-validation.sh |
+| Every item the parser accepts inside an output has a row stating what the validator, `explain` and the manifest do with it, a "no" gives its reason, and the rows are checked against real behaviour; a new item with no row fails the gate | output-items-test.sh |
 | `replaces` in `explain`: the top level, the main entry (the package's) and each output (its own); an output that declares none reports `[]` and never another's names | multi-output-test.sh |
 | `links`: a missing needed library, a present forbidden one, an absent forbidden one, and a non-ELF file with its `Exec format error` diagnostic | fs-test.c |
 | Embedding seams, dependency observation, and policy callbacks | seams-test.c, observe-test.c, and policy-test.c |

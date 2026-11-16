@@ -130,7 +130,7 @@ public header, and pkg-config metadata from the same tag.
 
    **A sentence reporting a measurement states the version it was measured
    at, and only re-measuring updates it.** "71 cases pass instrumented, re-run
-   at v0.1.129" is the form. Never let the sweep advance that version: re-run
+   at v0.1.130" is the form. Never let the sweep advance that version: re-run
    the measurement, or leave the older version standing. An un-run claim at
    the current version is worse than an honest one at an older version.
 
@@ -161,6 +161,15 @@ public header, and pkg-config metadata from the same tag.
    a typo must not silently opt a block out. Before it existed, three of the
    four complete examples in the manual and the specification were invalid, the
    manual's first recipe among them, for one missing line.
+
+   `tests/output-items-test.sh` is the same idea applied to the engine's own
+   consumers. An `output` block may carry `files`, `requires`, `replaces`,
+   `license` and `abi`, and four things read them (the parser, the validator,
+   `explain` and the artifact manifest) with no single list between them, so a
+   consumer that forgot an item stayed silent until a user hit it. The test
+   takes the item list from the parser and requires a row per item stating what
+   each consumer does; a consumer that deliberately does not carry an item must
+   say why in the row, and a new item with no row fails the gate.
 
    Neither reads prose, so a green run does not mean the documentation is
    correct, only that what could be checked is not wrong. What is left is
@@ -196,8 +205,8 @@ public header, and pkg-config metadata from the same tag.
    and both trackers for a native helper, per `docs/native-helpers.md`; add a
    dated entry to its review log even when nothing matched.
 4. Commit the change with a focused message.
-5. Create the matching annotated tag, for example `git tag -a v0.1.129 -m
-   "CBS v0.1.129"`.
+5. Create the matching annotated tag, for example `git tag -a v0.1.130 -m
+   "CBS v0.1.130"`.
 6. Push the branch and tag together.
 7. Re-run `make -j1 test` from the tagged checkout.
 8. Update the issue tracker with the commit, tag, test result, and any
