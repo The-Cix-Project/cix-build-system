@@ -968,11 +968,16 @@ many leading path components from the patch's `+++` path.
 entries of the confined file at its path and checks them against its
 properties: each `needs` names a library that must be present and each `forbids`
 one that must be absent, compared literally as sonames. A missing needed library
-or a present forbidden one fails with `CPDL-E4005`. A file that cannot be read
-as a dynamically linked little-endian ELF64 object, such as a script, a
-truncated file or a statically linked executable with no dynamic section, fails
-with `CPDL-E4004` instead of passing, because an assertion that cannot be
-evaluated is not satisfied. Each property must be `needs` or `forbids` and name
+or a present forbidden one fails with `CPDL-E4005`. A statically linked
+executable loads no shared library, so it is observed as having no dependencies:
+`forbids` is true of it and `needs` fails with `CPDL-E4005`. It is recognized
+only by its headers, completely: type `ET_EXEC`, at least one loadable segment,
+no interpreter and no dynamic section (ADR-0039). A file that cannot be read as
+a little-endian ELF64 object, such as a script, a truncated file or one whose
+program headers run past its end, fails with `CPDL-E4004` instead of passing,
+and so does a file that only looks static: one that names an interpreter but has
+no dynamic section, a shared or relocatable object without one, or an executable
+with nothing loadable. An assertion that cannot be evaluated is not satisfied. Each property must be `needs` or `forbids` and name
 a non-empty library; anything else is a validation error.
 
 `glob "NAME" = PATTERN` resolves a confined glob in sorted path order and

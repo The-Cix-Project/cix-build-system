@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.131 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.132 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -1056,12 +1056,17 @@ package "link-demo" {
 ```
 
 The names are sonames, compared literally. A failure says `artifact is missing
-required library` or `artifact links forbidden library`, naming it. A file that
-cannot be read as a dynamically linked ELF64 object fails with `cannot inspect
-ELF dynamic dependencies` rather than passing, because an assertion that cannot
-be evaluated is not satisfied. That covers a script, a truncated file and a
-statically linked executable, so `forbids` on a static binary fails too. To
-assert the same of several files, put it inside an `each` block.
+required library` or `artifact links forbidden library`, naming it. A
+statically linked executable loads no shared library, so `forbids` passes on it
+and `needs` fails with `artifact is missing required library`; it is recognized
+by its headers (an executable with a loadable segment, no interpreter and no
+dynamic section), and `forbids` says nothing about code the binary carries
+inside itself. A file that cannot be read as an ELF64 object fails with `cannot
+inspect ELF dynamic dependencies` rather than passing, because an assertion that
+cannot be evaluated is not satisfied. That covers a script, a truncated file, and
+a file that only looks static, such as one that names an interpreter but has no
+dynamic section. To assert the same of several files, put it inside an `each`
+block.
 
 ### 11.7 Several packages from one recipe
 

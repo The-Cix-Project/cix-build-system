@@ -10,7 +10,7 @@ work, and [repository status](../repository-status.md) on what this repository
 owns now. The absence of a record does not mean an issue is open — some closed
 without one.
 
-All 174 records, by issue number:
+All 175 records, by issue number:
 
 - [Issue #1 validation: CPDL 1.0 grammar and diagnostics](issue-0001-validation.md)
 - [Issue #2 validation: CPDL lexer, parser, AST, and validator](issue-0002-validation.md)
@@ -186,3 +186,4 @@ All 174 records, by issue number:
 - [Issue #315 validation: an output's items are a checked contract](issue-0315-validation.md)
 - [Issue #316 validation: manifest lines can be forged through a recipe path, a source URL and a tool alias](issue-0316-validation.md)
 - [Issue #317 validation: make the package-level item set a checked contract like an output's](issue-0317-validation.md)
+- [Issue #319 validation: links refuses a statically linked executable that has no dynamic section](issue-0319-validation.md)

@@ -103,7 +103,7 @@ machine-readable version/ABI/verb manifest. Every failable verb accepts
 src/        the engine (~17k lines C11) and both headers
 tests/      *.c focused tests, *.sh contract tests, fixtures/
 recipes/    zstd.cbs — the one build-tested qualification recipe
-docs/       spec/ (normative), adr/ (38 decisions), guides/, reviews/ (closed-ticket evidence)
+docs/       spec/ (normative), adr/ (39 decisions), guides/, reviews/ (closed-ticket evidence)
 cbs.cbs     CBS's own self-hosting recipe (its pin necessarily lags a release)
 COPYING*    COPYING is GPLv3, COPYING.LESSER the LGPLv3: LGPL-3.0-or-later
 TRADEMARK   the Cix marks policy (TRADEMARK.md), separate from the licence
@@ -134,7 +134,7 @@ versioned boundary (`CBS_API_VERSION`, `CBS_ABI_VERSION`,
 | `cixpkg.c` | CIXPKG v2 write/verify/extract/list/diff. |
 | `package.c` | the build orchestration: `cbs_build_standalone*`, fingerprints, compress. |
 | `prune.c` | post-phase prune policy (strip-debug, static/libtool archives). |
-| `observe.c` | ELF `DT_NEEDED` observation. |
+| `observe.c` | ELF `DT_NEEDED` observation; a static executable observes as none (ADR-0039). |
 | `report.c` | `CbsBuildEvent` sinks (jsonl/human) and `CbsBuildReport`. |
 | `diag.c` | the one diagnostic emitter: human form and the `cbs.diagnostic/v2` envelope. |
 | `kconfig.c` | curated `CONFIG_*` y/m/n merge. Nothing else from kconfig text. |
@@ -365,7 +365,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 174 validation records. The records are
+   indexes of all 39 decisions and all 175 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

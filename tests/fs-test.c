@@ -4,6 +4,7 @@
 #include "cbs.h"
 #include "temp.h"
 
+#include <elf.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,6 +86,35 @@ static int write_regular(const char *path, const char *text) {
     if (file == NULL)
         return 0;
     ok = fputs(text, file) >= 0;
+    return fclose(file) == 0 && ok;
+}
+
+/* Write the smallest static executable the observer accepts: an ELF64 header
+ * and one loadable segment, with no dynamic section and no interpreter. */
+static int write_static_elf(const char *path) {
+    Elf64_Ehdr header;
+    Elf64_Phdr segment;
+    FILE *file = fopen(path, "wb");
+    int ok;
+
+    if (file == NULL)
+        return 0;
+    memset(&header, 0, sizeof(header));
+    memcpy(header.e_ident, ELFMAG, SELFMAG);
+    header.e_ident[EI_CLASS] = ELFCLASS64;
+    header.e_ident[EI_DATA] = ELFDATA2LSB;
+    header.e_ident[EI_VERSION] = EV_CURRENT;
+    header.e_type = ET_EXEC;
+    header.e_machine = EM_X86_64;
+    header.e_version = EV_CURRENT;
+    header.e_phoff = sizeof(header);
+    header.e_ehsize = sizeof(header);
+    header.e_phentsize = sizeof(segment);
+    header.e_phnum = 1;
+    memset(&segment, 0, sizeof(segment));
+    segment.p_type = PT_LOAD;
+    ok = fwrite(&header, sizeof(header), 1, file) == 1 &&
+         fwrite(&segment, sizeof(segment), 1, file) == 1;
     return fclose(file) == 0 && ok;
 }
 
@@ -338,6 +368,20 @@ static int run_test(const char *recipe_path) {
                  strstr(links_output,
                         "cannot inspect ELF dynamic dependencies") != NULL &&
                  strstr(links_output, "Exec format error") != NULL);
+
+        /* A static executable loads no shared library, so `forbids` is true of
+         * it and `needs` is not (#319, ADR-0039).  Before, both said `cannot
+         * inspect`, and a static-pie, which has a dynamic section, already
+         * answered this way: the same fact got two answers. */
+        CHECK_FS(path_join(path, sizeof(path), src, "static") &&
+                 write_static_elf(path));
+        CHECK_FS(run_links(&context, "${src}/static", "forbids", "libc.so.6",
+                           links_output, sizeof(links_output)) == 1);
+        CHECK_FS(run_links(&context, "${src}/static", "needs", "libc.so.6",
+                           links_output, sizeof(links_output)) == 0 &&
+                 strstr(links_output, "CPDL-E4005") != NULL &&
+                 strstr(links_output,
+                        "missing required library `libc.so.6`") != NULL);
     }
 
     path_join(path, sizeof(path), build, "input");

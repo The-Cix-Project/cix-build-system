@@ -4,7 +4,7 @@ An ADR records a decision, its rationale, its consequences, and any question
 left deliberately undecided. Once accepted, an ADR is not rewritten to hide a
 changed decision; a later ADR supersedes it, and ADR-0029 states that rule.
 
-This index is complete. All 38 records, in order:
+This index is complete. All 39 records, in order:
 
 - [ADR-0001](0001-cbs-and-cpdl.md) — Establish CBS and CPDL
 - [ADR-0002](0002-cbs-bootstrap-and-libraries.md) — Bootstrap CBS and permit linked base libraries
@@ -44,6 +44,7 @@ This index is complete. All 38 records, in order:
 - [ADR-0036](0036-stage-sandbox-libraries.md) — Staging shared libraries from the build sandbox
 - [ADR-0037](0037-cixpkg-payload-index.md) — CIXPKG staged-payload indexing
 - [ADR-0038](0038-multiple-package-outputs.md) — Several packages from one recipe
+- [ADR-0039](0039-links-on-a-static-executable.md) — `links` on a statically linked executable
 
 The decisions a newcomer needs first are ADR-0001 (why CBS and CPDL exist),
 ADR-0008 (the command surface and its exit statuses), and ADR-0015 (where CBS

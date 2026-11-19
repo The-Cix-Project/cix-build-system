@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.131, and the licence change
+# CBS v0.1.106 – v0.1.132, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-six releases of 2026-10-09 to
-2026-11-19, which closed thirty-six tracker issues.
+licence decision of 2026-10-23 and the twenty-seven releases of 2026-10-09 to
+2026-11-19, which closed thirty-seven tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -396,6 +396,31 @@ refusal, so a real cpio is not materialized as an opaque blob.
 
 Latent rather than live: no corpus source was a text config at the time.
 
+### `links` accepts a statically linked executable (v0.1.132, #319)
+
+`links` refused any ELF with no dynamic section, so `forbids "libc.so.6"` on a
+static executable failed with `CPDL-E4004` while the same assertion on a
+static-pie, which has a dynamic section and no `DT_NEEDED`, already passed. The
+answer depended on how the linker laid the file out and not on what it linked,
+and a recipe that builds a static binary had no way to assert anything about it.
+
+A file with no dynamic section is now observed as having no dependencies when
+its headers say completely that it is static: type `ET_EXEC`, at least one
+loadable segment and no interpreter. `forbids` passes on it and `needs` fails
+with `CPDL-E4005`, naming the library. A file that only looks static is still
+refused: one that names an interpreter but has no dynamic section (a dynamic
+executable that lost it), a shared or relocatable object without one, an
+executable with nothing loadable, and a header table that runs past the end of
+the file. The rule and its rejected alternatives are ADR-0039.
+
+This only turns failures into passes; no build that succeeds today can fail. The
+one visible difference is the diagnostic for `needs` on such a file, which is
+`CPDL-E4005` where it was `CPDL-E4004`; the exit status is 3 either way. None of
+the 14 corpus definitions that use `links` is affected (the one with `forbids`,
+`btop@1.4.7-3`, is a dynamic executable). `forbids` is a statement about
+`DT_NEEDED`, so a static binary that carries its own libc passes `forbids
+"libc.so.6"`, and a recipe cannot assert the absence of libc code with `links`.
+
 ## For cixd and other embedders
 
 ### The event stream can leave standard error
@@ -602,15 +627,15 @@ implementation accepts.
 `make -j1 test` is the gate: 52 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 90 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.131.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.132.
 
 The broader check is the recipe corpus, which is not in this repository:
 **2515 CPDL definitions across 258 distinct packages, all validating** against
-v0.1.131 at `origin/main` `844fa10b` on 2026-11-19, up from 1010 and 181 four
+v0.1.132 at `origin/main` `844fa10b` on 2026-11-19, up from 1010 and 181 four
 weeks earlier with no shell recipes remaining. The figure moved six times in one
 day on 2026-10-31 and has not stopped, which is why no living document carries
 it and it is quoted only here, in a dated record. Two of the facts the design
-leans on were re-counted at v0.1.131: still no definition declares `tools`, and
+leans on were re-counted at v0.1.131 and are unchanged at v0.1.132: still no definition declares `tools`, and
 `output` is now in 85 definitions, up from 80. The rest were last measured at
 v0.1.130 on 2026-11-16 and not re-measured here: those 80 were in 17 packages,
 `cix` the most, real recipes put `requires` in an output in about 70 definitions
@@ -716,7 +741,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#317 cover this
+decision, its evidence, and the acceptance criteria met: #282–#319 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

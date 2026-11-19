@@ -42,6 +42,7 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
     const Elf64_Phdr *dynamic = NULL;
     uint64_t string_address = 0, string_size = 0, string_offset;
     uint16_t i;
+    int interpreter = 0, loadable = 0;
     int result = 0;
     if (observer == NULL || path == NULL ||
         (file = fopen(path, "rb")) == NULL || fseek(file, 0, SEEK_END) != 0 ||
@@ -80,12 +81,26 @@ int cbs_observe_dependencies(CbsDependencyObserver observer, const char *path,
         const Elf64_Phdr *p =
             (const Elf64_Phdr *)(data + header->e_phoff +
                                  (uint64_t)i * header->e_phentsize);
-        if (p->p_type == PT_DYNAMIC) {
+        if (p->p_type == PT_DYNAMIC && dynamic == NULL)
             dynamic = p;
-            break;
-        }
+        else if (p->p_type == PT_INTERP)
+            interpreter = 1;
+        else if (p->p_type == PT_LOAD)
+            loadable = 1;
     }
-    if (dynamic == NULL || dynamic->p_filesz % sizeof(Elf64_Dyn) != 0 ||
+    /* A static executable loads no shared library, which is an answer, not a
+     * failure to find one (ADR-0039).  It is accepted only when its headers
+     * say so completely: an executable that is loaded as it stands, with
+     * nothing to load and no interpreter named.  An interpreter without a
+     * dynamic section is a dynamic executable whose section is missing, a shared
+     * object without one is not a shared object, and an executable with no
+     * loadable segment is not one at all, so each of those is still refused. */
+    if (dynamic == NULL) {
+        if (header->e_type == ET_EXEC && loadable && !interpreter)
+            result = 1;
+        goto done;
+    }
+    if (dynamic->p_filesz % sizeof(Elf64_Dyn) != 0 ||
         !range_ok((size_t)length, dynamic->p_offset, dynamic->p_filesz))
         goto done;
     for (i = 0; i < dynamic->p_filesz / sizeof(Elf64_Dyn); ++i) {
