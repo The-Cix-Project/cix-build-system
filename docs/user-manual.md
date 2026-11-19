@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.132 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.133 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -883,7 +883,11 @@ already exist.
 
 Privileged file modes are denied by default. If a package intentionally ships
 one, declare its exact staged path and mode at package scope, for example
-`privileged file "${dest}/usr/libexec/ssh-keysign" mode 04711`.
+`privileged file "${dest}/usr/libexec/ssh-keysign" mode 04711`. The declaration
+and the staged file must agree: a declaration whose path is not staged, is not a
+regular file, or is staged at a different mode fails the build with `CPDL-E4007`
+and writes no artifact, so an allowance that no longer describes the artifact
+cannot linger.
 
 `copy` is not recursive. `move` stays within the CBS filesystem and does not
 fall back to copy-and-delete across filesystems. `remove tree` is required for

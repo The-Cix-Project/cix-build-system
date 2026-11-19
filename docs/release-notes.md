@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.132, and the licence change
+# CBS v0.1.106 – v0.1.133, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-seven releases of 2026-10-09 to
-2026-11-19, which closed thirty-seven tracker issues.
+licence decision of 2026-10-23 and the twenty-eight releases of 2026-10-09 to
+2026-11-19, which closed thirty-eight tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -544,6 +544,20 @@ already matched the documented meaning of the number it carried. If you matched
 the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
 matches neither prefix.
 
+**A `privileged` declaration that matched nothing was accepted (v0.1.133,
+#318).** The specification says the declared path must resolve to one file and
+the staged entry must match it exactly, but only the converse was enforced: a
+setuid entry with no declaration was refused, while a declaration for a path that
+did not exist, or staged at a different mode, built silently. It now fails the
+build with `CPDL-E4007`, naming which of three it is (no such path, not a regular
+file, a different mode), and writes no artifact. It was held for a release
+because it turns builds that succeed today into failures, and cix was asked. The
+corpus has six declarations; five have published artifacts whose manifests show
+the declared path and mode, and the sixth (`probe-privmkdir@2`) was built with
+the new engine from its real source and stages 4711. None changes. A rebuild of
+openssh and linux-pam was not run, since it needs their full dependencies; their
+published manifests are what those builds staged.
+
 **A manifest line could be forged through a recipe path, a source URL, a tool
 alias and a staged directory name (v0.1.131, #316).** The manifest is
 line-oriented, so a value holding a line break ends its own line and begins
@@ -631,14 +645,14 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 52 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 53 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 90 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.132.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.133.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2515 CPDL definitions across 258 distinct packages, all validating** against
-v0.1.132 at `origin/main` `844fa10b` on 2026-11-19, up from 1010 and 181 four
+**2519 CPDL definitions across 258 distinct packages, all validating** against
+v0.1.133 at `origin/main` `056e97ec` on 2026-11-19, up from 1010 and 181 four
 weeks earlier with no shell recipes remaining. The figure moved six times in one
 day on 2026-10-31 and has not stopped, which is why no living document carries
 it and it is quoted only here, in a dated record. Two of the facts the design
@@ -748,7 +762,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#319 cover this (#318 is open and has no record)
+decision, its evidence, and the acceptance criteria met: #282–#319 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

@@ -230,6 +230,48 @@ static int collect(const char *root, const char *relative,
     return 1;
 }
 
+/* Collect the staged root as the manifest records it, then require every
+ * privileged declaration to have been used.  The specification says the path
+ * "must resolve to one file" and the staged entry "must match it exactly"; the
+ * reverse was enforced and this was not, so a declaration for a path that does
+ * not exist, or whose staged mode differs, was accepted silently (#318). */
+static int collect_declared(const char *root, CbsManifestEntry **items,
+                            size_t *count, size_t *capacity,
+                            const CbsPrivilegedAllowance *allowances,
+                            size_t allowance_count, char *error,
+                            size_t error_size) {
+    size_t declared, index;
+
+    if (!collect(root, "", items, count, capacity, allowances,
+                 allowance_count, 0, error, error_size))
+        return 0;
+    for (declared = 0; declared < allowance_count; ++declared) {
+        const CbsPrivilegedAllowance *allowance = &allowances[declared];
+        const CbsManifestEntry *found = NULL;
+        for (index = 0; index < *count; ++index)
+            if (strcmp((*items)[index].path, allowance->path) == 0)
+                found = &(*items)[index];
+        if (found == NULL)
+            set_error(error, error_size,
+                      "privileged declaration for %s matches no staged path",
+                      allowance->path);
+        else if (found->type != 'f')
+            set_error(error, error_size,
+                      "privileged declaration for %s names something that is "
+                      "not a regular file",
+                      allowance->path);
+        else if (found->mode != allowance->mode)
+            set_error(error, error_size,
+                      "privileged declaration for %s says mode %04o but the "
+                      "staged file has mode %04o",
+                      allowance->path, allowance->mode, found->mode);
+        else
+            continue;
+        return 0;
+    }
+    return 1;
+}
+
 /* Encode a symlink target as lowercase hexadecimal bytes. */
 static int write_target(FILE *file, const char *target) {
     static const char hex[] = "0123456789abcdef";
@@ -349,8 +391,8 @@ int cbs_manifest_write_outputs(const char *root,
     /* One walk, then partition.  Walking per output would let two manifests
      * disagree about ordering or a digest, the reasoning ADR-0037 applied to
      * the payload index. */
-    if (!collect(root, "", &items, &count, &capacity, allowances,
-                 allowance_count, 0, error, error_size))
+    if (!collect_declared(root, &items, &count, &capacity, allowances,
+                          allowance_count, error, error_size))
         goto done;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     owner = cbs_allocate(count == 0 ? 1 : count * sizeof(*owner));
@@ -416,8 +458,8 @@ int cbs_manifest_write_with_license_policy_error(
     FILE *file;
     if (error != NULL && error_size > 0)
         error[0] = '\0';
-    if (!collect(root, "", &items, &count, &capacity, allowances,
-                 allowance_count, 0, error, error_size))
+    if (!collect_declared(root, &items, &count, &capacity, allowances,
+                          allowance_count, error, error_size))
         goto fail;
     qsort(items, count, sizeof(*items), cbs_manifest_compare);
     file = fopen(output, "wb");
@@ -518,8 +560,8 @@ int cbs_manifest_collect_with_policy_error(
     *count = 0;
     if (error != NULL && error_size > 0)
         error[0] = '\0';
-    if (!collect(root, "", entries, count, &capacity, allowances,
-                 allowance_count, 0, error, error_size)) {
+    if (!collect_declared(root, entries, count, &capacity, allowances,
+                          allowance_count, error, error_size)) {
         cbs_manifest_entries_destroy(*entries, *count);
         *entries = NULL;
         *count = 0;

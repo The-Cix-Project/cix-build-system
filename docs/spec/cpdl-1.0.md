@@ -751,7 +751,9 @@ package "openssh" {
 The path must resolve to one file beneath the staged destination and may not
 be a glob. The mode must include `setuid` or `setgid`, and the staged entry
 must match it exactly. Every privileged entry without a matching declaration
-is rejected during manifest construction. The mode is retained in the typed
+is rejected during manifest construction, and so is every declaration with no
+matching entry: a path that is not staged, is not a regular file, or is staged at
+a different mode (`CPDL-E4007`, since v0.1.133). The mode is retained in the typed
 manifest for installer policy decisions.
 
 Paths are interpreted by CBS, never by a shell. A glob selector is evaluated by

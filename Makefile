@@ -105,6 +105,7 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/output-items-test.sh ./$(TARGET)
 	./tests/manifest-line-test.sh ./$(TARGET)
 	./tests/package-items-test.sh ./$(TARGET)
+	./tests/privileged-declaration-test.sh ./$(TARGET)
 	./tests/doctor-test.sh ./$(TARGET)
 	./tests/install-contract-test.sh
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \
