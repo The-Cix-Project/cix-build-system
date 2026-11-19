@@ -421,6 +421,13 @@ the 14 corpus definitions that use `links` is affected (the one with `forbids`,
 `DT_NEEDED`, so a static binary that carries its own libc passes `forbids
 "libc.so.6"`, and a recipe cannot assert the absence of libc code with `links`.
 
+**For embedders:** `cbs_observe_dependencies` is in the installed header, and
+for a static executable it now returns 1 with no callback where it returned 0.
+`CBS_API_VERSION` and `CBS_ABI_VERSION` are unchanged because no signature or
+layout changed, so the difference is in behaviour only; a caller that treated 0
+as "skip this file" will now see 1 and zero observations. `docs/library.md`
+states it.
+
 ## For cixd and other embedders
 
 ### The event stream can leave standard error
@@ -741,7 +748,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#319 cover this
+decision, its evidence, and the acceptance criteria met: #282–#319 cover this (#318 is open and has no record)
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

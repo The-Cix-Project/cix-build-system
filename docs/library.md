@@ -7,6 +7,16 @@ dependency-observation, and signature-verification APIs. Recipe lexer/parser
 tokens, AST node layouts, and the internal execution structures in
 `src/cbs.h` are private and are not installed as library ABI.
 
+`cbs_observe_dependencies(observer, path, user)` calls `observer` once for each
+`DT_NEEDED` entry of the ELF64 file at `path` and returns 1 when the whole file
+was observed. A statically linked executable (type `ET_EXEC`, a loadable
+segment, no interpreter, no dynamic section) is observed as having no
+dependencies, so since v0.1.132 it returns 1 without calling `observer`, where it
+returned 0 before (ADR-0039). A caller that treated 0 as "cannot read this file"
+should expect to see 1 for such a file. Any other file it cannot read as an ELF64
+object returns 0 with `errno` set to `ENOEXEC`. `CBS_API_VERSION` and
+`CBS_ABI_VERSION` did not change: no signature or layout did.
+
 The current artifact is a static archive only: the build produces `libcbs.a`,
 not `libcbs.so`, and there is no plugin-loader protocol in this repository.
 The supported cixd first slice is therefore a parent process invoking the

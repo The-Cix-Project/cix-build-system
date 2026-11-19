@@ -250,7 +250,7 @@ Touch the chain in order, or validation and execution drift apart:
 4. `src/main.c` — report it in `explain --json` if embedders need it.
 5. `tests/fixtures/valid/` **and** `tests/fixtures/invalid/` — a rejection
    fixture may carry a sibling `.expect` file holding the required diagnostic
-   text (18 of the 59 invalid fixtures do).
+   text (many do; the count was wrong within a month, so none is kept here).
 6. A focused test, wired into the `test:` target in the `Makefile` with its exact
    object list, run, then `rm -f`.
 7. `docs/spec/cpdl-1.0.md` (§2.4 keyword set, §3.1 grammar, §8.2 codes) and

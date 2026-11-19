@@ -76,3 +76,9 @@ The writer refuses a line break and nothing else. Whitespace in a recorded
 value that is not a line break (a space in the recipe path, for instance) is
 recorded as given, because a path with a space is legitimate and the reader
 takes the rest of the line as the value.
+
+The cause shown for a refused provenance line is chosen by `errno == EINVAL`
+after the append fails, with `errno` cleared before the call. The writer sets
+`EINVAL` only for a line break, but nothing stops a later call in that function
+from leaving `EINVAL` behind before an unrelated failure, which would print the
+wrong cause. The refusal itself is not affected, only the sentence naming it.
