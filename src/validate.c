@@ -79,6 +79,13 @@ static int valid_environment_name(const char *name) {
     return 1;
 }
 
+/* A value the manifest records on one line: nothing a reader would split on.
+ * The writer refuses a line break as the floor (#316); this gives the recipe
+ * author a located diagnostic instead of a late build failure. */
+static int single_line_token(const char *value) {
+    return value != NULL && strpbrk(value, " \t\r\n") == NULL;
+}
+
 /* Check that a source digest is exactly 64 hexadecimal characters. */
 static int valid_sha256(const char *hash) {
     size_t index;
@@ -974,6 +981,9 @@ static void validate_sources(Validator *validator, const CbsNode *sources) {
                     strstr(url->value, "://") == NULL)
                     validation_error(validator, url, "CPDL-E3004",
                                      "source URL must be absolute");
+                else if (!single_line_token(url->value))
+                    validation_error(validator, url, "CPDL-E3004",
+                                     "source URL must not contain whitespace");
             }
             if (hash->kind != CBS_NODE_SHA256 || hash->value == NULL ||
                 !valid_sha256(hash->value))
@@ -1364,7 +1374,8 @@ static void validate_package(Validator *validator) {
                     validation_error(validator, tool, "CPDL-E3004",
                                      "tool policy must be an alias");
                 if (tool->value == NULL || tool->value[0] == '\0' ||
-                    strchr(tool->value, '/') != NULL)
+                    strchr(tool->value, '/') != NULL ||
+                    !single_line_token(tool->value))
                     validation_error(validator, tool, "CPDL-E3004",
                                      "tool alias name must be bare");
                 for (earlier_tool = 0; earlier_tool < tool_index;

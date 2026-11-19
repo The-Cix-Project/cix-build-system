@@ -103,6 +103,8 @@ test: $(TARGET) upstream-test recipe-test
 	./tests/workspace-diagnostic-test.sh ./$(TARGET)
 	./tests/multi-output-test.sh ./$(TARGET)
 	./tests/output-items-test.sh ./$(TARGET)
+	./tests/manifest-line-test.sh ./$(TARGET)
+	./tests/package-items-test.sh ./$(TARGET)
 	./tests/doctor-test.sh ./$(TARGET)
 	./tests/install-contract-test.sh
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exec-test.c \

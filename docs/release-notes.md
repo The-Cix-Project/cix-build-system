@@ -1,8 +1,8 @@
-# CBS v0.1.106 – v0.1.130, and the licence change
+# CBS v0.1.106 – v0.1.131, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-five releases of 2026-10-09 to
-2026-11-16, which closed thirty-four tracker issues.
+licence decision of 2026-10-23 and the twenty-six releases of 2026-10-09 to
+2026-11-19, which closed thirty-six tracker issues.
 
 Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
 the ones that change what cixd sees from a build it already runs today.
@@ -512,6 +512,30 @@ already matched the documented meaning of the number it carried. If you matched
 the `CBS-E3` spelling literally, match `CPDL-E3` instead; cixd was asked and
 matches neither prefix.
 
+**A manifest line could be forged through a recipe path, a source URL, a tool
+alias and a staged directory name (v0.1.131, #316).** The manifest is
+line-oriented, so a value holding a line break ends its own line and begins
+another, in an artifact that still verifies; #313 had closed the one reachable
+through an output's `license` and left the writer itself as a larger decision.
+Four more were open and each was reproduced: the recipe path given to `cbs
+build` (a composer value, so no recipe rule could see it), a source URL, a
+`tools` alias, and the name of a staged directory, which wrote `metadata forged
+yes` into an artifact that still listed. A staged file name with a line break
+wrote an artifact that then failed verification. A first reading of this fix
+called the staged names "already refused"; the probe behind that had forged a
+file that did not exist, and a review caught it.
+
+Every `m` line is now written by one function, `cbs_manifest_line`, which
+refuses a CR or LF in the line it formats, and every entry is refused at the
+point it is made if its path holds one. A build whose recorded values or staged
+paths contain one fails, with `CPDL-E4001` or `CPDL-E4007`, and writes no
+artifact. The two recipe values are also refused at validation with a located
+`CPDL-E3004`, and a source URL or alias with whitespace was never legitimate.
+The corpus recipes are unaffected: all 2515 definitions at `origin/main` still
+validate. What was not measured is whether any real build stages a path with a
+line break, because only the recipes were validated and none was built. This
+adds no capability; it is the floor under the manifest.
+
 **`explain` dropped an output's own `replaces` (v0.1.130, #314).** Each
 `outputs[]` entry now carries a `"replaces"` array, empty when it declares none,
 so an orchestrator reads a takeover declared on an output from that output's own
@@ -534,7 +558,8 @@ recipe author forge any key in that output's manifest, `build_fingerprint`
 included. Outputs now get the package's rules, from the same functions, with at
 most one of each item, reported as `CPDL-E3001`, `E3002` or `E3004`. No corpus
 definition was affected. The manifest writer itself still writes whatever it is
-handed; that is recorded in the issue as a larger decision, not fixed here.
+handed; that is recorded in the issue as a larger decision, not fixed here
+(closed in v0.1.131, #316).
 
 **`links` on a file that is not an ELF object printed an unrelated cause
 (v0.1.128, #310).** The assertion correctly failed, but its diagnostic said
@@ -574,23 +599,23 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 50 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 52 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
-checkout. The parser and validation suite is 88 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.130.
+checkout. The parser and validation suite is 90 cases, and they also pass under
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.131.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2471 CPDL definitions across 256 distinct packages, all validating** against
-v0.1.130 at `origin/main` `2da18172` on 2026-11-16, up from 1010 and 181 three
+**2515 CPDL definitions across 258 distinct packages, all validating** against
+v0.1.131 at `origin/main` `844fa10b` on 2026-11-19, up from 1010 and 181 four
 weeks earlier with no shell recipes remaining. The figure moved six times in one
 day on 2026-10-31 and has not stopped, which is why no living document carries
-it and it is quoted only here, in a dated record. The facts the design leans on
-were re-measured: still no definition declares `tools`, and `output`, which was
-in three definitions of one package on 2026-11-03, is now in 80 definitions of
-17 packages, `cix` the most. Real recipes put `requires` in an output in about
-70 definitions and `replaces` in 3, and none puts `license` or `abi` there yet.
-All 80 were also run through `explain`, and each reports `replaces` on every
-entry.
+it and it is quoted only here, in a dated record. Two of the facts the design
+leans on were re-counted at v0.1.131: still no definition declares `tools`, and
+`output` is now in 85 definitions, up from 80. The rest were last measured at
+v0.1.130 on 2026-11-16 and not re-measured here: those 80 were in 17 packages,
+`cix` the most, real recipes put `requires` in an output in about 70 definitions
+and `replaces` in 3, none put `license` or `abi` there, and all 80 were run
+through `explain`, each reporting `replaces` on every entry.
 
 The real-package qualification — build zstd twice, require byte-identical
 artifacts — is the one gate step that does not run by default; it needs
@@ -654,6 +679,20 @@ value), not against source text, and it fails on the engines from `v0.1.129` and
 `v0.1.128` exactly where the defects were. Adding an item to `output` without a
 row now fails the build.
 
+v0.1.131 applies the same gate to the package's own items (#317):
+`tests/package-items-test.sh`, 17 rows, each declared, validated, explained,
+built and listed, with a slot column because package items are declared in a
+fixed order. It found no defect in the item set, which is why it is a gate and
+not a fix; it recorded two things as decisions, that the manifest's `toolchain`
+line is the compiler named in `requires` and not the `toolchain` declaration,
+and that `explain` does not report a `privileged` allowance. Building the
+`privileged` row did find a defect, filed as #318 and **not** fixed here: a
+`privileged file` declaration that matches no staged entry, or whose mode
+differs from the staged mode, is accepted, although the specification says the
+path must resolve to one file and match exactly. Fixing it would make builds
+that succeed today fail, so it waits for cix to say whether any recipe relies on
+a conditional allowance.
+
 v0.1.128 closes the gap that was listed last: **absences** (#310). The
 specification reserves a set of keywords, so the gate now requires each to be
 shown as code in the manual. The first run found five implemented constructs the
@@ -677,7 +716,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#315 cover this
+decision, its evidence, and the acceptance criteria met: #282–#317 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

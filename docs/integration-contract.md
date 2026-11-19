@@ -252,6 +252,11 @@ Approval is the repository's concern. CBS's part is that the fingerprint is in
 every artifact's metadata and the digests are in `explain` and the events, so
 an approval naming the action can be checked against each artifact.
 
+The recipe path an embedder gives `cbs build` is recorded verbatim as
+`metadata recipe`, and the manifest is line-oriented, so a path containing a
+line break fails the build with `CPDL-E4001` and writes no artifact. A staged
+path containing one fails with `CPDL-E4007` for the same reason.
+
 ## The ABI a package offers
 
 A package may declare the ABI it offers to the packages that build against it

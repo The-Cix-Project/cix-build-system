@@ -685,40 +685,41 @@ static int append_provenance(const char *manifest, const char *recipe,
     file = fopen(manifest, "ab");
     if (file == NULL)
         return 0;
-    if (fprintf(file, "m recipe %s\n", recipe) < 0 ||
-        fprintf(file, "m recipe_sha256 %s\n", digest) < 0 ||
+    if (!cbs_manifest_line(file, "recipe %s", recipe) ||
+        !cbs_manifest_line(file, "recipe_sha256 %s", digest) ||
         (fingerprint_available
-             ? fprintf(file, "m build_fingerprint %s\n", fingerprint)
-             : fprintf(file, "m build_fingerprint unavailable\n")) < 0 ||
+             ? cbs_manifest_line(file, "build_fingerprint %s", fingerprint)
+             : cbs_manifest_line(file, "build_fingerprint unavailable")) ==
+            0 ||
         (!fingerprint_available && fingerprint_reason[0] != '\0' &&
-         fprintf(file, "m build_fingerprint_reason %s\n",
-                 fingerprint_reason) < 0) ||
+         !cbs_manifest_line(file, "build_fingerprint_reason %s",
+                            fingerprint_reason)) ||
         (finalize_path != NULL &&
-         fprintf(file, "m finalizer %s\n", finalize_path) < 0) ||
-        (abi != NULL && fprintf(file, "m abi %s\n", abi) < 0) ||
-        fprintf(file, "m cbs_version %s\n", CBS_VERSION) < 0 ||
-        fprintf(file, "m architecture %s\n", context->arch) < 0 ||
-        fprintf(file, "m toolchain %s\n", context->compiler == NULL
-                                               ? "none"
-                                               : context->compiler) < 0)
+         !cbs_manifest_line(file, "finalizer %s", finalize_path)) ||
+        (abi != NULL && !cbs_manifest_line(file, "abi %s", abi)) ||
+        !cbs_manifest_line(file, "cbs_version %s", CBS_VERSION) ||
+        !cbs_manifest_line(file, "architecture %s", context->arch) ||
+        !cbs_manifest_line(file, "toolchain %s",
+                           context->compiler == NULL ? "none"
+                                                     : context->compiler))
         goto failure;
     if (context->tool_policy != NULL) {
         if (context->tool_target != NULL &&
-            fprintf(file, "m tool_policy_target compiler %s\n",
-                    context->tool_target) < 0)
+            !cbs_manifest_line(file, "tool_policy_target compiler %s",
+                               context->tool_target))
             goto failure;
         for (index = 0; index < context->tool_policy->child_count; ++index) {
             const CbsNode *tool = context->tool_policy->children[index];
-            if (fprintf(file, "m tool_policy %s alias %s\n", tool->name,
-                        tool->value) < 0)
+            if (!cbs_manifest_line(file, "tool_policy %s alias %s",
+                                   tool->name, tool->value))
                 goto failure;
         }
     }
     for (index = 0; index < sources->count; ++index) {
         const CbsSource *source = &sources->items[index];
         if (source->url_count == 0 ||
-            fprintf(file, "m source %s %s %s\n", source->name,
-                    source->urls[0], source->sha256) < 0)
+            !cbs_manifest_line(file, "source %s %s %s", source->name,
+                               source->urls[0], source->sha256))
             goto failure;
     }
     return fclose(file) == 0;
@@ -1157,7 +1158,7 @@ static int append_abi_line(const char *manifest, const char *abi) {
     file = fopen(manifest, "ab");
     if (file == NULL)
         return 0;
-    ok = fprintf(file, "m abi %s\n", abi) >= 0;
+    ok = cbs_manifest_line(file, "abi %s", abi);
     return fclose(file) == 0 && ok;
 }
 
@@ -1282,10 +1283,12 @@ int cbs_package_staged_tree(const char *staged_root,
         goto done;
     metadata = fopen(manifest, "ab");
     if (metadata == NULL ||
-        fprintf(metadata, "m cbs_version %s\n", CBS_VERSION) < 0 ||
-        fprintf(metadata, "m architecture %s\n", identity->architecture) < 0 ||
-        fprintf(metadata, "m identity %s\n", identity_text) < 0 ||
-        fprintf(metadata, "m staged_tree 1\n") < 0 || fclose(metadata) != 0) {
+        !cbs_manifest_line(metadata, "cbs_version %s", CBS_VERSION) ||
+        !cbs_manifest_line(metadata, "architecture %s",
+                           identity->architecture) ||
+        !cbs_manifest_line(metadata, "identity %s", identity_text) ||
+        !cbs_manifest_line(metadata, "staged_tree 1") ||
+        fclose(metadata) != 0) {
         if (metadata != NULL)
             fclose(metadata);
         metadata = NULL;
@@ -1577,6 +1580,7 @@ static int run_build_pipeline(
             struct stat manifest_status;
             if (lstat(out->manifest_path, &manifest_status) != 0)
                 continue; /* main with nothing left over: not emitted */
+            errno = 0;
             if (!append_provenance(out->manifest_path, recipe, text, &sources,
                                    document, &context,
                                    finalize == NULL ? NULL : finalize_identity,
@@ -1584,7 +1588,9 @@ static int run_build_pipeline(
                                    fingerprint_available, material_reason,
                                    out->abi)) {
                 pipeline_error(recipe, text, document->location, "provenance",
-                               "cannot append build provenance");
+                               errno == EINVAL
+                                   ? "a recorded value contains a line break"
+                                   : "cannot append build provenance");
                 ok = 0;
             }
         }

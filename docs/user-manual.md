@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.130 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.131 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -1167,6 +1167,14 @@ instead; section 11.7 has the rules.
 `build_fingerprint_reason`), `cbs_version`, `architecture`, `toolchain`,
 `finalizer` when one ran, the `license` and `abi` when declared, and for a
 recipe with `tools` the resolved `tool_policy_target`.
+
+A recorded value or a staged path cannot contain a line break, because the
+manifest is line-oriented and a line break would begin a forged line. A source
+URL or a tool alias with whitespace is refused at validation. A recipe path with
+a line break fails `build` with `CPDL-E4001` (`provenance: a recorded value
+contains a line break`), and a staged file or directory whose name has one fails
+with `CPDL-E4007` (`a staged path contains a line break`); neither writes an
+artifact.
 
 The artifact contains a sorted typed manifest and a compressed regular-file
 payload. CIXPKG v2 represents regular files, directories (including empty

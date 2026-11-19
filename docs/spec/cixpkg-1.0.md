@@ -33,7 +33,9 @@ normalized ownership (`uid=0 gid=0`):
 
 A writer emits its metadata lines before the first entry. A key is a token of
 at most 31 bytes; a value is the remainder of the line, at most 4095 bytes, and
-must not be empty. Readers accept any key and must not treat an unrecognized
+must not be empty. No metadata value and no path contains a carriage return or
+line feed, because either would end its own line and begin a forged one; a
+writer refuses rather than escapes, and CBS fails the build. Readers accept any key and must not treat an unrecognized
 one as corruption, so a later CBS release can record a new fact without a
 format version; an unknown key is carried through rather than interpreted. CPDL
 1.0 defines one key, `license`, written when the recipe declares one (see

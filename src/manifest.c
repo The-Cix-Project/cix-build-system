@@ -65,6 +65,12 @@ static int safe_link_target(const char *relative, const char *target) {
     return 1;
 }
 
+/* The manifest is line-oriented, so a path holding a CR or LF would end its
+ * own entry and begin a forged one (#316). */
+static int has_line_break(const char *text) {
+    return strpbrk(text, "\r\n") != NULL;
+}
+
 /* Append one validated entry while growing the manifest array. */
 static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      const char *path, char type, mode_t mode,
@@ -73,6 +79,12 @@ static int add_entry(CbsManifestEntry **items, size_t *count, size_t *capacity,
                      size_t allowance_count, int material, char *error,
                      size_t error_size) {
     CbsManifestEntry *entry;
+    if (!material && has_line_break(path)) {
+        set_error(error, error_size,
+                  "a staged path contains a line break; the manifest is "
+                  "line-oriented and cannot record it");
+        return 0;
+    }
     if (!material && unsafe_mode(mode) &&
         !allowance_matches(path, mode, allowances, allowance_count)) {
         set_error(error, error_size,
@@ -230,8 +242,44 @@ static int write_target(FILE *file, const char *target) {
     return 1;
 }
 
-/* Serialize one typed manifest entry. */
+/* Write one `m` line, refusing a line break in it; see cbs.h. */
+int cbs_manifest_line(FILE *file, const char *format, ...) {
+    va_list args;
+    char stack[512];
+    char *line = stack;
+    int length;
+    int ok;
+
+    va_start(args, format);
+    length = vsnprintf(stack, sizeof(stack), format, args);
+    va_end(args);
+    if (length < 0)
+        return 0;
+    if ((size_t)length >= sizeof(stack)) {
+        line = cbs_allocate((size_t)length + 1);
+        va_start(args, format);
+        vsnprintf(line, (size_t)length + 1, format, args);
+        va_end(args);
+    }
+    if (has_line_break(line)) {
+        errno = EINVAL;
+        ok = 0;
+    } else {
+        ok = fprintf(file, "m %s\n", line) >= 0;
+    }
+    if (line != stack)
+        free(line);
+    return ok;
+}
+
+/* Serialize one typed manifest entry.  The path is the last field of the line,
+ * so only a line break in it can forge another; refused here as the floor under
+ * the check at collection. */
 static int write_entry(FILE *file, const CbsManifestEntry *entry) {
+    if (has_line_break(entry->path)) {
+        errno = EINVAL;
+        return 0;
+    }
     if (entry->type == 'f')
         return fprintf(file, "f %o 0 0 %llu %s %s\n", entry->mode, entry->size,
                        entry->digest, entry->path) >= 0;
@@ -338,7 +386,7 @@ int cbs_manifest_write_outputs(const char *root,
             goto done;
         }
         if (spec->license != NULL &&
-            fprintf(file, "m license %s\n", spec->license) < 0) {
+            !cbs_manifest_line(file, "license %s", spec->license)) {
             fclose(file);
             goto done;
         }
@@ -378,7 +426,7 @@ int cbs_manifest_write_with_license_policy_error(
                   strerror(errno));
         goto fail;
     }
-    if (license != NULL && fprintf(file, "m license %s\n", license) < 0) {
+    if (license != NULL && !cbs_manifest_line(file, "license %s", license)) {
         fclose(file);
         goto fail;
     }

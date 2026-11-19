@@ -352,6 +352,13 @@ does not claim that arbitrary toolchains produce bit-identical output, but it
 provides this stable epoch and deterministic packaging boundary for tools that
 honor it.
 
+The manifest is line-oriented, so every `m` line is written by one function
+that refuses a carriage return or line feed in the line it formats; a build
+whose recorded values contain one fails and writes no artifact. The values a
+recipe names are refused earlier, at validation. The values it does not name
+outright are the recipe path the composer supplies and the paths of the files it
+stages, and a staged path containing a line break fails the build.
+
 CIXPKG manifests also record provenance metadata: the recipe path and digest,
 CBS version, architecture, declared toolchain, and each declared source's
 name, first URL, and SHA-256. The recipe digest covers the published recipe
@@ -362,7 +369,8 @@ under the generated build-tool directory. CBS resolves every target through
 the same explicit command-path policy used by `run`, then prepends the
 generated directory to PATH for the complete build. Resolution happens before
 the first phase, so a missing target rejects the build without running any
-phase. Recipes may not override `PATH`; they must use `tools`.
+phase. Recipes may not override `PATH`; they must use `tools`. An alias name
+is a bare name with no `/` and no whitespace.
 
 `license` is an optional SPDX expression carried into the artifact manifest as
 an `m license <expression>` line; it must be a non-empty single-line string.
@@ -437,7 +445,7 @@ processing they must match the package-name pattern above. Source declarations
 must place `url` before `sha256`, each exactly once.
 
 URLs are ordered mirrors for one source identity and share its one paired
-checksum. URLs must be absolute and use a scheme enabled by CBS policy. The grammar does
+checksum. URLs must be absolute, must contain no whitespace, and use a scheme enabled by CBS policy. The grammar does
 not select permitted network schemes. A SHA-256 value must contain exactly 64
 lowercase hexadecimal digits.
 

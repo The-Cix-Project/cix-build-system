@@ -60,7 +60,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 50 test groups, offline-clean
+make -j1 test        # the full gate: 52 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -231,6 +231,9 @@ implemented.
   `tests/temp.h`, `plan.c:cbs_execute_plan`). Don't add narration.
 - Fail closed. A rejected event, a failed finalizer, or an unverifiable digest
   aborts the build and writes no artifact.
+- Every `m` manifest line is written through `cbs_manifest_line`, which refuses a
+  CR or LF. The manifest is line-oriented; a raw `fprintf(…, "m …")` is how a
+  value forges a line (#313, #316).
 - Never widen `src/cbs_public.h` casually. New capability goes on a new
   `…_with_*` entry point (see the `cbs_build_standalone_*` chain) so existing
   callers keep their signature; bump `CBS_ABI_VERSION` when the layout changes.
@@ -257,7 +260,9 @@ Touch the chain in order, or validation and execution drift apart:
    omission recurred three times (#313, #314, and `license` missing from
    `explain`). The test derives the item list from `parse_output`, fails until
    the new item has a row, and makes every "this consumer does not carry it" a
-   written decision with a reason. An architectural change needs a new ADR first
+   written decision with a reason. **A package-level item** likewise needs a
+   row in `tests/package-items-test.sh` (#317), whose rows carry a slot because
+   package items are declared in a fixed order. An architectural change needs a new ADR first
    — ADRs are never rewritten, only superseded (ADR-0029).
 
 ## AST field conventions
@@ -360,7 +365,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 38 decisions and all 172 validation records. The records are
+   indexes of all 38 decisions and all 174 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

@@ -386,6 +386,12 @@ int cbs_manifest_collect_with_error(const char *root,
                                     size_t error_size);
 /* Release a manifest-entry array and its owned strings. */
 void cbs_manifest_entries_destroy(CbsManifestEntry *entries, size_t count);
+/* Write one `m` metadata line.  The manifest is line-oriented, so a value with
+ * a CR or LF would end the line and begin a forged one in an artifact that
+ * still verifies (#313, #316).  Every `m` line goes through here: it returns 0
+ * with errno set to EINVAL when the formatted line holds a line break, and
+ * writes nothing. */
+int cbs_manifest_line(FILE *file, const char *format, ...);
 /* Write a deterministic typed manifest for a staged root. */
 int cbs_manifest_write(const char *root, const char *output);
 int cbs_manifest_write_with_license(const char *root, const char *output,
