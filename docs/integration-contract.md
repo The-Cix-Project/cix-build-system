@@ -97,6 +97,15 @@ the same `--arch`, `--command-path`, `--library-path`, `--input` and
 `--firmware-root`. Every input that enters the key can be given to the verb, so
 a key is knowable before a build with no exceptions to remember (#305).
 
+`${jobs}` is the one thing that varies by host and is deliberately not in that
+key. It is the concurrency the build may use: `build --jobs N` sets it exactly,
+and unset, CBS derives it from the cgroup v2 `cpu.max` quota and the CPU
+affinity mask of its own process (#320). That is one process's view, so a
+composer that runs several builds under one shared quota, or inside a container
+with no cgroup mount, should pass `--jobs` from the budget it holds. `--jobs` is
+`build` only; `fingerprint` and `doctor` refuse it, since the key does not
+depend on it.
+
 The key binds each executable the recipe runs by digest, resolved through the
 approved command path; it does not hash the rest of the path. A firmware root
 and a tool directory are bound by content.

@@ -1,6 +1,6 @@
 # CBS user manual
 
-This manual describes CBS v0.1.133 and the CPDL 1.0/CIXPKG v2 interfaces shipped
+This manual describes CBS v0.1.134 and the CPDL 1.0/CIXPKG v2 interfaces shipped
 with that release. For an installed system, confirm the binary with
 `cbs --version`; keep the executable, `libcbs.a`, and `cbs/cbs.h` from the same
 release when embedding the library.
@@ -342,7 +342,33 @@ The remaining build options are for callers embedding CBS in a larger system:
                           default is `/usr/bin:/bin`, with no ambient PATH
 --library-path DIRS       use these colon-separated absolute library roots;
                           default is `/usr/lib:/lib:/usr/lib64:/lib64`
+--jobs N                  bind `${jobs}` to N, a positive integer, exactly as
+                          given; unset, CBS chooses it (see below)
 ```
+
+`${jobs}` is the concurrency a build may use, and a recipe passes it to its tool
+explicitly, as in `"-j${jobs}"`. Unset, CBS derives it from the CPU the build
+may actually use: the cgroup v2 `cpu.max` quota of the process's cgroup and of
+each ancestor, rounded up and taking the smallest, and the CPU affinity mask,
+whichever is smaller, and 1 if neither can be read. A quota of `800000 100000`
+is eight, `50000 100000` is one, and `max` says nothing, so the next source
+decides. `cbs doctor` prints the value and which source decided it.
+`--jobs N` is used as given and is not capped by what CBS detects, because the
+composer is the one who knows what the build's sandbox allows; `--jobs 1`
+restores single-threaded builds. `--jobs` belongs to `build`; `fingerprint` and
+`doctor` refuse it, because the key does not depend on it. Detection is one process's view of its own
+budget: when several builds share a parent cgroup's quota, each sees the whole
+of it, and inside a container with no cgroup mount it sees only the affinity
+mask. A composer that runs builds side by side, and so knows each one's share,
+should pass `--jobs`. A value that is not a positive integer is
+refused with `CBS-E1025`.
+
+`${jobs}` is policy and not an input to the build: it never enters the build
+fingerprint, the manifest or `explain`, so `build`, `fingerprint` and a
+different host agree on a recipe's key. A recipe that writes `${jobs}` into its
+output, or whose build is not deterministic at higher concurrency, will differ
+between hosts; before v0.1.134 `${jobs}` was 1 everywhere, so such a recipe had
+never run in parallel.
 
 `--events` and the two destination options are independent, so one build can
 produce an operator-readable log and a machine-readable stream at once:
@@ -559,6 +585,7 @@ expected versus actual exit status.
 | `CBS-E1022` | 2 | `--events-fd` is not a non-negative number, is not an open descriptor, or is not open for writing. |
 | `CBS-E1023` | 3 | The `--events-file` destination could not be opened or initialised. |
 | `CBS-E1024` | 2 | `--output` and `--output-dir` were both given. |
+| `CBS-E1025` | 2 | `--jobs` is not a positive integer. |
 | `CBS-E4000` | 3 | A runtime operation or `check` case failed while diagnostics are machine-readable (`--diagnostics=jsonl`). The captured text of the underlying located failure is this envelope's message. |
 
 Codes are append-only: once assigned, a code keeps its meaning, and a new

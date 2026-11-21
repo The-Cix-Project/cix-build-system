@@ -221,7 +221,9 @@ path-value = string | cbs-value ;
 ```
 
 A bare CBS value is a typed value, not shell syntax. `$release` and `$jobs` are
-integers; the other supplied values are strings. `$triplet` is a target value
+integers; the other supplied values are strings. `$jobs` is chosen by CBS from
+the CPU the build may use unless the caller supplies it, and is never part of
+the build's identity or fingerprint. `$triplet` is a target value
 derived from `$arch` using CBS's platform mapping; it is empty when the target
 architecture has no registered libc mapping. `$firmware` is the caller-supplied
 firmware tree from `--firmware-root`; it is empty when the caller supplied

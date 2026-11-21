@@ -17,6 +17,15 @@ should expect to see 1 for such a file. Any other file it cannot read as an ELF6
 object returns 0 with `errno` set to `ENOEXEC`. `CBS_API_VERSION` and
 `CBS_ABI_VERSION` did not change: no signature or layout did.
 
+Since v0.1.134 `${jobs}` is chosen from the CPU the build may use, where every
+`cbs_build_standalone*` entry point used to bind it to 1. The existing entry
+points keep their signatures and now detect it, so an embedder's builds can go
+parallel on upgrade, and a recipe whose build is not safe in parallel will show
+it. `cbs_build_standalone_with_jobs` and `cbs_build_standalone_outputs_with_jobs`
+take the value instead (`0` detects, a positive number is used exactly, with no
+cap), which is how to keep the old behaviour: pass `1`. No struct layout
+changed, so `CBS_ABI_VERSION` did not.
+
 The current artifact is a static archive only: the build produces `libcbs.a`,
 not `libcbs.so`, and there is no plugin-loader protocol in this repository.
 The supported cixd first slice is therefore a parent process invoking the

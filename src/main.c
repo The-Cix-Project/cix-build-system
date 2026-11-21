@@ -787,6 +787,7 @@ static void usage(FILE *stream) {
         "      [--input NAME=FILE ...]\n"
         "      [--command-path DIRS]\n"
         "      [--library-path DIRS]\n"
+        "      [--jobs N]                         set ${jobs}; default: the CPU budget\n"
         "      [--tool-identity NAME@VERSION=MANIFEST_SHA256 ...]\n"
         "  cbs package ROOT --name NAME --version VERSION --release N "
         "--arch ARCH --output FILE [--license SPDX]\n"
@@ -858,6 +859,8 @@ typedef struct {
     const char *command_path;
     const char *library_path;
     const char *report_path;
+    /* `${jobs}`: 0 lets CBS choose from the CPU the build may use (#320). */
+    long jobs;
     CbsInputBinding inputs[32];
     size_t input_count;
     CbsToolIdentity tool_identities[32];
@@ -1048,6 +1051,8 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
             value = argument + 15;
         else if (strncmp(argument, "--firmware-root=", 16) == 0)
             value = argument + 16;
+        else if (strncmp(argument, "--jobs=", 7) == 0)
+            value = argument + 7;
         else if (strncmp(argument, "--command-path=", 15) == 0)
             value = argument + 15;
         else if (strncmp(argument, "--library-path=", 15) == 0)
@@ -1066,6 +1071,7 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
                  strcmp(argument, "--finalize-command") == 0 ||
                  strcmp(argument, "--prune-policy") == 0 ||
                  strcmp(argument, "--firmware-root") == 0 ||
+                 strcmp(argument, "--jobs") == 0 ||
                  strcmp(argument, "--command-path") == 0 ||
                  strcmp(argument, "--report") == 0) {
             if (++index >= argc) {
@@ -1118,7 +1124,23 @@ static int parse_build_options(int argc, char **argv, CbsBuildOptions *options) 
         else if (strcmp(argument, "--firmware-root") == 0 ||
                  strncmp(argument, "--firmware-root=", 16) == 0)
             options->firmware_root = value;
-        else if (strcmp(argument, "--command-path") == 0 ||
+        else if (strcmp(argument, "--jobs") == 0 ||
+                 strncmp(argument, "--jobs=", 7) == 0) {
+            char *end = (char *)value;
+            long requested = 0;
+            /* strtol saturates on overflow and accepts a sign and leading
+             * space, none of which is "exactly as given", so only a plain run
+             * of digits that fits is a value. */
+            errno = 0;
+            if (value[0] >= '0' && value[0] <= '9')
+                requested = strtol(value, &end, 10);
+            if (*end != '\0' || requested <= 0 || errno == ERANGE) {
+                cli_errorf("build", "CBS-E1025", "cli", 2,
+                           "--jobs is not a positive integer: `%s`", value);
+                return 0;
+            }
+            options->jobs = requested;
+        } else if (strcmp(argument, "--command-path") == 0 ||
                  strncmp(argument, "--command-path=", 15) == 0)
             options->command_path = value;
         else if (strcmp(argument, "--library-path") == 0 ||
@@ -1762,7 +1784,7 @@ static int build_file(const char *recipe, const char *architecture,
                       const char *report_path,
                       const CbsInputBinding *inputs, size_t input_count,
                       const CbsToolIdentity *tool_identities,
-                      size_t tool_identity_count) {
+                      size_t tool_identity_count, long jobs) {
     struct stat status;
     CbsFetchService service;
     CbsBuildEventSink event_sink = NULL;
@@ -1947,7 +1969,7 @@ static int build_file(const char *recipe, const char *architecture,
     (void)cbs_cli_fetch_service_with_ca(&service, fetch_error,
                                         sizeof(fetch_error), ca_file);
     if (output_dir != NULL)
-        result = cbs_build_standalone_outputs_with_finalizer(
+        result = cbs_build_standalone_outputs_with_jobs(
             recipe, staged, output_dir, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
@@ -1955,9 +1977,9 @@ static int build_file(const char *recipe, const char *architecture,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, inputs, input_count, tool_identities,
             tool_identity_count, effective_event_sink, effective_event_user,
-            report_path == NULL ? NULL : report_state.report.fingerprint);
+            report_path == NULL ? NULL : report_state.report.fingerprint, jobs);
     else
-        result = cbs_build_standalone_with_finalizer(
+        result = cbs_build_standalone_with_jobs(
             recipe, staged, output, architecture, &service, cache,
             finalize_command == NULL ? NULL : run_finalize_command,
             finalize_command == NULL ? NULL : (void *)&finalize_policy,
@@ -1965,7 +1987,7 @@ static int build_file(const char *recipe, const char *architecture,
             prune_policy_path == NULL ? NULL : &prune_policy, command_path,
             library_path, inputs, input_count, tool_identities,
             tool_identity_count, effective_event_sink, effective_event_user,
-            report_path == NULL ? NULL : report_state.report.fingerprint);
+            report_path == NULL ? NULL : report_state.report.fingerprint, jobs);
     if (event_stream != stderr)
         fclose(event_stream);
     if (destination_stream != NULL)
@@ -2216,6 +2238,22 @@ static int doctor_locale(void) {
     return pass;
 }
 
+/* Report what `${jobs}` would be here and where that came from.  It is
+ * informational, so it always passes: the value is a property of the host and
+ * `--jobs` overrides it, which is why it is shown here and recorded nowhere in
+ * an artifact (#320). */
+static int doctor_jobs(void) {
+    const char *source = NULL;
+    long budget = cbs_detect_cpu_budget(&source);
+    char message[160];
+
+    snprintf(message, sizeof(message),
+             "${jobs} defaults to %ld from %s; --jobs overrides it", budget,
+             source);
+    doctor_result("jobs", 1, message, NULL);
+    return 1;
+}
+
 static int doctor_temporary_space(const char *path) {
     struct statvfs status;
     unsigned long long available;
@@ -2393,6 +2431,7 @@ static int doctor_file(const CbsDoctorOptions *options) {
         ++failures;
     if (!doctor_locale())
         ++failures;
+    (void)doctor_jobs();
     if (!doctor_temporary_space(options->staged != NULL ? options->staged :
                                  options->cache != NULL ? options->cache : "/tmp"))
         ++failures;
@@ -2987,7 +3026,8 @@ int main(int argc, char **argv) {
                           options.command_path, options.library_path,
                           options.report_path,
                           options.inputs, options.input_count,
-                          options.tool_identities, options.tool_identity_count);
+                          options.tool_identities, options.tool_identity_count,
+                          options.jobs);
         free_inputs(&options);
         free_tool_identities(options.tool_identities,
                              options.tool_identity_count);

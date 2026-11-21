@@ -337,6 +337,23 @@ int cbs_build_standalone_outputs_with_finalizer(
     const char *, const char *, const CbsPrunePolicy *, const char *,
     const char *, const CbsInputBinding *, size_t, const CbsToolIdentity *,
     size_t, CbsBuildEventSink, void *, char[65]);
+/* The two entry points above plus `jobs`, the value `${jobs}` takes (#320).
+ * 0 asks CBS to choose it from the CPU the build may use, which is what every
+ * entry point above now does; a positive value is used exactly, without being
+ * capped by what CBS detects, because the caller is the one who knows what the
+ * build's sandbox allows.  Nothing here changes a signature or a layout. */
+int cbs_build_standalone_with_jobs(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const char *, const CbsPrunePolicy *, const char *,
+    const char *, const CbsInputBinding *, size_t, const CbsToolIdentity *,
+    size_t, CbsBuildEventSink, void *, char[65], long);
+int cbs_build_standalone_outputs_with_jobs(
+    const char *, const char *, const char *, const char *,
+    const CbsFetchService *, const char *, CbsFinalizePolicy, void *,
+    const char *, const char *, const CbsPrunePolicy *, const char *,
+    const char *, const CbsInputBinding *, size_t, const CbsToolIdentity *,
+    size_t, CbsBuildEventSink, void *, char[65], long);
 int cbs_build_package(const char *, const char *, const char *);
 int cbs_kconfig_merge(const char *, const char *, const char *, char *, size_t);
 

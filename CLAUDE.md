@@ -60,7 +60,7 @@ different project, not a CBS source cache.
 
 ```sh
 make                 # version-check + ./cbs + libcbs.a     (TCC only)
-make -j1 test        # the full gate: 53 test groups, offline-clean
+make -j1 test        # the full gate: 54 test groups, offline-clean
 make clean
 make install PREFIX=/usr/local   # cbs, libcbs.a, cbs/cbs.h, cbs.pc
 ```
@@ -123,7 +123,7 @@ versioned boundary (`CBS_API_VERSION`, `CBS_ABI_VERSION`,
 | `validate.c` | every statically decidable rule. Largest single rule set; emits most `CPDL-E3xxx`. |
 | `ast.c` | node create/add/destroy, `cbs_allocate`/`cbs_duplicate`. |
 | `plan.c` | AST → ordered `CbsBuildPlan`, `cbs_build_metadata`, phase events. |
-| `runtime.c` | `cbs_execute_block` — the **single** block executor; jobs ceiling; stage-path policy. |
+| `runtime.c` | `cbs_execute_block` — the **single** block executor; jobs ceiling and the CPU-budget detection behind `${jobs}` (#320); stage-path policy. |
 | `exec.c` | `run`: direct `execve`, argv/env construction, timeouts, limits, command-path resolution, forbidden-executable policy. Also closes every descriptor above stderr in the child (`close_inherited_descriptors`) — don't drop it, see #301. |
 | `fs.c` | the confined filesystem vocabulary, source edits/assertions, globs, `materialize`, `patch`, `links`. Largest engine file (2.3k lines). |
 | `archive.c` | safe libarchive extraction (hostile entries, links, pax, modes). |
@@ -365,7 +365,7 @@ tests assert failure paths.
    `docs/integration-contract.md` + `docs/library.md` (embedders),
    `docs/guides/ci-and-release.md` (maintainers).
 6. `docs/adr/README.md` and `docs/reviews/README.md` — complete generated
-   indexes of all 39 decisions and all 176 validation records. The records are
+   indexes of all 39 decisions and all 177 validation records. The records are
    **historical**: they over-claim scope and describe past state, and absence of
    a record does not mean a ticket is open. Regenerate an index from the
    filesystem rather than hand-editing it when adding to either directory.

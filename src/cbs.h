@@ -323,6 +323,19 @@ char *cbs_resolve_confined_path(const char *logical,
 /* Execute every operation in one phase block. */
 int cbs_execute_block(const CbsNode *block, const CbsExecutionContext *context);
 /* Apply the shared job ceiling to a requested parallelism value. */
+/* How many CPUs a cgroup v2 `cpu.max` allows, rounded up; 0 for `max` or text
+ * it cannot read. */
+long cbs_cpu_max_budget(const char *text);
+/* How many CPUs a `Cpus_allowed_list` value such as `0-7,10` names; 0 if it is
+ * not well formed. */
+long cbs_cpu_list_count(const char *list);
+/* The tightest `cpu.max` from the cgroup named in `self` (the text of
+ * /proc/self/cgroup) up to `root`; 0 when none is found. */
+long cbs_cgroup_cpu_budget(const char *root, const char *self);
+/* The CPUs this build may use: the cgroup quota or the affinity mask,
+ * whichever is smaller, and 1 when neither can be read.  `source` names which
+ * one decided. */
+long cbs_detect_cpu_budget(const char **source);
 long cbs_effective_jobs(long requested, long cpu_budget,
                         long administrator_limit);
 typedef struct {

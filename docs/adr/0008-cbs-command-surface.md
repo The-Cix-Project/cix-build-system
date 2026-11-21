@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-28
 
-## Current implementation note (v0.1.133)
+## Current implementation note (v0.1.134)
 
 This historical command-surface proposal is not the current CLI contract.
 `cbs --help` currently exposes `check`/`validate`, `explain`, `build`,
@@ -32,6 +32,12 @@ change to the decision above:
   (#305, v0.1.124). All three already existed on `build` and all three enter
   the build key, so the verb could not predict a build that used them. Every
   input in the key can now be given to the verb.
+- `build --jobs N` binds `${jobs}` to a positive integer, used exactly as given
+  and not capped by what CBS detects; unset, CBS derives it from the cgroup v2
+  `cpu.max` quota and the CPU affinity mask (#320, v0.1.134). It is `build` only:
+  `${jobs}` is policy and not an input, so it is not in the build key and
+  `fingerprint` and `doctor`, which have no use for it, refuse it with
+  `CBS-E1001`. A value that is not a positive integer is `CBS-E1025`, exit 2.
 
 CBS exposes six operations through one internal API and a thin CLI: `check`
 (parse/validate), `build` (produce staged tree), `package` (emit CIXPKG),

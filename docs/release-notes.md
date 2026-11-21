@@ -1,10 +1,10 @@
-# CBS v0.1.106 – v0.1.133, and the licence change
+# CBS v0.1.106 – v0.1.134, and the licence change
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
-licence decision of 2026-10-23 and the twenty-eight releases of 2026-10-09 to
-2026-11-19, which closed thirty-eight tracker issues.
+licence decision of 2026-10-23 and the twenty-nine releases of 2026-10-09 to
+2026-11-21, which closed thirty-nine tracker issues.
 
-Read the six **Act on this** items if you read nothing else. Items 3 to 6 are
+Read the seven **Act on this** items if you read nothing else. Items 3 to 7 are
 the ones that change what cixd sees from a build it already runs today.
 
 ## Licence and marks
@@ -227,6 +227,44 @@ A composer passing a stale descriptor number that collided with one of CBS's
 own therefore had its events written into that descriptor instead of being
 refused. The check now runs before CBS opens anything, which is what the
 comment above it always claimed.
+
+### 7. `${jobs}` is no longer always 1, so 28 recipes go parallel
+
+The build bound `${jobs}` to 1 and nothing ever changed it, so every recipe that
+passes `"-j${jobs}"` to a tool built single-threaded on every host, however many
+CPUs it had. A kernel build on an 8-core host ran `make -j1`. ADR-0001 had said
+`$jobs` is policy CBS chooses; the function that computes it, from #17, had no
+caller.
+
+`${jobs}` is now the CPU the build may use: the cgroup v2 `cpu.max` quota of its
+cgroup and of each ancestor, rounded up, smallest wins, and the CPU affinity
+mask, whichever is smaller, and 1 if neither can be read. `cbs build --jobs N`
+sets it exactly and is not capped by what CBS detects; `N` must be a positive
+integer or the build is refused with `CBS-E1025`. `cbs doctor` prints the value
+and which source decided it. It is policy and not an input: the build
+fingerprint, the manifest and `explain` do not carry it, and a recipe built at
+`--jobs 1`, at `--jobs 4` and by default has the same fingerprint, which equals
+`cbs fingerprint`.
+
+In the corpus, 28 definitions pass `${jobs}` to a tool (25 with `"-j${jobs}"`,
+31 occurrences, and 3 with `"--parallel=${jobs}"`), and each goes
+parallel for the first time on upgrade. They have only ever been built at `-j1`,
+so one that is not safe in parallel will show it now; `--jobs 1` holds the old
+behaviour. 813 more declare `jobs $jobs`, which is accounting and changes
+nothing, and the shipped `recipes/zstd.cbs` is one of them, so the upstream
+qualification is not made parallel. cix will pass `--jobs` explicitly from the
+budget it already holds, because detection is one process's view: the
+`800000 100000` it saw is shared by every build running at once, and a build
+container may have no cgroup mount at all, in which case detection sees only the
+affinity mask.
+
+For embedders: the existing `cbs_build_standalone*` entry points keep their
+signatures and now detect where they bound 1, and `cbs_build_standalone_with_jobs`
+and `cbs_build_standalone_outputs_with_jobs` take the value (`0` detects, a
+positive number is used exactly). Pass `1` to keep the old behaviour. No layout
+changed, so `CBS_ABI_VERSION` did not. A per-command `jobs N` is still not
+checked against `$jobs`, though the specification says it must not exceed it;
+that is #321, a decision and not changed here.
 
 ## New capability: several packages from one recipe
 
@@ -645,14 +683,14 @@ implementation accepts.
 
 ## Verification
 
-`make -j1 test` is the gate: 53 test groups, run by hand, offline. Every release
+`make -j1 test` is the gate: 54 test groups, run by hand, offline. Every release
 above passed it before the commit, after the commit, and again from the tagged
 checkout. The parser and validation suite is 90 cases, and they also pass under
-TCC bounds instrumentation (`tcc -b`), re-run at v0.1.133.
+TCC bounds instrumentation (`tcc -b`), re-run at v0.1.134.
 
 The broader check is the recipe corpus, which is not in this repository:
-**2519 CPDL definitions across 258 distinct packages, all validating** against
-v0.1.133 at `origin/main` `056e97ec` on 2026-11-19, up from 1010 and 181 four
+**2628 CPDL definitions across 264 distinct packages, all validating** against
+v0.1.134 at `origin/main` `0cbf48ce` on 2026-11-21, up from 1010 and 181 four
 weeks earlier with no shell recipes remaining. The figure moved six times in one
 day on 2026-10-31 and has not stopped, which is why no living document carries
 it and it is quoted only here, in a dated record. Two of the facts the design
@@ -762,7 +800,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#319 cover this
+decision, its evidence, and the acceptance criteria met: #282–#320 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.

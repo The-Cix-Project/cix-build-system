@@ -10,7 +10,7 @@ work, and [repository status](../repository-status.md) on what this repository
 owns now. The absence of a record does not mean an issue is open — some closed
 without one.
 
-All 176 records, by issue number:
+All 177 records, by issue number:
 
 - [Issue #1 validation: CPDL 1.0 grammar and diagnostics](issue-0001-validation.md)
 - [Issue #2 validation: CPDL lexer, parser, AST, and validator](issue-0002-validation.md)
@@ -188,3 +188,4 @@ All 176 records, by issue number:
 - [Issue #317 validation: make the package-level item set a checked contract like an output's](issue-0317-validation.md)
 - [Issue #318 validation: a privileged declaration that matches no staged entry is accepted](issue-0318-validation.md)
 - [Issue #319 validation: links refuses a statically linked executable that has no dynamic section](issue-0319-validation.md)
+- [Issue #320 validation: $jobs is always 1: context.jobs is hard-coded and cbs_effective_jobs() is never called](issue-0320-validation.md)

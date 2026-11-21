@@ -1322,7 +1322,7 @@ static int run_build_pipeline(
     const CbsInputBinding *inputs, size_t input_count,
     const CbsToolIdentity *tool_identities, size_t tool_identity_count,
     CbsBuildEventSink event_sink, void *event_sink_user,
-    char build_fingerprint[65]) {
+    char build_fingerprint[65], long jobs) {
     FILE *f;
     long n;
     char *text;
@@ -1453,7 +1453,13 @@ static int run_build_pipeline(
             context.input_count = input_count;
             context.tool_identities = tool_identities;
             context.tool_identity_count = tool_identity_count;
-            context.jobs = 1;
+            /* Concurrency is the composer's to say, else what the CPU budget
+             * allows (ADR-0001: `$jobs` is policy CBS chooses).  It is not a
+             * build input: nothing derived from the host may reach the
+             * fingerprint, the manifest or `explain`, or one recipe would
+             * produce different artifacts on different machines. */
+            context.jobs = cbs_effective_jobs(
+                jobs > 0 ? jobs : cbs_detect_cpu_budget(NULL), 0, 0);
             context.working_directory = build;
             context.command_path = command_path == NULL
                                        ? CBS_DEFAULT_COMMAND_PATH
@@ -1682,7 +1688,7 @@ int cbs_build_standalone_with_events_policy_path_inputs_tool_identities_result(
         recipe, workspace, package_path, NULL, architecture, fetch_service,
         cache_directory, finalize, user, NULL, firmware_root, prune_policy,
         command_path, library_path, inputs, input_count, tool_identities,
-        tool_identity_count, event_sink, event_sink_user, build_fingerprint);
+        tool_identity_count, event_sink, event_sink_user, build_fingerprint, 0);
 }
 
 /* The entry point above plus `finalize_identity`: what the composer's
@@ -1706,7 +1712,47 @@ int cbs_build_standalone_with_finalizer(
         cache_directory, finalize, user, finalize_identity, firmware_root,
         prune_policy, command_path, library_path, inputs, input_count,
         tool_identities, tool_identity_count, event_sink, event_sink_user,
-        build_fingerprint);
+        build_fingerprint, 0);
+}
+
+/* The finalizer entry point plus `jobs` (#320); see cbs_public.h. */
+int cbs_build_standalone_with_jobs(
+    const char *recipe, const char *workspace, const char *package_path,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65], long jobs) {
+    return run_build_pipeline(
+        recipe, workspace, package_path, NULL, architecture, fetch_service,
+        cache_directory, finalize, user, finalize_identity, firmware_root,
+        prune_policy, command_path, library_path, inputs, input_count,
+        tool_identities, tool_identity_count, event_sink, event_sink_user,
+        build_fingerprint, jobs);
+}
+
+/* The outputs entry point plus `jobs` (#320); see cbs_public.h. */
+int cbs_build_standalone_outputs_with_jobs(
+    const char *recipe, const char *workspace, const char *output_directory,
+    const char *architecture, const CbsFetchService *fetch_service,
+    const char *cache_directory, CbsFinalizePolicy finalize, void *user,
+    const char *finalize_identity,
+    const char *firmware_root, const CbsPrunePolicy *prune_policy,
+    const char *command_path, const char *library_path,
+    const CbsInputBinding *inputs, size_t input_count,
+    const CbsToolIdentity *tool_identities, size_t tool_identity_count,
+    CbsBuildEventSink event_sink, void *event_sink_user,
+    char build_fingerprint[65], long jobs) {
+    return run_build_pipeline(
+        recipe, workspace, NULL, output_directory, architecture, fetch_service,
+        cache_directory, finalize, user, finalize_identity, firmware_root,
+        prune_policy, command_path, library_path, inputs, input_count,
+        tool_identities, tool_identity_count, event_sink, event_sink_user,
+        build_fingerprint, jobs);
 }
 
 int cbs_build_standalone_outputs(
@@ -1723,7 +1769,7 @@ int cbs_build_standalone_outputs(
         recipe, workspace, NULL, output_directory, architecture, fetch_service,
         cache_directory, finalize, user, NULL, firmware_root, prune_policy,
         command_path, library_path, inputs, input_count, tool_identities,
-        tool_identity_count, event_sink, event_sink_user, build_fingerprint);
+        tool_identity_count, event_sink, event_sink_user, build_fingerprint, 0);
 }
 
 /* `cbs_build_standalone_outputs` plus the finalizer identity (#303). */
@@ -1743,7 +1789,7 @@ int cbs_build_standalone_outputs_with_finalizer(
         cache_directory, finalize, user, finalize_identity, firmware_root,
         prune_policy, command_path, library_path, inputs, input_count,
         tool_identities, tool_identity_count, event_sink, event_sink_user,
-        build_fingerprint);
+        build_fingerprint, 0);
 }
 
 int cbs_build_standalone_with_events_policy_path_inputs_tool_identities(

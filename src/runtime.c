@@ -4,6 +4,9 @@
 #include "cbs.h"
 
 #include <dirent.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 long cbs_effective_jobs(long requested, long cpu_budget,
@@ -14,6 +17,148 @@ long cbs_effective_jobs(long requested, long cpu_budget,
     if (administrator_limit > 0 && result > administrator_limit)
         result = administrator_limit;
     return result > 0 ? result : 1;
+}
+
+/* Read a small text file whole into `buffer`, NUL terminated.  Anything
+ * unreadable or too large is "no answer", never a partial one. */
+static int read_small_file(const char *path, char *buffer, size_t size) {
+    FILE *file = fopen(path, "rb");
+    size_t length;
+
+    if (file == NULL)
+        return 0;
+    length = fread(buffer, 1, size - 1, file);
+    if (ferror(file) || !feof(file)) {
+        fclose(file);
+        return 0;
+    }
+    fclose(file);
+    buffer[length] = '\0';
+    return 1;
+}
+
+/* The CPUs a cgroup v2 `cpu.max` allows, rounded up: `800000 100000` is eight
+ * and `50000 100000` is one.  `max` and anything unparseable are 0, meaning
+ * this file says nothing, so a reader falls through to the next source. */
+long cbs_cpu_max_budget(const char *text) {
+    char *end;
+    unsigned long long quota, period, cpus;
+
+    if (text == NULL || strncmp(text, "max", 3) == 0)
+        return 0;
+    quota = strtoull(text, &end, 10);
+    if (end == text || *end != ' ')
+        return 0;
+    text = end + 1;
+    period = strtoull(text, &end, 10);
+    if (end == text || quota == 0 || period == 0 ||
+        (*end != '\0' && *end != '\n'))
+        return 0;
+    cpus = quota / period + (quota % period != 0);
+    return cpus > (unsigned long long)LONG_MAX ? 0 : (long)cpus;
+}
+
+/* How many CPUs a list such as `0-7,10,12-13` names, as /proc/self/status
+ * prints `Cpus_allowed_list`; 0 when it is not a well-formed list. */
+long cbs_cpu_list_count(const char *list) {
+    long total = 0;
+    char *end;
+
+    if (list == NULL || *list == '\0' || *list == '\n')
+        return 0;
+    for (;;) {
+        long first = strtol(list, &end, 10), last;
+        if (end == list || first < 0)
+            return 0;
+        last = first;
+        if (*end == '-') {
+            list = end + 1;
+            last = strtol(list, &end, 10);
+            if (end == list || last < first)
+                return 0;
+        }
+        total += last - first + 1;
+        if (*end == ',') {
+            list = end + 1;
+            continue;
+        }
+        return *end == '\0' || *end == '\n' ? total : 0;
+    }
+}
+
+/* The tightest `cpu.max` from this process's cgroup up to the root.  `self` is
+ * the text of /proc/self/cgroup and `root` is where cgroup2 is mounted, both
+ * parameters so a test can supply them.  A parent's quota binds its children,
+ * so the minimum over the ancestors is what the process can use.  0 means no
+ * cgroup v2 limit was found, whether because there is none or because nothing
+ * could be read. */
+long cbs_cgroup_cpu_budget(const char *root, const char *self) {
+    const char *line = self;
+    char path[1024], file[2048], text[128];
+    long budget = 0;
+    size_t length;
+
+    while (line != NULL && *line != '\0') {
+        if (strncmp(line, "0::", 3) == 0)
+            break;
+        line = strchr(line, '\n');
+        if (line != NULL)
+            ++line;
+    }
+    if (line == NULL || *line == '\0' || line[3] != '/')
+        return 0;
+    line += 3;
+    length = strcspn(line, "\n");
+    if (length >= sizeof(path) || strstr(line, "/..") != NULL)
+        return 0;
+    memcpy(path, line, length);
+    path[length] = '\0';
+    for (;;) {
+        char *slash;
+        long found;
+
+        if (snprintf(file, sizeof(file), "%s%s/cpu.max", root, path) <
+                (int)sizeof(file) &&
+            read_small_file(file, text, sizeof(text))) {
+            found = cbs_cpu_max_budget(text);
+            if (found > 0 && (budget == 0 || found < budget))
+                budget = found;
+        }
+        slash = strrchr(path, '/');
+        if (slash == NULL || (slash == path && path[1] == '\0'))
+            break;
+        *slash = '\0';
+        if (path[0] == '\0')
+            strcpy(path, "/");
+    }
+    return budget;
+}
+
+long cbs_detect_cpu_budget(const char **source) {
+    char text[4096], *list;
+    long cgroup = 0, affinity = 0;
+
+    if (read_small_file("/proc/self/cgroup", text, sizeof(text)))
+        cgroup = cbs_cgroup_cpu_budget("/sys/fs/cgroup", text);
+    if (read_small_file("/proc/self/status", text, sizeof(text)) &&
+        (list = strstr(text, "Cpus_allowed_list:")) != NULL) {
+        list += strlen("Cpus_allowed_list:");
+        list += strspn(list, " \t");
+        affinity = cbs_cpu_list_count(list);
+    }
+    if (cgroup > 0 && (affinity == 0 || cgroup <= affinity)) {
+        if (source != NULL)
+            *source = "cgroup cpu.max";
+        return cgroup;
+    }
+    if (affinity > 0) {
+        if (source != NULL)
+            *source = "cpu affinity";
+        return affinity;
+    }
+    if (source != NULL)
+        *source = "none readable, one job";
+    return 1;
 }
 
 int cbs_validate_stage_path(const char *path, const CbsStagePolicy *policy) {
