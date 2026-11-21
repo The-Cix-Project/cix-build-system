@@ -860,7 +860,11 @@ Use `env "NAME" = VALUE` at block scope for later operations, or inside a
 in either case, `[A-Za-z_][A-Za-z0-9_]*`, so an autoconf cache variable such
 as `env "ac_cv_func_posix_spawn_file_actions_addchdir" = "yes"` is the way to
 correct a configure probe. `jobs $jobs` declares resource usage; it does not invent a
-`-j` argument, so pass a tool-specific option explicitly when needed.
+`-j` argument, so pass a tool-specific option explicitly when needed. It is
+accounting only: CBS neither checks it against `${jobs}` nor caps it, so
+whether a build runs in parallel is decided by whether the recipe passes
+`${jobs}` to its tool, and how many jobs that is by `--jobs` or the detected CPU
+budget.
 
 CBS calls the executable directly. It does not invoke `sh`, `bash`, `env`,
 `system`, `popen`, `execvp`, pipelines, redirections, command substitution, or

@@ -662,11 +662,18 @@ punctuation are refused; duplicate names in one command are validation
 errors. Values are passed as literal bytes
 after CBS interpolation.
 
-`jobs N` declares the maximum concurrency the command may use. `N` must be
-positive and must not exceed `$jobs`; `$jobs` selects the CBS policy value. This
-metadata does not alter `argv` and does not invent a tool-specific flag. A build
-tool receives its jobs flag through an explicit argument such as
-`"-j${jobs}"`. CBS may use the declaration for resource accounting.
+`jobs N` declares the concurrency the command intends to use, as accounting.
+`N` must be a positive integer or `$jobs`. CBS does not check it against
+`$jobs`, does not cap it, and does not report it: it is validated and otherwise
+inert. It does not alter `argv` and does not invent a tool-specific flag.
+
+How many jobs `$jobs` stands for is not the recipe's to say. The caller supplies
+it (`build --jobs N`) or, when it does not, CBS derives it from the CPU the build
+may use. A recipe opts in to parallelism by passing `${jobs}` to its tool
+explicitly, as in `"-j${jobs}"`, and opts out by passing a fixed value or
+nothing. There is deliberately no separate "parallel-safe" declaration: it would
+state the same fact twice and could disagree with the argument actually passed
+(#321).
 
 At most one each of `jobs`, `timeout`, `expect`, and `allow_failure` may occur.
 The default expected exit status is 0. An expected status must be between 0 and

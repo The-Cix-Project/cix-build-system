@@ -2,7 +2,7 @@
 
 For Cix maintainers, recipe authors, and anyone embedding CBS. It covers the
 licence decision of 2026-10-23 and the twenty-nine releases of 2026-10-09 to
-2026-11-21, which closed thirty-nine tracker issues.
+2026-11-21, which closed forty tracker issues.
 
 Read the seven **Act on this** items if you read nothing else. Items 3 to 7 are
 the ones that change what cixd sees from a build it already runs today.
@@ -263,8 +263,11 @@ signatures and now detect where they bound 1, and `cbs_build_standalone_with_job
 and `cbs_build_standalone_outputs_with_jobs` take the value (`0` detects, a
 positive number is used exactly). Pass `1` to keep the old behaviour. No layout
 changed, so `CBS_ABI_VERSION` did not. A per-command `jobs N` is still not
-checked against `$jobs`, though the specification says it must not exceed it;
-that is #321, a decision and not changed here.
+checked against `$jobs`; the specification said it must not exceed it and
+nothing enforced that, so #321 removed the sentence: `jobs N` is accounting
+only, a recipe opts in to parallelism by passing `${jobs}` to its tool, and the
+number is the caller's (`--jobs`) or the detected budget. It was a documentation
+change and needed no release.
 
 ## New capability: several packages from one recipe
 
@@ -800,7 +803,7 @@ dated, and re-measure anything you are about to depend on.
 ## Where to read more
 
 Each issue has a record under [`docs/reviews/`](reviews/README.md) stating the
-decision, its evidence, and the acceptance criteria met: #282–#320 cover this
+decision, its evidence, and the acceptance criteria met: #282–#321 cover this
 run. [ADR-0038](adr/0038-multiple-package-outputs.md) carries the reasoning for
 multiple outputs, including the alternatives rejected. Those records are
 history — they describe the implementation at their close date.
